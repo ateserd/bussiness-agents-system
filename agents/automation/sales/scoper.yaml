@@ -1,0 +1,33 @@
+# Scoper — automation/sales
+# Edit this file to change the agent. Adding a new file here adds a new agent.
+id: automation.sales.scoper
+display_name: "Scoper"
+branch: automation
+department: sales
+tier: worker
+reports_to: automation.sales.lead
+accent: "#4dd6ff"
+status: idle
+model: claude-haiku-4-5
+effort: low
+mission: >
+  Estimates build hours and recurring running cost for a proposed automation, including failure handling and monitoring.
+system_prompt_file: prompts/automation.sales.scoper.md
+tools:
+  - "brain.read"
+  - "brain.write"
+  - "crm.read"
+  - "docs.write"
+memory_scopes:
+  - "global"
+  - "branch.automation"
+  - "dept.automation.sales"
+schedule: null
+autonomy: propose
+approval_required_for: []
+escalate_to_human_when: []
+kpis:
+  - name: scopes_written
+    label: "Kapsam"
+    target: "[[ N ]]"
+    window: monthly

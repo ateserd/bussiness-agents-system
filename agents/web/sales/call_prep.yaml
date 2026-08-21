@@ -1,0 +1,34 @@
+# Call Prep — web/sales
+# Edit this file to change the agent. Adding a new file here adds a new agent.
+id: web.sales.call_prep
+display_name: "Call Prep"
+branch: web
+department: sales
+tier: worker
+reports_to: web.sales.lead
+accent: "#4dd6ff"
+status: idle
+model: claude-haiku-4-5
+effort: low
+mission: >
+  Produces a one-page brief before every booked call: company, site audit recap, budget signals, likely objections, and the recommended package.
+system_prompt_file: prompts/web.sales.call_prep.md
+tools:
+  - "brain.read"
+  - "brain.write"
+  - "browser"
+  - "calendar.read"
+  - "crm.read"
+memory_scopes:
+  - "global"
+  - "branch.web"
+  - "dept.web.sales"
+schedule: "30 9 * * 1-5"
+autonomy: act_with_log
+approval_required_for: []
+escalate_to_human_when: []
+kpis:
+  - name: briefs_written
+    label: "Brifing"
+    target: "[[ N ]]"
+    window: weekly

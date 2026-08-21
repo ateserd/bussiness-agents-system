@@ -1,0 +1,34 @@
+# Auditor — web/outreach
+# Edit this file to change the agent. Adding a new file here adds a new agent.
+id: web.outreach.auditor
+display_name: "Auditor"
+branch: web
+department: outreach
+tier: worker
+reports_to: web.outreach.lead
+accent: "#ff4d6d"
+status: idle
+model: claude-haiku-4-5
+effort: low
+mission: >
+  Visits each prospect's current website, scores it on speed, mobile, conversion and design age, and writes the three-bullet teardown that becomes the outreach hook.
+system_prompt_file: prompts/web.outreach.auditor.md
+tools:
+  - "brain.read"
+  - "brain.write"
+  - "browser"
+  - "lighthouse"
+  - "crm.write"
+memory_scopes:
+  - "global"
+  - "branch.web"
+  - "dept.web.outreach"
+schedule: "0 8 * * 1-5"
+autonomy: act_with_log
+approval_required_for: []
+escalate_to_human_when: []
+kpis:
+  - name: audits_completed
+    label: "Denetim"
+    target: "[[ N ]]"
+    window: weekly

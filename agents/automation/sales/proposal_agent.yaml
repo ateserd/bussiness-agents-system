@@ -1,0 +1,35 @@
+# Proposal Agent — automation/sales
+# Edit this file to change the agent. Adding a new file here adds a new agent.
+id: automation.sales.proposal_agent
+display_name: "Proposal Agent"
+branch: automation
+department: sales
+tier: worker
+reports_to: automation.sales.lead
+accent: "#4dd6ff"
+status: idle
+model: claude-haiku-4-5
+effort: low
+mission: >
+  Writes the proposal — fixed build fee plus monthly retainer — from the Scoper's estimate, then drafts the contract.
+system_prompt_file: prompts/automation.sales.proposal_agent.md
+tools:
+  - "brain.read"
+  - "brain.write"
+  - "crm.write"
+  - "docs.write"
+memory_scopes:
+  - "global"
+  - "branch.automation"
+  - "dept.automation.sales"
+schedule: null
+autonomy: propose
+approval_required_for:
+  - "sending_external_messages"
+  - "sending_contracts"
+escalate_to_human_when: []
+kpis:
+  - name: proposals_sent
+    label: "Teklif"
+    target: "[[ N ]]"
+    window: monthly

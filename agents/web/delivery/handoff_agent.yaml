@@ -1,0 +1,31 @@
+# Handoff Agent — web/delivery
+# Edit this file to change the agent. Adding a new file here adds a new agent.
+id: web.delivery.handoff_agent
+display_name: "Handoff Agent"
+branch: web
+department: delivery
+tier: worker
+reports_to: web.delivery.lead
+accent: "#3ddc84"
+status: idle
+model: claude-haiku-4-5
+effort: low
+mission: >
+  Runs the launch checklist, writes the client walkthrough document and Loom script, and triggers the invoice.
+system_prompt_file: prompts/web.delivery.handoff_agent.md
+tools:
+  - "brain.read"
+  - "brain.write"
+  - "docs.write"
+  - "crm.write"
+memory_scopes:
+  - "global"
+  - "branch.web"
+  - "dept.web.delivery"
+schedule: null
+autonomy: propose
+approval_required_for:
+  - "sending_external_messages"
+  - "client_facing_publish"
+escalate_to_human_when: []
+kpis: []

@@ -1,0 +1,35 @@
+# Sender — automation/outreach
+# Edit this file to change the agent. Adding a new file here adds a new agent.
+id: automation.outreach.sender
+display_name: "Sender"
+branch: automation
+department: outreach
+tier: worker
+reports_to: automation.outreach.lead
+accent: "#ff4d6d"
+status: idle
+model: claude-haiku-4-5
+effort: low
+mission: >
+  Queues and sends approved sequences within the daily cap and logs every send and reply back to the CRM.
+system_prompt_file: prompts/automation.outreach.sender.md
+tools:
+  - "brain.read"
+  - "brain.write"
+  - "outreach.send"
+  - "crm.write"
+memory_scopes:
+  - "global"
+  - "branch.automation"
+  - "dept.automation.outreach"
+schedule: "0 8 * * 1-5"
+autonomy: propose
+approval_required_for:
+  - "sending_external_messages"
+escalate_to_human_when:
+  - "a prospect replies with a legal or refund threat"
+kpis:
+  - name: messages_sent
+    label: "Gönderim"
+    target: "[[ N ]]"
+    window: daily

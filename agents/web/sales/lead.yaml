@@ -1,0 +1,35 @@
+# Sales Lead — web/sales
+# Edit this file to change the agent. Adding a new file here adds a new agent.
+id: web.sales.lead
+display_name: "Sales Lead"
+branch: web
+department: sales
+tier: lead
+reports_to: web.command.director
+accent: "#4dd6ff"
+status: idle
+model: claude-sonnet-5
+effort: medium
+mission: >
+  Owns conversion from conversation to signed project in the web branch. Runs Call Prep, Closer Support and Pipeline Watch, and reports stage-by-stage conversion to the Web Director.
+system_prompt_file: prompts/web.sales.lead.md
+tools:
+  - "brain.read"
+  - "brain.write"
+  - "crm.read"
+  - "agent.dispatch"
+memory_scopes:
+  - "global"
+  - "branch.web"
+  - "dept.web.sales"
+schedule: "0 17 * * 1-5"
+autonomy: propose
+approval_required_for: []
+escalate_to_human_when:
+  - "a deal above [[ $N ]] is about to be lost"
+  - "a prospect disputes a quoted price"
+kpis:
+  - name: deals_won
+    label: "Kazanılan"
+    target: "[[ N ]]"
+    window: monthly

@@ -1,0 +1,28 @@
+# Design Agent — web/delivery
+# Edit this file to change the agent. Adding a new file here adds a new agent.
+id: web.delivery.design_agent
+display_name: "Design Agent"
+branch: web
+department: delivery
+tier: worker
+reports_to: web.delivery.lead
+accent: "#3ddc84"
+status: idle
+model: claude-haiku-4-5
+effort: low
+mission: >
+  Produces wireframes, layout direction and component specs from the brief and the approved copy.
+system_prompt_file: prompts/web.delivery.design_agent.md
+tools:
+  - "brain.read"
+  - "brain.write"
+  - "docs.write"
+memory_scopes:
+  - "global"
+  - "branch.web"
+  - "dept.web.delivery"
+schedule: null
+autonomy: propose
+approval_required_for: []
+escalate_to_human_when: []
+kpis: []

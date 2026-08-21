@@ -1,0 +1,37 @@
+# Brain Keeper — shared/shared
+# Edit this file to change the agent. Adding a new file here adds a new agent.
+id: shared.services.brain_keeper
+display_name: "Brain Keeper"
+branch: shared
+department: shared
+tier: lead
+reports_to: shared.command.chief_of_staff
+accent: "#ffb84d"
+status: idle
+model: claude-sonnet-5
+effort: medium
+mission: >
+  Keeps the shared memory clean: deduplicates, resolves contradictions, promotes recurring facts to permanent, and writes the weekly what-we-learned digest.
+system_prompt_file: prompts/shared.services.brain_keeper.md
+tools:
+  - "brain.read"
+  - "brain.write"
+  - "brain.admin"
+memory_scopes:
+  - "global"
+  - "branch.web"
+  - "branch.automation"
+schedule: "0 16 * * 5"
+autonomy: act_with_log
+approval_required_for: []
+escalate_to_human_when:
+  - "two permanent facts directly contradict each other"
+kpis:
+  - name: duplicates_merged
+    label: "Birleştirilen"
+    target: "[[ N ]]"
+    window: weekly
+  - name: contradictions_open
+    label: "Açık çelişki"
+    target: "0"
+    window: weekly

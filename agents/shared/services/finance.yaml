@@ -1,0 +1,40 @@
+# Finance — shared/shared
+# Edit this file to change the agent. Adding a new file here adds a new agent.
+id: shared.services.finance
+display_name: "Finance"
+branch: shared
+department: shared
+tier: lead
+reports_to: shared.command.chief_of_staff
+accent: "#ffb84d"
+status: idle
+model: claude-sonnet-5
+effort: medium
+mission: >
+  Owns revenue, expenses, per-branch P&L, unpaid invoices and runway across both branches, reading from the configured finance sources.
+system_prompt_file: prompts/shared.services.finance.md
+tools:
+  - "brain.read"
+  - "brain.write"
+  - "ledger.read"
+  - "ledger.write"
+memory_scopes:
+  - "global"
+  - "branch.web"
+  - "branch.automation"
+schedule: "0 9 * * 1"
+autonomy: propose
+approval_required_for:
+  - "spending_money"
+escalate_to_human_when:
+  - "runway falls below [[ N ]] months"
+  - "an invoice passes [[ N ]] days overdue"
+kpis:
+  - name: unpaid_total
+    label: "Ödenmemiş"
+    target: "0"
+    window: weekly
+  - name: runway_months
+    label: "Nakit ömrü"
+    target: "[[ N ]]"
+    window: monthly

@@ -1,0 +1,34 @@
+# Prospector — automation/outreach
+# Edit this file to change the agent. Adding a new file here adds a new agent.
+id: automation.outreach.prospector
+display_name: "Prospector"
+branch: automation
+department: outreach
+tier: worker
+reports_to: automation.outreach.lead
+accent: "#ff4d6d"
+status: idle
+model: claude-haiku-4-5
+effort: low
+mission: >
+  Builds lead lists matching ICP B, deduplicates against the CRM, and hands each qualifying lead to Dossier.
+system_prompt_file: prompts/automation.outreach.prospector.md
+tools:
+  - "brain.read"
+  - "brain.write"
+  - "browser"
+  - "crm.write"
+memory_scopes:
+  - "global"
+  - "branch.automation"
+  - "dept.automation.outreach"
+schedule: "0 8 * * 1-5"
+autonomy: act_with_log
+approval_required_for:
+  - "spending_money"
+escalate_to_human_when: []
+kpis:
+  - name: leads_added
+    label: "Lead"
+    target: "[[ N ]]"
+    window: weekly

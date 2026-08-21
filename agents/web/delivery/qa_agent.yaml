@@ -1,0 +1,33 @@
+# QA Agent — web/delivery
+# Edit this file to change the agent. Adding a new file here adds a new agent.
+id: web.delivery.qa_agent
+display_name: "QA Agent"
+branch: web
+department: delivery
+tier: worker
+reports_to: web.delivery.lead
+accent: "#3ddc84"
+status: idle
+model: claude-haiku-4-5
+effort: low
+mission: >
+  Checks responsive breakpoints, Lighthouse scores, broken links, forms and SEO basics, and blocks handoff until the build is clean.
+system_prompt_file: prompts/web.delivery.qa_agent.md
+tools:
+  - "brain.read"
+  - "brain.write"
+  - "browser"
+  - "lighthouse"
+memory_scopes:
+  - "global"
+  - "branch.web"
+  - "dept.web.delivery"
+schedule: null
+autonomy: act_with_log
+approval_required_for: []
+escalate_to_human_when: []
+kpis:
+  - name: blocking_defects
+    label: "Engelleyen hata"
+    target: "0"
+    window: weekly

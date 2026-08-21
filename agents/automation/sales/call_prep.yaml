@@ -1,0 +1,30 @@
+# Call Prep — automation/sales
+# Edit this file to change the agent. Adding a new file here adds a new agent.
+id: automation.sales.call_prep
+display_name: "Call Prep"
+branch: automation
+department: sales
+tier: worker
+reports_to: automation.sales.lead
+accent: "#4dd6ff"
+status: idle
+model: claude-haiku-4-5
+effort: low
+mission: >
+  Produces a one-page brief before every booked call: the dossier thesis, current stack, likely objections and the recommended shape of engagement.
+system_prompt_file: prompts/automation.sales.call_prep.md
+tools:
+  - "brain.read"
+  - "brain.write"
+  - "browser"
+  - "calendar.read"
+  - "crm.read"
+memory_scopes:
+  - "global"
+  - "branch.automation"
+  - "dept.automation.sales"
+schedule: "30 9 * * 1-5"
+autonomy: act_with_log
+approval_required_for: []
+escalate_to_human_when: []
+kpis: []

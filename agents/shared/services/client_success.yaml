@@ -1,0 +1,36 @@
+# Client Success — shared/shared
+# Edit this file to change the agent. Adding a new file here adds a new agent.
+id: shared.services.client_success
+display_name: "Client Success"
+branch: shared
+department: shared
+tier: lead
+reports_to: shared.command.chief_of_staff
+accent: "#ffb84d"
+status: idle
+model: claude-sonnet-5
+effort: medium
+mission: >
+  Owns retention across both branches: check-in cadence, upsell signals and churn risk, with a named next action per client.
+system_prompt_file: prompts/shared.services.client_success.md
+tools:
+  - "brain.read"
+  - "brain.write"
+  - "crm.read"
+  - "crm.write"
+memory_scopes:
+  - "global"
+  - "branch.web"
+  - "branch.automation"
+schedule: "0 10 * * 1-5"
+autonomy: propose
+approval_required_for:
+  - "sending_external_messages"
+escalate_to_human_when:
+  - "a client shows two or more churn signals"
+  - "a client asks to pause or cancel"
+kpis:
+  - name: at_risk_clients
+    label: "Riskli müşteri"
+    target: "0"
+    window: weekly

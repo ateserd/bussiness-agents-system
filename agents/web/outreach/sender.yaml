@@ -1,0 +1,36 @@
+# Sender — web/outreach
+# Edit this file to change the agent. Adding a new file here adds a new agent.
+id: web.outreach.sender
+display_name: "Sender"
+branch: web
+department: outreach
+tier: worker
+reports_to: web.outreach.lead
+accent: "#ff4d6d"
+status: idle
+model: claude-haiku-4-5
+effort: low
+mission: >
+  Queues and sends approved sequences through the configured channel, respecting per-channel daily caps, and logs every send and reply back to the CRM.
+system_prompt_file: prompts/web.outreach.sender.md
+tools:
+  - "brain.read"
+  - "brain.write"
+  - "outreach.send"
+  - "crm.write"
+memory_scopes:
+  - "global"
+  - "branch.web"
+  - "dept.web.outreach"
+schedule: "0 8 * * 1-5"
+autonomy: propose
+approval_required_for:
+  - "sending_external_messages"
+escalate_to_human_when:
+  - "a prospect replies with a legal or refund threat"
+  - "bounce rate exceeds [[ N ]]%"
+kpis:
+  - name: messages_sent
+    label: "Gönderim"
+    target: "[[ N ]]"
+    window: daily

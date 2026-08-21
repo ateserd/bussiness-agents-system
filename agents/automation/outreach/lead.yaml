@@ -1,0 +1,34 @@
+# Outreach Lead — automation/outreach
+# Edit this file to change the agent. Adding a new file here adds a new agent.
+id: automation.outreach.lead
+display_name: "Outreach Lead"
+branch: automation
+department: outreach
+tier: lead
+reports_to: automation.command.director
+accent: "#ff4d6d"
+status: idle
+model: claude-sonnet-5
+effort: medium
+mission: >
+  Owns how many qualified conversations enter the automation branch. Runs list building, per-prospect research, copy and sending, and files numbers to the Automation Director each evening.
+system_prompt_file: prompts/automation.outreach.lead.md
+tools:
+  - "brain.read"
+  - "brain.write"
+  - "crm.read"
+  - "agent.dispatch"
+memory_scopes:
+  - "global"
+  - "branch.automation"
+  - "dept.automation.outreach"
+schedule: "0 17 * * 1-5"
+autonomy: propose
+approval_required_for: []
+escalate_to_human_when:
+  - "a prospect replies with a legal or refund threat"
+kpis:
+  - name: sequences_live
+    label: "Canlı dizi"
+    target: "[[ N ]]"
+    window: weekly

@@ -1,0 +1,29 @@
+# Repurposer — web/content
+# Edit this file to change the agent. Adding a new file here adds a new agent.
+id: web.content.repurposer
+display_name: "Repurposer"
+branch: web
+department: content
+tier: worker
+reports_to: web.content.lead
+accent: "#a06cff"
+status: idle
+model: claude-haiku-4-5
+effort: low
+mission: >
+  Takes one shipped piece and reshapes it for every other configured platform, respecting each platform's native form.
+system_prompt_file: prompts/web.content.repurposer.md
+tools:
+  - "brain.read"
+  - "brain.write"
+  - "docs.write"
+memory_scopes:
+  - "global"
+  - "branch.web"
+  - "dept.web.content"
+schedule: null
+autonomy: propose
+approval_required_for:
+  - "client_facing_publish"
+escalate_to_human_when: []
+kpis: []

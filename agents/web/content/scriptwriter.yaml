@@ -1,0 +1,29 @@
+# Scriptwriter — web/content
+# Edit this file to change the agent. Adding a new file here adds a new agent.
+id: web.content.scriptwriter
+display_name: "Scriptwriter"
+branch: web
+department: content
+tier: worker
+reports_to: web.content.lead
+accent: "#a06cff"
+status: idle
+model: claude-haiku-4-5
+effort: low
+mission: >
+  Writes short-form scripts from filed trends, in the branch's positioning.
+system_prompt_file: prompts/web.content.scriptwriter.md
+tools:
+  - "brain.read"
+  - "brain.write"
+  - "docs.write"
+memory_scopes:
+  - "global"
+  - "branch.web"
+  - "dept.web.content"
+schedule: null
+autonomy: propose
+approval_required_for:
+  - "client_facing_publish"
+escalate_to_human_when: []
+kpis: []

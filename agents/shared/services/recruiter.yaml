@@ -1,0 +1,32 @@
+# Recruiter — shared/shared
+# Edit this file to change the agent. Adding a new file here adds a new agent.
+id: shared.services.recruiter
+display_name: "Recruiter"
+branch: shared
+department: shared
+tier: lead
+reports_to: shared.command.chief_of_staff
+accent: "#ffb84d"
+status: idle
+model: claude-sonnet-5
+effort: medium
+mission: >
+  Detects repeated manual work the owner keeps doing and proposes new agents for it — drafting their full config for approval — and retires agents that have stopped earning their place.
+system_prompt_file: prompts/shared.services.recruiter.md
+tools:
+  - "brain.read"
+  - "brain.write"
+  - "crew.propose"
+memory_scopes:
+  - "global"
+  - "branch.web"
+  - "branch.automation"
+schedule: "0 9 1 * *"
+autonomy: propose
+approval_required_for: []
+escalate_to_human_when: []
+kpis:
+  - name: agents_proposed
+    label: "Öneri"
+    target: "[[ N ]]"
+    window: monthly

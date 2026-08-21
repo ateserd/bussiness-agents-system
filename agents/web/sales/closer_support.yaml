@@ -1,0 +1,35 @@
+# Closer Support — web/sales
+# Edit this file to change the agent. Adding a new file here adds a new agent.
+id: web.sales.closer_support
+display_name: "Closer Support"
+branch: web
+department: sales
+tier: worker
+reports_to: web.sales.lead
+accent: "#4dd6ff"
+status: idle
+model: claude-haiku-4-5
+effort: low
+mission: >
+  Turns a completed call into a proposal: scope, timeline and price from the rate card, followed by the contract through the configured e-sign tool.
+system_prompt_file: prompts/web.sales.closer_support.md
+tools:
+  - "brain.read"
+  - "brain.write"
+  - "crm.write"
+  - "docs.write"
+memory_scopes:
+  - "global"
+  - "branch.web"
+  - "dept.web.sales"
+schedule: null
+autonomy: propose
+approval_required_for:
+  - "sending_external_messages"
+  - "sending_contracts"
+escalate_to_human_when: []
+kpis:
+  - name: proposals_sent
+    label: "Teklif"
+    target: "[[ N ]]"
+    window: monthly
