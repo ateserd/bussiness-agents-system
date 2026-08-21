@@ -1,0 +1,238 @@
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------------------
+   Mission Control design tokens.
+
+   The deck commits to a single dark visual world on purpose — it is the screen
+   the owner looks at every morning, and the §4.2 colour language (one accent
+   per department, carried by card border, cable and glow) only reads against a
+   dark ground. Every colour below is painted explicitly so the page never
+   borrows a host theme.
+--------------------------------------------------------------------------- */
+
+:root {
+  /* ground */
+  --void: #0a0f1e;
+  --deep: #10241f;
+  --panel: rgba(11, 19, 35, 0.66);
+  --panel-hi: rgba(18, 30, 52, 0.82);
+  --line: rgba(142, 163, 189, 0.15);
+  --line-hi: rgba(142, 163, 189, 0.3);
+
+  /* type — neutrals biased toward the cool ground, not default grey */
+  --ink: #e9eef6;
+  --haze: #8ea3bd;
+  --dim: #5b6d85;
+  --blank: #7c8ba1;
+
+  /* department accents (§4.2) */
+  --outreach: #ff4d6d;
+  --sales: #4dd6ff;
+  --build: #3ddc84;
+  --content: #a06cff;
+  --shared: #ffb84d;
+  --gold: #f5c451;
+
+  /* branch cable temperature: A leans cool, B leans warm */
+  --branch-web: #4dd6ff;
+  --branch-automation: #ffb84d;
+
+  /* semantic state — separate from the accent hues */
+  --ok: #3ddc84;
+  --warn: #ffb84d;
+  --crit: #ff4d6d;
+
+  --sans: var(--font-archivo), system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: var(--font-plex-mono), ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+@theme inline {
+  --color-void: var(--void);
+  --color-deep: var(--deep);
+  --color-panel: var(--panel);
+  --color-panel-hi: var(--panel-hi);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-haze: var(--haze);
+  --color-dim: var(--dim);
+  --color-outreach: var(--outreach);
+  --color-sales: var(--sales);
+  --color-build: var(--build);
+  --color-content: var(--content);
+  --color-shared: var(--shared);
+  --color-gold: var(--gold);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-crit: var(--crit);
+  --font-sans: var(--sans);
+  --font-mono: var(--mono);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+}
+
+body {
+  min-height: 100vh;
+  background: var(--void);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* The canvas ground sits behind everything, fixed, so scrolling the deck does
+   not drag the gradient with it. */
+.mc-ground {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(1100px 620px at 50% -8%, rgba(245, 196, 81, 0.1), transparent 62%),
+    linear-gradient(178deg, var(--void) 0%, #0b1524 42%, var(--deep) 100%);
+}
+
+.mc-stars {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* --- typographic utilities ------------------------------------------------ */
+
+.mc-eyebrow {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin: 0;
+}
+
+.mc-num {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- focus ---------------------------------------------------------------- */
+
+:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* --- scrollbars ----------------------------------------------------------- */
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(142, 163, 189, 0.18);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(142, 163, 189, 0.32);
+  background-clip: content-box;
+}
+
+/* --- motion --------------------------------------------------------------- */
+
+@keyframes mc-breathe {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(0.8);
+  }
+}
+
+@keyframes mc-breathe-red {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 77, 109, 0.5), 0 0 26px rgba(255, 77, 109, 0.35);
+    border-color: rgba(255, 77, 109, 0.75);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(255, 77, 109, 0), 0 0 8px rgba(255, 77, 109, 0.12);
+    border-color: rgba(255, 77, 109, 0.3);
+  }
+}
+
+@keyframes mc-ring-gold {
+  0%,
+  100% {
+    box-shadow: 0 0 0 1px rgba(245, 196, 81, 0.9), 0 0 24px rgba(245, 196, 81, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 0 1px rgba(245, 196, 81, 0.45), 0 0 10px rgba(245, 196, 81, 0.15);
+  }
+}
+
+@keyframes mc-spark {
+  0% {
+    opacity: 0;
+    transform: translateY(4px) scale(0.6);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(0) scale(1.15);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.7);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* --- react-flow overrides -------------------------------------------------- */
+/* xyflow supplies the viewport only; every pixel of chrome is ours. */
+
+/* NOTE: xyflow's base.css sizes .react-flow__container but never .react-flow
+   itself, so the root collapses to zero height and nothing renders. base.css is
+   imported by the client component and lands after this file in the cascade, so
+   the fix is an inline style on <ReactFlow> in org-tree.tsx, not a rule here. */
+
+.react-flow__attribution {
+  display: none;
+}
+.react-flow__node {
+  cursor: pointer;
+}
+.react-flow__handle {
+  opacity: 0;
+  pointer-events: none;
+}
+.react-flow__edge-path {
+  transition: stroke-opacity 0.3s ease;
+}

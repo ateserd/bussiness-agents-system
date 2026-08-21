@@ -1,0 +1,18 @@
+node_modules/
+.next/
+out/
+build/
+next-env.d.ts
+*.tsbuildinfo
+
+# Local PGlite database lives here. Never committed.
+/data/
+
+.env
+.env.*
+!.env.example
+
+.DS_Store
+*.pem
+npm-debug.log*
+.vercel

@@ -1,0 +1,50 @@
+{
+  "name": "mission-control",
+  "version": "0.1.0",
+  "private": true,
+  "description": "One-human, two-branch AI agency operating system for Ates Design Agency and Ates Flow Agency",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:push": "tsx src/db/migrate.ts",
+    "db:seed": "tsx src/db/seed.ts",
+    "db:reset": "tsx src/db/migrate.ts --reset && tsx src/db/seed.ts",
+    "agent:run": "tsx scripts/run-agent.ts",
+    "agent:list": "tsx scripts/run-agent.ts --list",
+    "tick": "tsx scripts/tick.ts",
+    "brief": "tsx scripts/brief.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.120.0",
+    "@electric-sql/pglite": "^0.5.5",
+    "@xyflow/react": "^12.11.3",
+    "clsx": "^2.1.1",
+    "d3-force": "^3.0.0",
+    "drizzle-orm": "^0.45.2",
+    "framer-motion": "^12.43.0",
+    "next": "15.5.22",
+    "postgres": "^3.4.7",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "yaml": "^2.8.1",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@tailwindcss/postcss": "^4",
+    "@types/d3-force": "^3.0.10",
+    "@types/node": "^22",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "drizzle-kit": "^0.31.10",
+    "eslint": "^9",
+    "eslint-config-next": "15.5.22",
+    "tailwindcss": "^4",
+    "tsx": "^4.23.5",
+    "typescript": "^5"
+  }
+}
