@@ -1,0 +1,238 @@
+# Mission Control
+
+A one-human, two-branch AI agency operating system.
+
+**Ateş Design Agency** (websites) and **Ateş Flow Agency** (AI automation) run as
+two structurally separate branches — own departments, own agents, own pipelines,
+own P&L — joined only at the top (the owner and a Chief of Staff) and at a shared
+services layer. Forty-nine agents, one shared memory, one dashboard.
+
+```bash
+npm install
+npm run db:generate     # only after changing src/db/schema.ts
+npm run db:push
+npm run db:seed
+npm run dev             # → http://localhost:3000
+```
+
+No API key, no Postgres server, no Docker, no network. The dashboard comes up
+fully populated, and every agent runs in **simulate mode** until you add
+`ANTHROPIC_API_KEY`.
+
+---
+
+## The four views
+
+| Route | What it is |
+|---|---|
+| `/` | **COMMAND** — the org tree. Who exists, who reports to whom, who is working, blocked or waiting on you |
+| `/brain` | **BRAIN** — every memory as a constellation, clustered by branch and department |
+| `/activity` | **ACTIVITY** — every agent action: who, what, why, cost, duration, outcome |
+| `/ledger` | **LEDGER** — per-branch scoreboard plus a combined column |
+
+`WALKTHROUGH.md` walks through each one.
+
+---
+
+## The three layers
+
+```
+COMMAND   src/app/, src/components/     the surface
+CREW      agents/*.yaml, prompts/*.md   the org
+BRAIN     src/lib/brain/, memories      shared memory
+```
+
+Plus a runtime (`src/lib/agents/`), a scheduler (`src/lib/scheduler/`), and a
+chat command set (`src/lib/chat/`).
+
+---
+
+## Adding an agent
+
+Add one file. Nothing enumerates the crew, so nothing else needs to change.
+
+```bash
+# agents/web/outreach/researcher.yaml
+```
+
+```yaml
+id: web.outreach.researcher
+display_name: "Researcher"
+branch: web
+department: outreach
+tier: worker
+reports_to: web.outreach.lead
+accent: "#ff4d6d"          # department colour
+status: idle
+model: claude-haiku-4-5
+effort: low
+mission: >
+  One paragraph: what this agent owns and what "done" looks like.
+system_prompt_file: prompts/web.outreach.researcher.md
+tools:
+  - "brain.read"
+  - "brain.write"
+  - "browser"
+memory_scopes:
+  - "global"
+  - "branch.web"
+  - "dept.web.outreach"
+schedule: "0 8 * * 1-5"     # or null
+autonomy: propose
+approval_required_for: []
+escalate_to_human_when: []
+kpis:
+  - name: items_found
+    label: "Bulgu"
+    target: "[[ N ]]"
+    window: weekly
+```
+
+Then write `prompts/web.outreach.researcher.md` — role, method, what done looks
+like, what it must never do. Keep business facts **out** of it; those live in the
+Brain and get injected at run time.
+
+The registry validates every file at boot and refuses to start on a bad one:
+a duplicate id, a `reports_to` that does not exist, a missing prompt file, or
+more than one root all fail loudly rather than silently.
+
+```bash
+npm run agent:list                        # see the whole crew
+npm run agent:run -- web.outreach.researcher
+```
+
+---
+
+## Adding a department
+
+1. Create `agents/<branch>/<newdept>/lead.yaml` with `tier: lead` and
+   `reports_to: <branch>.command.director`, plus its workers.
+2. Give it a colour: add the accent to `:root` in `src/app/globals.css` and to
+   `DEPT_COLOR` in `src/components/brain/constellation.tsx`.
+3. Add its name to `copy.department` in `src/lib/copy.ts`.
+4. Add it to `DEPT_ORDER` in `src/components/command/layout.ts` so it gets a
+   column position.
+
+Memory scopes are branch-qualified — `dept.web.outreach`, not `dept.outreach`.
+That is load-bearing: both branches have a department called *outreach*, and an
+unqualified scope would let a web agent read automation memories.
+
+---
+
+## Adding a third branch
+
+The system was built so this is additive rather than a refactor.
+
+1. **Agents.** Create `agents/<branch>/command/director.yaml` (`tier: director`,
+   `reports_to: shared.command.chief_of_staff`) and its departments underneath.
+2. **Layout.** In `src/components/command/layout.ts`, add the branch to `sideOf`.
+   Two branches mirror around the centre; a third needs a position — either
+   `sideOf.<branch> = 0` with a row offset, or switch the fan to
+   `(i - (n-1)/2)` across all directors.
+3. **Colour.** Add a cable tint in `TINT` (`src/components/command/org-tree.tsx`)
+   and a cluster column in the constellation's `anchor()`.
+4. **Copy.** Add its names to `copy.branch`.
+5. **Ledger.** `getLedger()` in `src/lib/data.ts` maps over
+   `["web", "automation"]` — add the third id there.
+6. **Chief of Staff scope.** Add `branch.<new>` to its `memory_scopes`, and to
+   each shared-services agent, so they can see it.
+
+The database needs no migration: `branch` is a text column, deliberately not a
+pg enum, exactly so a new branch is config rather than DDL.
+
+---
+
+## Storage: PGlite now, Supabase later
+
+Schema is authored once in the Postgres dialect (`src/db/schema.ts`). Locally it
+runs on **PGlite** — Postgres compiled to WASM, in-process, writing to `./data/` —
+so a clean checkout needs no server.
+
+To move to Supabase or Neon:
+
+```bash
+# 1. point at the new database (Supabase: use the Session pooler string,
+#    not db.<ref>.supabase.co, which is IPv6-only)
+echo 'DATABASE_URL=postgresql://…' >> .env
+
+# 2. same migrations, same schema
+npm run db:push
+npm run db:seed        # only if you want the demo data there too
+```
+
+`src/db/client.ts` is the only file that knows which driver is in use.
+
+### Memory search: JS cosine now, pgvector later
+
+Embeddings are stored in a `real[]` column and ranked with a dot product in JS.
+At a few thousand memories this is sub-millisecond and the query cost is
+dominated by fetching rows either way — and PGlite 0.5 does not bundle the
+vector extension, so this keeps local dev honest rather than pretending.
+
+When the corpus outgrows it:
+
+```sql
+create extension if not exists vector;
+alter table memories add column embedding_v vector(256);
+update memories set embedding_v = embedding::vector(256);
+create index on memories using hnsw (embedding_v vector_cosine_ops);
+```
+
+Then change `recall()` in `src/lib/brain/search.ts` to order by
+`embedding_v <=> $1` in SQL instead of sorting in JS. The scope filter
+(`scopeOverlapSql`) already runs in SQL and does not change.
+
+---
+
+## The rules the code enforces
+
+These are not documentation — they are single points in the code, so they cannot
+drift:
+
+| Rule | Where it lives |
+|---|---|
+| **Branch isolation** — an agent reads only its own scopes | `src/lib/brain/scope.ts` (`scopeMatches`) |
+| **Approval gates** — nothing leaves without your tap | inside each gated tool's `run()`, `src/lib/agents/tools.ts` |
+| **Report reality** — a missing source is named, never faked | `getLedger()`, `buildBrief()`, and the `lighthouse` tool |
+| **Everything is logged** | `runAgent()` writes one `activity` row per run |
+| **Self-critique** | the house rules in `src/lib/agents/prompt.ts` require a closing `BELİRSİZ:` line, parsed by `extractUnsure()` |
+| **Atomic memory** | `writeMemory()` rejects anything over 600 chars and merges near-duplicates |
+
+---
+
+## Commands
+
+```bash
+npm run dev              # dashboard
+npm run build            # production build
+npm run typecheck        # tsc --noEmit
+npm run lint
+
+npm run db:generate      # schema.ts → drizzle/*.sql
+npm run db:push          # apply migrations   (-- --reset drops the local db)
+npm run db:seed          # 49 agents, ~140 memories, 30 days of activity
+
+npm run agent:list       # the whole crew
+npm run agent:run -- <agent.id> [--task "..."]
+npm run brief            # today's brief, as it would arrive on your phone
+npm run tick             # run whatever the cadence table says is due
+npm run tick -- --plan   # show the cadence table without running
+```
+
+---
+
+## What is not wired up
+
+Stated plainly, because a dashboard that looks finished is easy to mistake for
+one that is:
+
+- **No model is called** without `ANTHROPIC_API_KEY`. Simulate mode writes real
+  activity and memory rows so the loop is verifiable, and labels itself `SİMÜLE`.
+- **No integrations.** Stripe, calendar, CRM, sending tools, Lighthouse and the
+  automation platforms are all unconnected; agents report them unavailable.
+- **Telegram is a stub.** The command handling is real and tested; the transport
+  needs a bot token.
+- **Nothing is on a clock.** `npm run tick` works and is idempotent; wiring it to
+  a scheduler is yours.
+
+All of it is itemised in `SETUP_TODO.md`, grouped by what each blank unblocks.
