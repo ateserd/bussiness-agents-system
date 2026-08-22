@@ -375,35 +375,36 @@ function MemoryPanel({ node, onDeleted }: { node: BrainNode | null; onDeleted: (
             {copy.memoryKind[node.kind] ?? node.kind}
             {node.permanent ? ` · ${copy.brain.permanent}` : ""}
           </p>
-          {!confirming ? (
-            <button
-              disabled={pending}
-              onClick={() => setConfirming(true)}
-              className="flex-none rounded border px-2 py-1 font-mono text-[9.5px] uppercase tracking-[0.1em] disabled:opacity-40"
-              style={{ borderColor: "var(--line)", color: "var(--dim)" }}
-            >
-              {copy.brain.delete}
-            </button>
-          ) : (
-            <div className="flex flex-none items-center gap-1.5">
+          {!node.permanent &&
+            (!confirming ? (
               <button
                 disabled={pending}
-                onClick={handleDelete}
-                className="rounded border px-2 py-1 font-mono text-[9.5px] uppercase tracking-[0.1em] disabled:opacity-40"
-                style={{ borderColor: "rgba(255,77,109,.5)", color: "var(--crit)" }}
-              >
-                {pending ? copy.common.loading : copy.brain.deleteConfirm}
-              </button>
-              <button
-                disabled={pending}
-                onClick={() => setConfirming(false)}
-                className="rounded border px-2 py-1 font-mono text-[9.5px] uppercase tracking-[0.1em] disabled:opacity-40"
+                onClick={() => setConfirming(true)}
+                className="flex-none rounded border px-2 py-1 font-mono text-[9.5px] uppercase tracking-[0.1em] disabled:opacity-40"
                 style={{ borderColor: "var(--line)", color: "var(--dim)" }}
               >
-                {copy.brain.deleteCancel}
+                {copy.brain.delete}
               </button>
-            </div>
-          )}
+            ) : (
+              <div className="flex flex-none items-center gap-1.5">
+                <button
+                  disabled={pending}
+                  onClick={handleDelete}
+                  className="rounded border px-2 py-1 font-mono text-[9.5px] uppercase tracking-[0.1em] disabled:opacity-40"
+                  style={{ borderColor: "rgba(255,77,109,.5)", color: "var(--crit)" }}
+                >
+                  {pending ? copy.common.loading : copy.brain.deleteConfirm}
+                </button>
+                <button
+                  disabled={pending}
+                  onClick={() => setConfirming(false)}
+                  className="rounded border px-2 py-1 font-mono text-[9.5px] uppercase tracking-[0.1em] disabled:opacity-40"
+                  style={{ borderColor: "var(--line)", color: "var(--dim)" }}
+                >
+                  {copy.brain.deleteCancel}
+                </button>
+              </div>
+            ))}
         </div>
         <p className="mb-0 mt-2.5 text-[14px] leading-relaxed">{node.content}</p>
       </div>
