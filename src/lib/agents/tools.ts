@@ -343,13 +343,16 @@ const outreachSend = (ctx: ToolContext) =>
   betaZodTool({
     name: "outreach_send",
     description:
-      "Bir mesajı gönderim kuyruğuna alır. Onay kapısı arkasındaysa gönderilmez, sahibin onayına düşer.",
+      "Bir mesajı gönderim kuyruğuna alır. Onay kapısı arkasındaysa gönderilmez, sahibin onayına düşer. " +
+      "channel \"email\" ise onaydan sonra gerçekten gönderilir, bu yüzden subject zorunlu; başka kanallarda " +
+      "kısa bir etiket olarak kullanılabilir.",
     inputSchema: z.object({
       to: z.string().describe("Alıcı işletme veya adres."),
       channel: z.string(),
+      subject: z.string().describe("E-posta konusu (email dışı kanallarda kısa bir etiket)."),
       body: z.string(),
     }),
-    run: async ({ to, channel, body }) => {
+    run: async ({ to, channel, subject, body }) => {
       // Unconditional, unlike the other gates: no `gatedBy` check, so removing
       // the gate from an agent's YAML or raising it to act_freely cannot open a
       // path to a stranger's inbox. The owner's standing instruction is that
@@ -358,6 +361,7 @@ const outreachSend = (ctx: ToolContext) =>
       return requireApproval(ctx, "sending_external_messages", `${to} — ${channel} gönderimi`, body, {
         to,
         channel,
+        subject,
       });
     },
   });

@@ -255,10 +255,15 @@ one that is:
 
 - **No model is called** without `ANTHROPIC_API_KEY`. Simulate mode writes real
   activity and memory rows so the loop is verifiable, and labels itself `SİMÜLE`.
-- **Some integrations need keys.** Lighthouse (PageSpeed), the calendar feed and
-  cold email are wired but inert until their keys exist; each reports itself
-  unavailable rather than guessing. Money in and out is entered by hand with
-  `npm run money` — there is no processor to read it from.
+- **Some integrations need keys.** Lighthouse (PageSpeed) and the calendar feed
+  are wired but inert until their keys exist; each reports itself unavailable
+  rather than guessing. Money in and out is entered by hand with `npm run
+  money` — there is no processor to read it from.
+- **Cold email dispatches for real on approval.** `RESEND_API_KEY` plus a
+  `RESEND_FROM_WEB` / `RESEND_FROM_AUTOMATION` address per branch, and
+  `/approve` on an email-channel card calls Resend directly — no separate
+  "now send it" step. Other channels (Instagram DM, etc.) still land approved
+  but stay manual; no provider is wired for those.
 - **Telegram needs a bot token.** The command handling and the transport are
   both real; approvals are pushed to the phone as they are created.
 - **Nothing reaches a stranger unattended.** `outreach_send` and `send_contract`

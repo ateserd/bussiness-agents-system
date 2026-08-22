@@ -1,6 +1,7 @@
+import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db/client";
-import { agents, approvals } from "@/db/schema";
+import { activity, agents, approvals } from "@/db/schema";
 import { allAgents, getAgent } from "@/lib/agents/registry";
 import { buildBrief, renderBrief } from "@/lib/brief";
 import { writeMemory } from "@/lib/brain/write";
@@ -83,6 +84,51 @@ export function parseCommand(input: string): Command {
   }
 }
 
+/**
+ * Delivery for an approved `sending_external_messages` card.
+ *
+ * Approval only clears the owner's gate (§ the standing rule that nothing
+ * reaches a stranger unattended) — it says nothing about whether a provider
+ * is actually wired to deliver. Only "email" has one (Resend); everything
+ * else lands here approved and stays manual, same as every channel did
+ * before this dispatch existed, just reported rather than silent about it.
+ */
+async function dispatchOutreach(row: typeof approvals.$inferSelect): Promise<string> {
+  const context = (row.context ?? {}) as { to?: string; channel?: string; subject?: string };
+  if (context.channel !== "email") {
+    return `${context.channel ?? "Bu kanal"} için otomatik gönderim yok — elle göndermen gerekiyor.`;
+  }
+  if (!context.to || !context.subject) {
+    return "⚠️ Gönderilemedi: alıcı ya da konu eksik kaydedilmiş.";
+  }
+
+  const { sendEmail } = await import("@/lib/integrations/resend");
+  const db = await getDb();
+  const started = new Date();
+  const result = await sendEmail({ branch: row.branch, to: context.to, subject: context.subject, text: row.draft });
+
+  await db.insert(activity).values({
+    id: randomUUID(),
+    agentId: row.agentId,
+    branch: row.branch,
+    department: row.agentId.split(".")[1] as (typeof agents.$inferSelect)["department"],
+    action: "send_email",
+    summary: result.ok
+      ? `${context.to} adresine e-posta gönderildi.`
+      : `${context.to} adresine gönderim başarısız: ${result.reason}`,
+    reason: "Sahip onayladı.",
+    input: { to: context.to, subject: context.subject },
+    output: result.ok ? { resendId: result.id } : {},
+    outcome: result.ok ? "success" : "failure",
+    simulated: false,
+    error: result.ok ? null : result.reason,
+    startedAt: started,
+    finishedAt: new Date(),
+  });
+
+  return result.ok ? "✓ Gönderildi." : `⚠️ Gönderilemedi: ${result.reason}`;
+}
+
 export async function executeCommand(command: Command): Promise<string> {
   const db = await getDb();
 
@@ -124,7 +170,10 @@ export async function executeCommand(command: Command): Promise<string> {
         })
         .where(eq(approvals.id, command.id));
       await db.update(agents).set({ status: "idle" }).where(eq(agents.id, row.agentId));
-      return `${row.title} — ${command.kind === "approve" ? "onaylandı" : "reddedildi"}.`;
+
+      const verdict = `${row.title} — ${command.kind === "approve" ? "onaylandı" : "reddedildi"}.`;
+      if (command.kind === "reject" || row.gate !== "sending_external_messages") return verdict;
+      return `${verdict}\n${await dispatchOutreach(row)}`;
     }
 
     case "pause": {

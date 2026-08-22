@@ -74,7 +74,8 @@ That constraint is the filter, not a footnote. Same disqualifiers as ICP A.
 | Blank | Where | Notes |
 |---|---|---|
 | `GOOGLE_PLACES_API_KEY` | `.env` | **Wired: Google Places API**, both branches. Returns the two signals the ICPs turn on — has-a-website and review count — plus the phone number Ateş dials. The `places_search` tool applies each branch's filter itself, so what comes back is already qualified. Behind the `spending_money` gate: a search costs money |
-| `RESEND_API_KEY` | `.env` | **Chosen: cold email**, plus manual calls |
+| `RESEND_API_KEY` | `.env` | **Wired end to end.** `/approve` on an email-channel outreach card calls Resend directly — approval is delivery, not a separate step. Requires the sending domain verified in Resend (DNS records it generates) before it will actually deliver |
+| `RESEND_FROM_WEB` / `RESEND_FROM_AUTOMATION` | `.env` | One address per branch, on its own domain — not the operational domain (n8n, webmail, this dashboard). Missing for a branch reports that plainly rather than borrowing the other branch's identity |
 | Sender daily cap | `agents/*/outreach/sender.yaml` | **10 per mailbox per day.** Below the 20–30 "safe" ceiling on purpose: every message needs its own approval, and 10 approvals fits a 4-hour weekday window where 50 would not |
 | Prospector target | `agents/*/outreach/prospector.yaml` | **50 / week** — matched to the 10/day send cap, so no lead is found and then deleted unused |
 | Auditor target | `agents/web/outreach/auditor.yaml` | **30 / week** |
