@@ -150,6 +150,9 @@ const MONTH_START = () => {
 export async function getLedger(): Promise<{
   branches: BranchLedger[];
   weekly: { week: string; web: number; automation: number }[];
+  /** Cost of `shared.*` agents (Chief of Staff, Brain Keeper, ...) — real spend
+   *  that belongs to neither branch's own P&L, so it only shows up in Combined. */
+  sharedAgentCostMtd: number;
 }> {
   const db = await getDb();
   const monthStart = MONTH_START();
@@ -250,7 +253,7 @@ export async function getLedger(): Promise<{
     });
   }
 
-  return { branches, weekly };
+  return { branches, weekly, sharedAgentCostMtd: costByBranch.get("shared") ?? 0 };
 }
 
 /* ---------------------------------------------------------------------------
