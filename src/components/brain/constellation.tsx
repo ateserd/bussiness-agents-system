@@ -220,16 +220,18 @@ export function Constellation({
     };
     window.addEventListener("resize", onResize);
 
-    const pick = (e: MouseEvent): Sim | null => {
+    // extraRadius widens the hit target for a fingertip without changing what
+    // a precise mouse pointer sees.
+    const pick = (point: { clientX: number; clientY: number }, extraRadius = 0): Sim | null => {
       const r = canvas.getBoundingClientRect();
-      const mx = e.clientX - r.left;
-      const my = e.clientY - r.top;
+      const mx = point.clientX - r.left;
+      const my = point.clientY - r.top;
       let best: Sim | null = null;
       let bestDist = Infinity;
       for (const n of simNodes) {
         if (n.x == null || n.y == null) continue;
         const d = (n.x - mx) ** 2 + (n.y - my) ** 2;
-        const hit = (radiusOf(n) + 6) ** 2;
+        const hit = (radiusOf(n) + 6 + extraRadius) ** 2;
         if (d < hit && d < bestDist) {
           best = n;
           bestDist = d;
@@ -252,14 +254,44 @@ export function Constellation({
       if (hit) setSelected(nodes.find((n) => n.id === hit.id) ?? null);
     };
 
+    // Touch has no hover, and a tap must not fight the page's own scroll —
+    // so this tracks where a touch started and only treats it as a "click" if
+    // it stayed put (a real tap), never calling preventDefault. A finger is
+    // wider than a cursor, so the hit radius gets a bonus on top of the mouse
+    // tolerance above.
+    const TOUCH_TAP_SLOP_PX = 10;
+    const TOUCH_TAP_MAX_MS = 500;
+    const TOUCH_HIT_BONUS_PX = 10;
+    let touchStart: { x: number; y: number; t: number } | null = null;
+
+    const onTouchStart = (e: TouchEvent) => {
+      const t = e.touches[0];
+      if (!t) return;
+      touchStart = { x: t.clientX, y: t.clientY, t: Date.now() };
+    };
+    const onTouchEnd = (e: TouchEvent) => {
+      const start = touchStart;
+      touchStart = null;
+      const t = e.changedTouches[0];
+      if (!start || !t) return;
+      const movedPx = Math.hypot(t.clientX - start.x, t.clientY - start.y);
+      if (movedPx > TOUCH_TAP_SLOP_PX || Date.now() - start.t > TOUCH_TAP_MAX_MS) return;
+      const hit = pick({ clientX: t.clientX, clientY: t.clientY }, TOUCH_HIT_BONUS_PX);
+      if (hit) setSelected(nodes.find((n) => n.id === hit.id) ?? null);
+    };
+
     canvas.addEventListener("mousemove", onMove);
     canvas.addEventListener("click", onClick);
+    canvas.addEventListener("touchstart", onTouchStart, { passive: true });
+    canvas.addEventListener("touchend", onTouchEnd, { passive: true });
 
     return () => {
       sim.stop();
       window.removeEventListener("resize", onResize);
       canvas.removeEventListener("mousemove", onMove);
       canvas.removeEventListener("click", onClick);
+      canvas.removeEventListener("touchstart", onTouchStart);
+      canvas.removeEventListener("touchend", onTouchEnd);
     };
   }, [nodes, links, draw]);
 
