@@ -111,12 +111,29 @@ feed, `CRON_SECRET`) stays optional exactly as documented there — an agent
 whose key is missing reports `⚠️ kaynak kullanılamıyor`, it doesn't fail
 silently or invent a number.
 
+`db:push` and `db:seed:fresh` read `process.env` directly — unlike the
+systemd services below (which get `.env` via `EnvironmentFile=`), a plain
+shell doesn't load it for you. Export it for this session first, or these
+run silently against a throwaway local PGlite database instead of Supabase,
+and the app then fails at "relation does not exist" once it starts for real
+against the actual empty Supabase database:
+
+```bash
+set -a; source .env; set +a
+```
+
 ```bash
 npm run build
 npm run db:push       # creates the schema on the Supabase database
 npm run db:seed:fresh # agents + every business fact Ateş actually decided —
                        # no fake leads, deals, clients or activity history
 ```
+
+`db:push` prints `· driver: postgres-js` when it found `DATABASE_URL`; it
+prints `· driver: pglite` — and happily reports migrations "applied" against
+an empty local database — when it didn't. That line is the only visible
+difference between the two, since the rest of the output reads the same
+either way.
 
 Use `db:seed:fresh`, not `db:seed`, on a real database. The default seed is
 demo texture for a local checkout — a believable month of fabricated leads,
