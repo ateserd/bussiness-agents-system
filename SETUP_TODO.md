@@ -19,7 +19,7 @@ The dashboard runs with all of these unfilled. `npm run dev` needs none of them.
 | Timezone | Europe/Istanbul |
 | UI language | Turkish (code and identifiers English) |
 | Agent names | Plain English role names |
-| Models | COS + Directors `claude-opus-5` · Leads `claude-sonnet-5` · Workers `claude-haiku-4-5` |
+| Models | COS + Directors + Leads `claude-sonnet-5` · Workers `claude-haiku-4-5` (all three top roles were `claude-opus-5`; moved to Sonnet as a cost cut) |
 
 ---
 
