@@ -17,12 +17,13 @@ import { clip, notifyOwner } from "@/lib/chat/notify";
  * run) and onto Telegram (so the owner sees it without opening the panel).
  *
  * Signed like every other Resend webhook — Svix underneath, same scheme
- * Resend documents for their event webhooks. The event type is confirmed
- * as `email.received` (Ateş's own Resend dashboard, not just the docs); the
- * field names read below (`data.from` / `data.to` / `data.subject` /
- * `data.text`) are still the documented shape, not yet confirmed against an
- * actual delivered payload — if the parsed fields come back empty once a
- * real reply arrives, log the raw body and adjust the field names here.
+ * Resend documents for their event webhooks. Confirmed against a real
+ * delivered reply: the event type is `email.received`, and `data` carries
+ * from/to/subject/email_id but no body at all — `attachments` comes back as
+ * an empty array rather than the content being inlined. The body is fetched
+ * separately below, by `email_id`, mirroring the GET /emails/:id endpoint
+ * Resend documents for sent mail — that part is a best guess, not yet
+ * confirmed the same way; it logs its own raw response if it's wrong.
  */
 
 const TIMESTAMP_TOLERANCE_SEC = 300;
@@ -62,6 +63,39 @@ function extractAddress(value: unknown): string | null {
   return null;
 }
 
+/**
+ * Confirmed against a real delivered webhook: the email.received event
+ * carries only metadata (from/to/subject/message_id/email_id...), no body
+ * at all — attachments is an empty array rather than the content being
+ * inlined. This fetches the full message by its email_id, mirroring the
+ * GET /emails/:id Resend already documents for sent mail. Not yet confirmed
+ * this same shape covers received mail — logs its own raw response on a
+ * miss, same as the caller does, so a wrong guess here is still one test
+ * away from the real field name rather than a dead end.
+ */
+async function fetchEmailBody(emailId: string, apiKey: string): Promise<string | null> {
+  try {
+    const res = await fetch(`https://api.resend.com/emails/${emailId}`, {
+      headers: { authorization: `Bearer ${apiKey}` },
+      signal: AbortSignal.timeout(10_000),
+    });
+    const raw = await res.text();
+    if (!res.ok) {
+      console.warn(`resend inbound: GET /emails/${emailId} failed (${res.status}):`, raw.slice(0, 500));
+      return null;
+    }
+    const body = JSON.parse(raw) as { text?: string; html?: string };
+    if (typeof body.text === "string") return body.text;
+    if (typeof body.html === "string") return body.html;
+    console.warn(`resend inbound: GET /emails/${emailId} had no .text or .html. keys:`, Object.keys(body));
+    console.warn(`resend inbound: GET /emails/${emailId} raw:`, raw.slice(0, 2000));
+    return null;
+  } catch (err) {
+    console.warn(`resend inbound: GET /emails/${emailId} threw:`, (err as Error).message);
+    return null;
+  }
+}
+
 export async function POST(req: Request) {
   const secret = process.env.RESEND_WEBHOOK_SECRET;
   if (!secret) {
@@ -94,15 +128,17 @@ export async function POST(req: Request) {
   const from = extractAddress(event.data.from);
   const to = extractAddress(event.data.to);
   const subject = typeof event.data.subject === "string" ? event.data.subject : "(konu yok)";
-  const text = typeof event.data.text === "string" ? event.data.text : "(gövde okunamadı)";
   if (!from || !to) return NextResponse.json({ ok: true, ignored: true });
 
-  // `from`/`to`/`subject` are confirmed correct against a real delivered
-  // event; `text` is not — this stays until it is, then comes out.
-  if (typeof event.data.text !== "string") {
-    console.warn("resend inbound: no string .text field. event.data keys:", Object.keys(event.data));
-    console.warn("resend inbound: raw data:", JSON.stringify(event.data).slice(0, 2000));
+  // Confirmed against a real delivered event: email.received itself carries
+  // no body at all, only metadata plus an email_id. Fetch it separately.
+  let text: string | null = typeof event.data.text === "string" ? event.data.text : null;
+  const emailId = typeof event.data.email_id === "string" ? event.data.email_id : null;
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!text && emailId && apiKey) {
+    text = await fetchEmailBody(emailId, apiKey);
   }
+  text ??= "(gövde okunamadı)";
 
   const branch =
     to === process.env.RESEND_FROM_WEB?.toLowerCase()
