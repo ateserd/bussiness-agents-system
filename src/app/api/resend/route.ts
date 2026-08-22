@@ -20,10 +20,11 @@ import { clip, notifyOwner } from "@/lib/chat/notify";
  * Resend documents for their event webhooks. Confirmed against a real
  * delivered reply: the event type is `email.received`, and `data` carries
  * from/to/subject/email_id but no body at all — `attachments` comes back as
- * an empty array rather than the content being inlined. The body is fetched
- * separately below, by `email_id`, mirroring the GET /emails/:id endpoint
- * Resend documents for sent mail — that part is a best guess, not yet
- * confirmed the same way; it logs its own raw response if it's wrong.
+ * an empty array rather than the content being inlined. The body is a
+ * separate fetch, GET /emails/receiving/{email_id} — confirmed against
+ * Resend's own Node SDK source, not guessed from docs (their webhook guide
+ * shows the SDK call but never states the REST path, and GET /emails/{id},
+ * the sent-mail endpoint, 404s on a received email's id).
  */
 
 const TIMESTAMP_TOLERANCE_SEC = 300;
@@ -67,15 +68,15 @@ function extractAddress(value: unknown): string | null {
  * Confirmed against a real delivered webhook: the email.received event
  * carries only metadata (from/to/subject/message_id/email_id...), no body
  * at all — attachments is an empty array rather than the content being
- * inlined. This fetches the full message by its email_id, mirroring the
- * GET /emails/:id Resend already documents for sent mail. Not yet confirmed
- * this same shape covers received mail — logs its own raw response on a
- * miss, same as the caller does, so a wrong guess here is still one test
- * away from the real field name rather than a dead end.
+ * inlined. The body lives behind GET /emails/receiving/{id} — a distinct
+ * resource from GET /emails/{id} (sent mail; returns 404 for a received
+ * email's id, confirmed the hard way) — per Resend's own Node SDK source
+ * (emails/receiving/receiving.ts), whose response type has `text` and
+ * `html` as plain top-level string-or-null fields, no wrapper.
  */
 async function fetchEmailBody(emailId: string, apiKey: string): Promise<string | null> {
   try {
-    const res = await fetch(`https://api.resend.com/emails/${emailId}`, {
+    const res = await fetch(`https://api.resend.com/emails/receiving/${emailId}`, {
       headers: { authorization: `Bearer ${apiKey}` },
       signal: AbortSignal.timeout(10_000),
     });

@@ -13,6 +13,7 @@ import { writeMemory } from "../src/lib/brain/write";
  *   npm run remember -- --scope global --permanent "Sahip önce sayı ister."
  *   npm run remember -- --scope dept.web.sales --kind decision "Stale eşiği 14 gün."
  *   npm run remember -- --list branch.web
+ *   npm run remember -- --forget <id>   # --list'te görünen id ile, kalıcı siler
  *
  * Scope is required and deliberately not defaulted: the chat `/remember`
  * writes `global`, which is right for a note from the phone and wrong for
@@ -32,12 +33,15 @@ const KINDS: MemoryKind[] = [
 const USAGE = `
 npm run remember -- --scope <kapsam> [--kind <tür>] [--permanent] [--confidence N] "<bilgi>"
 npm run remember -- --list [kapsam]
+npm run remember -- --forget <id>
 
   --scope       zorunlu. global | branch.web | branch.automation
                 | dept.<şube>.<departman> | client.<id>
   --kind        ${KINDS.join(" | ")}   (varsayılan: fact)
   --permanent   kalıcı işaretle — Brain Keeper budamaz
   --confidence  0–1 arası (varsayılan: 0.9)
+  --forget      bir anıyı kalıcı sil — id'yi --list çıktısından al. Geri
+                alınamaz; Brain Keeper'ın budaması gibi geçici değil.
 
 Bir anı ya global ya kapsamlıdır, ikisi birden değil. İki şubede de aynı
 departman adları olduğu için dept kapsamları şube nitelikli olmak zorunda.
@@ -69,7 +73,7 @@ async function list(scope?: string) {
   console.log(`\n${shown.length} anı${scope ? ` — ${scope}` : ""}\n`);
   for (const m of shown.slice(0, 60)) {
     const mark = m.permanent ? "•" : " ";
-    console.log(`${mark} [${m.kind}] ${m.scopes.join(", ")}`);
+    console.log(`${mark} [${m.kind}] ${m.scopes.join(", ")}  ·  id: ${m.id}`);
     console.log(`    ${m.content}`);
   }
   if (shown.length > 60) console.log(`\n… ${shown.length - 60} tane daha`);
@@ -87,6 +91,28 @@ async function main() {
 
   if (args.includes("--list")) {
     await list(flag(args, "list"));
+    await closeDb();
+    return;
+  }
+
+  if (args.includes("--forget")) {
+    const id = flag(args, "forget");
+    if (!id) {
+      console.error("\n--forget için bir id gerekli — önce --list ile bul.\n");
+      await closeDb();
+      process.exit(1);
+    }
+    const { deleteMemory } = await import("../src/lib/brain/write");
+    const result = await deleteMemory(id);
+    if (!result.deleted) {
+      console.log(`\n"${id}" bulunamadı — zaten silinmiş olabilir.\n`);
+    } else {
+      console.log(`\nSilindi: ${id}`);
+      if (result.unlinked > 0) {
+        console.log(`${result.unlinked} anının "bunun yerine geçti" referansı da temizlendi.`);
+      }
+      console.log();
+    }
     await closeDb();
     return;
   }

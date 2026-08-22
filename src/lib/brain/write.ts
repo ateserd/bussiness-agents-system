@@ -140,3 +140,22 @@ export async function recordContradiction(newerId: string, olderId: string): Pro
     .values({ id: randomUUID(), fromId: newerId, toId: olderId, kind: "contradicts" })
     .onConflictDoNothing();
 }
+
+/**
+ * Permanently removes one memory — the owner's own call, not the Brain
+ * Keeper's automated pruning (that curates and merges; it never deletes).
+ *
+ * `memory_links` cascades at the schema level, so no manual cleanup needed
+ * there. `supersedes` is a plain text column, not a foreign key — any memory
+ * that named this one as what it replaced would otherwise be left pointing
+ * at a row that no longer exists, so that reference is cleared first. Delete
+ * is meant to leave nothing dangling, not just the row itself.
+ */
+export async function deleteMemory(id: string): Promise<{ deleted: boolean; unlinked: number }> {
+  const db = await getDb();
+  const dangling = await db.update(memories).set({ supersedes: null }).where(eq(memories.supersedes, id)).returning();
+
+  const removed = await db.delete(memories).where(eq(memories.id, id)).returning();
+
+  return { deleted: removed.length > 0, unlinked: dangling.length };
+}
