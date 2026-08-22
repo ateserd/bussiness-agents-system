@@ -101,12 +101,21 @@ await writeMemory({
 
 ## 4. Delivery & build — unblocks Design, Build, Builder, Shipper
 
+**Chosen and wired:**
+
+| Choice | Where it lives |
+|---|---|
+| Site builder → **Next.js + Tailwind** | `agents/web/delivery/build_agent.yaml` mission |
+| Design → **code-first** (React components, Tailwind scales; no design-file handoff) | `agents/web/delivery/design_agent.yaml` mission |
+| Automation platform → **n8n** | `agents/automation/build/builder.yaml` mission |
+| Lighthouse → **PageSpeed Insights** | `src/lib/agents/tools.ts` → `lighthouse` |
+
+Changing any of them is a one-line edit to that mission; the prompts stay
+platform-agnostic on purpose, so no prompt needs touching.
+
 | Blank | Where | Notes |
 |---|---|---|
-| `[[ SITE BUILDER ]]` | Framer / Webflow / Next.js / WordPress | `agents/web/delivery/build_agent.yaml` mission |
-| `[[ DESIGN TOOL ]]` | Figma / v0 / code-first | `agents/web/delivery/design_agent.yaml` |
-| `[[ n8n / Make / Zapier / Python ]]` | `agents/automation/build/builder.yaml` | An n8n MCP server is available if you use n8n |
-| Lighthouse runner | `src/lib/agents/tools.ts` → `lighthouse` | **Currently returns "unavailable" on purpose** — wire a real runner or leave it honest |
+| `GOOGLE_PAGESPEED_API_KEY` | `.env` | Optional. PSI serves low volume keyless, but the shared quota runs out fast and a 429 makes the Auditor report "could not measure" instead of a score |
 
 ---
 
@@ -132,7 +141,7 @@ database, and reports revenue as unavailable. That is deliberate.
 | `TELEGRAM_BOT_TOKEN` | `.env` | `/api/telegram` returns 503 until set |
 | `TELEGRAM_CHAT_ID` | `.env` | Pins the bot to you — other chats are ignored |
 | `TELEGRAM_WEBHOOK_SECRET` | `.env` | Checked before the body is parsed |
-| Voice transcription | `src/app/api/telegram/route.ts` | Voice notes currently reply "not wired up" |
+| `OPENAI_API_KEY` | `.env` | Voice notes only. Anthropic has no speech-to-text endpoint, so this is the one call to another provider. Unset → voice notes reply that they could not be transcribed; typed commands are unaffected |
 
 Once the token exists:
 
@@ -143,8 +152,19 @@ curl -F "url=https://<your-host>/api/telegram" \
 ```
 
 The command set (`/brief`, `/branch`, `/approve`, `/reject`, `/pause`, `/run`,
-`/remember`, `/blockers`) is already implemented in `src/lib/chat/commands.ts`
-and shared with `npm run brief` — connecting Telegram is transport only.
+`/remember`, `/blockers`) is implemented in `src/lib/chat/commands.ts` and
+shared with `npm run brief`; `deliver()` calls the real `sendMessage`. Nothing
+is left but the tokens.
+
+A voice note is transcribed, echoed back so a misheard command is visible, then
+run through the same parser a typed message uses — the Brain's "sesli not bir
+talimattır, bilgi değil" as code.
+
+Check what is configured:
+
+```bash
+curl https://<your-host>/api/telegram     # {"status":…,"voice":…}
+```
 
 ---
 

@@ -1,14 +1,17 @@
 import { NextResponse } from "next/server";
 import { executeCommand, parseCommand, COMMAND_HELP } from "@/lib/chat/commands";
+import { transcribeVoice } from "@/lib/chat/voice";
 
 /**
  * Telegram webhook — the phone-side command line (§6).
  *
- * SCAFFOLD. The command handling below is real and shared with `npm run brief`;
- * what is missing is a bot token, so nothing is ever sent back to Telegram.
- * Wiring it up is: set TELEGRAM_BOT_TOKEN + TELEGRAM_WEBHOOK_SECRET, point the
- * bot at this route, and replace `deliver()`. See SETUP_TODO.md → "Telefonunu
- * açar".
+ * Complete: command handling is shared with `npm run brief`, and `deliver()`
+ * calls the real sendMessage. All that is missing is the tokens — set
+ * TELEGRAM_BOT_TOKEN + TELEGRAM_WEBHOOK_SECRET and point the bot here. See
+ * SETUP_TODO.md → "Telefonun".
+ *
+ * Voice notes are transcribed and then run as if typed; without
+ * OPENAI_API_KEY that path reports the gap instead of ignoring the message.
  *
  * Incoming update bodies are attacker-controlled: the secret header is checked
  * before anything is parsed, and the chat id is pinned to the owner's.
@@ -30,7 +33,11 @@ export async function POST(req: Request) {
   }
 
   const update = (await req.json()) as {
-    message?: { text?: string; chat?: { id?: number | string }; voice?: unknown };
+    message?: {
+      text?: string;
+      chat?: { id?: number | string };
+      voice?: { file_id?: string; duration?: number };
+    };
   };
 
   const chatId = String(update.message?.chat?.id ?? "");
@@ -40,11 +47,26 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, ignored: true });
   }
 
-  if (update.message?.voice) {
-    return deliver(chatId, "⚠️ Sesli not transkripsiyonu henüz bağlı değil (bkz. SETUP_TODO.md).");
+  let text = update.message?.text?.trim();
+
+  // A voice note is an instruction, not information — the Brain says so. Turn
+  // it into text and let it fall through to the same parser a typed message
+  // uses, so there is one command path rather than two.
+  const voice = update.message?.voice;
+  if (voice?.file_id) {
+    const heard = await transcribeVoice({
+      fileId: voice.file_id,
+      botToken: token,
+      durationSec: voice.duration,
+    });
+    if (!heard.ok) {
+      return deliver(chatId, `⚠️ Sesli not çözümlenemedi (${heard.reason}).`);
+    }
+    // Echo it back: a misheard command should be visible, not silently run.
+    await deliver(chatId, `🎤 “${heard.text}”`);
+    text = heard.text;
   }
 
-  const text = update.message?.text?.trim();
   if (!text) return NextResponse.json({ ok: true });
   if (text === "/help" || text === "/start") return deliver(chatId, COMMAND_HELP);
 
@@ -56,7 +78,6 @@ export async function POST(req: Request) {
   }
 }
 
-/** Replace this with a real sendMessage call once the bot token exists. */
 async function deliver(chatId: string, text: string) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   if (!token) return NextResponse.json({ ok: false, text });
@@ -72,6 +93,7 @@ async function deliver(chatId: string, text: string) {
 export async function GET() {
   return NextResponse.json({
     status: process.env.TELEGRAM_BOT_TOKEN ? "configured" : "not_configured",
+    voice: process.env.OPENAI_API_KEY ? "configured" : "not_configured",
     commands: COMMAND_HELP.split("\n"),
   });
 }

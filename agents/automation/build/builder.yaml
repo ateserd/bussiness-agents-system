@@ -15,7 +15,7 @@ status: idle
 model: claude-haiku-4-5
 effort: low
 mission: >
-  Implements the workflow on the configured platform to the Solution Architect's spec, failure branches included, with every step logging what came in and what went out.
+  Implements the workflow in n8n to the Solution Architect's spec, failure branches included, with every step logging what came in and what went out.
 system_prompt_file: prompts/automation.build.builder.md
 tools:
   - "brain.read"

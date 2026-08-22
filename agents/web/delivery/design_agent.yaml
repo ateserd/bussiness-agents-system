@@ -11,7 +11,7 @@ status: idle
 model: claude-haiku-4-5
 effort: low
 mission: >
-  Produces wireframes, layout direction and component specs from the brief and the approved copy.
+  Produces wireframes, layout direction and component specs from the brief and the approved copy, code-first — the spec names React components and Tailwind scales, not a design-file handoff.
 system_prompt_file: prompts/web.delivery.design_agent.md
 tools:
   - "brain.read"

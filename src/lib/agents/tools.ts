@@ -138,18 +138,86 @@ const browser = () =>
     },
   });
 
+/**
+ * Real Lighthouse numbers, via Google's PageSpeed Insights.
+ *
+ * Every failure path below returns the same ⚠️ shape the stub used to return
+ * unconditionally. That is the point of this tool: a fabricated score would
+ * break rule 2 in the one layer where the model cannot tell it was invented,
+ * so "could not measure" must stay cheaper to say than a plausible number.
+ *
+ * Mobile strategy on purpose — the branch sells to local businesses whose
+ * traffic is overwhelmingly phones, and mobile is where the bad scores are.
+ * `GOOGLE_PAGESPEED_API_KEY` is optional; PSI serves low volume without one.
+ */
+const PSI_ENDPOINT = "https://www.googleapis.com/pagespeedonline/v5/runPagespeed";
+const PSI_TIMEOUT_MS = 45_000;
+
 const lighthouse = () =>
   betaZodTool({
     name: "lighthouse",
-    description: "Bir sayfanın performans skorunu ölçer.",
+    description:
+      "Bir sayfanın Lighthouse skorlarını ölçer (PageSpeed Insights, mobil). Ölçülemezse bunu olduğu gibi bildir.",
     inputSchema: z.object({ url: z.string().url() }),
-    run: async () => {
-      // Deliberately honest: no Lighthouse runner is wired up. Returning a
-      // fabricated score here would violate rule 2 at the tool layer, where the
-      // model could not tell it was invented.
-      return "⚠️ Lighthouse kullanılamıyor (ölçüm aracı bağlı değil — bkz. SETUP_TODO.md). Skor uydurma; ölçemediğini yaz ve gözle görebildiğini raporla.";
+    run: async ({ url }) => {
+      const params = new URLSearchParams({ url, strategy: "mobile" });
+      for (const c of ["performance", "accessibility", "best-practices", "seo"]) {
+        params.append("category", c);
+      }
+      const key = process.env.GOOGLE_PAGESPEED_API_KEY;
+      if (key) params.set("key", key);
+
+      let payload: PsiResponse;
+      try {
+        const res = await fetch(`${PSI_ENDPOINT}?${params}`, {
+          signal: AbortSignal.timeout(PSI_TIMEOUT_MS),
+        });
+        if (!res.ok) {
+          const detail =
+            res.status === 429
+              ? "kota doldu, GOOGLE_PAGESPEED_API_KEY ekleyin"
+              : `PageSpeed ${res.status}`;
+          return unmeasured(url, detail);
+        }
+        payload = (await res.json()) as PsiResponse;
+      } catch (err) {
+        return unmeasured(url, (err as Error).message);
+      }
+
+      const categories = payload.lighthouseResult?.categories;
+      if (!categories) {
+        return unmeasured(url, "PageSpeed sonuç döndürmedi");
+      }
+
+      const pct = (score?: number | null) =>
+        typeof score === "number" ? `${Math.round(score * 100)}/100` : "ölçülemedi";
+      const audits = payload.lighthouseResult?.audits ?? {};
+      const metric = (id: string) => audits[id]?.displayValue ?? "—";
+
+      return [
+        `Lighthouse — ${url} (PageSpeed Insights, mobil)`,
+        `  Performans       ${pct(categories.performance?.score)}`,
+        `  Erişilebilirlik  ${pct(categories.accessibility?.score)}`,
+        `  En iyi pratikler ${pct(categories["best-practices"]?.score)}`,
+        `  SEO              ${pct(categories.seo?.score)}`,
+        "",
+        `  LCP  ${metric("largest-contentful-paint")}`,
+        `  CLS  ${metric("cumulative-layout-shift")}`,
+        `  TBT  ${metric("total-blocking-time")}`,
+      ].join("\n");
     },
   });
+
+type PsiResponse = {
+  lighthouseResult?: {
+    categories?: Record<string, { score?: number | null } | undefined>;
+    audits?: Record<string, { displayValue?: string } | undefined>;
+  };
+};
+
+function unmeasured(url: string, reason: string): string {
+  return `⚠️ Lighthouse kullanılamıyor (${url} ölçülemedi: ${reason}). Skor uydurma; ölçemediğini yaz ve gözle görebildiğini raporla.`;
+}
 
 /* ------------------------------------------------------------------ crm --- */
 

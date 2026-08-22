@@ -11,7 +11,7 @@ status: idle
 model: claude-haiku-4-5
 effort: low
 mission: >
-  Implements the site on the configured platform, to the Design Agent's component spec.
+  Implements the site in Next.js and Tailwind, to the Design Agent's component spec — the component system first, pages second.
 system_prompt_file: prompts/web.delivery.build_agent.md
 tools:
   - "brain.read"
