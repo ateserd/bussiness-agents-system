@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   forceCenter,
   forceCollide,
@@ -14,6 +14,7 @@ import {
   type SimulationNodeDatum,
 } from "d3-force";
 import { copy, fmt } from "@/lib/copy";
+import { addBrainNote, deleteBrainMemory } from "@/lib/actions";
 import type { BrainNode } from "@/lib/data";
 
 /**
@@ -302,7 +303,7 @@ export function Constellation({
           <canvas ref={canvasRef} className="block h-full w-full" />
         </div>
 
-        <MemoryPanel node={selected} />
+        <MemoryPanel node={selected} onDeleted={() => setSelected(null)} />
       </div>
 
       <div className="flex flex-wrap gap-x-8 gap-y-2 pt-1">
@@ -315,7 +316,20 @@ export function Constellation({
   );
 }
 
-function MemoryPanel({ node }: { node: BrainNode | null }) {
+function MemoryPanel({ node, onDeleted }: { node: BrainNode | null; onDeleted: () => void }) {
+  const [pending, startTransition] = useTransition();
+  const [confirming, setConfirming] = useState(false);
+  const [noteText, setNoteText] = useState("");
+  const [flash, setFlash] = useState<string | null>(null);
+
+  // A freshly picked node starts clean — no leftover confirm-state or draft
+  // note from whatever was selected before.
+  useEffect(() => {
+    setConfirming(false);
+    setNoteText("");
+    setFlash(null);
+  }, [node?.id]);
+
   if (!node) {
     return (
       <div
@@ -329,6 +343,22 @@ function MemoryPanel({ node }: { node: BrainNode | null }) {
     );
   }
 
+  const handleDelete = () => {
+    startTransition(async () => {
+      const res = await deleteBrainMemory(node.id);
+      if (res.ok) onDeleted();
+      else setFlash(res.message);
+    });
+  };
+
+  const handleAddNote = () => {
+    startTransition(async () => {
+      const res = await addBrainNote(node.scopes, noteText);
+      setFlash(res.message);
+      if (res.ok) setNoteText("");
+    });
+  };
+
   return (
     <div
       className="flex flex-col gap-5 overflow-y-auto rounded p-6"
@@ -340,10 +370,41 @@ function MemoryPanel({ node }: { node: BrainNode | null }) {
       }}
     >
       <div>
-        <p className="mc-eyebrow" style={{ color: colorOf(node), fontSize: 9.5 }}>
-          {copy.memoryKind[node.kind] ?? node.kind}
-          {node.permanent ? ` · ${copy.brain.permanent}` : ""}
-        </p>
+        <div className="flex items-start justify-between gap-3">
+          <p className="mc-eyebrow" style={{ color: colorOf(node), fontSize: 9.5 }}>
+            {copy.memoryKind[node.kind] ?? node.kind}
+            {node.permanent ? ` · ${copy.brain.permanent}` : ""}
+          </p>
+          {!confirming ? (
+            <button
+              disabled={pending}
+              onClick={() => setConfirming(true)}
+              className="flex-none rounded border px-2 py-1 font-mono text-[9.5px] uppercase tracking-[0.1em] disabled:opacity-40"
+              style={{ borderColor: "var(--line)", color: "var(--dim)" }}
+            >
+              {copy.brain.delete}
+            </button>
+          ) : (
+            <div className="flex flex-none items-center gap-1.5">
+              <button
+                disabled={pending}
+                onClick={handleDelete}
+                className="rounded border px-2 py-1 font-mono text-[9.5px] uppercase tracking-[0.1em] disabled:opacity-40"
+                style={{ borderColor: "rgba(255,77,109,.5)", color: "var(--crit)" }}
+              >
+                {pending ? copy.common.loading : copy.brain.deleteConfirm}
+              </button>
+              <button
+                disabled={pending}
+                onClick={() => setConfirming(false)}
+                className="rounded border px-2 py-1 font-mono text-[9.5px] uppercase tracking-[0.1em] disabled:opacity-40"
+                style={{ borderColor: "var(--line)", color: "var(--dim)" }}
+              >
+                {copy.brain.deleteCancel}
+              </button>
+            </div>
+          )}
+        </div>
         <p className="mb-0 mt-2.5 text-[14px] leading-relaxed">{node.content}</p>
       </div>
 
@@ -364,6 +425,34 @@ function MemoryPanel({ node }: { node: BrainNode | null }) {
           {copy.brain.supersedes}: {node.supersedes.slice(0, 8)}…
         </p>
       )}
+
+      <div className="flex flex-col gap-2 border-t pt-4" style={{ borderColor: "var(--line)" }}>
+        <p className="mc-eyebrow mb-0" style={{ fontSize: 9.5 }}>
+          {copy.brain.addNote}
+        </p>
+        <textarea
+          value={noteText}
+          onChange={(e) => setNoteText(e.target.value)}
+          placeholder={copy.brain.notePlaceholder}
+          rows={3}
+          maxLength={600}
+          className="resize-none rounded border px-3 py-2 text-[12.5px] leading-relaxed"
+          style={{ borderColor: "var(--line)", background: "rgba(11,19,35,.7)", color: "var(--ink)" }}
+        />
+        <button
+          disabled={pending || !noteText.trim()}
+          onClick={handleAddNote}
+          className="self-start rounded px-3 py-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] disabled:opacity-40"
+          style={{ background: colorOf(node), color: "var(--void)" }}
+        >
+          {pending ? copy.common.loading : copy.brain.noteSubmit}
+        </button>
+        {flash && (
+          <p className="m-0 font-mono text-[11px] leading-relaxed" style={{ color: "var(--gold)" }}>
+            {flash}
+          </p>
+        )}
+      </div>
     </div>
   );
 }

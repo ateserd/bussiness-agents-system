@@ -162,6 +162,14 @@ export const copy = {
     supersedes: "Şunun yerine geçti",
     noMatch: "Eşleşen anı yok.",
     pick: "Bir düğüme tıkla.",
+    delete: "Sil",
+    deleteConfirm: "Emin misin? Geri alınamaz.",
+    deleteCancel: "Vazgeç",
+    deleted: "Silindi.",
+    addNote: "Bu kapsama not ekle",
+    notePlaceholder: "Ajanların bu kapsamda görmesini istediğin bir şey yaz…",
+    noteSubmit: "Ekle",
+    noteAdded: "Eklendi — ajanlar bir sonraki çalışmalarında görür.",
   },
 
   memoryKind: {
