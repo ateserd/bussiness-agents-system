@@ -137,20 +137,49 @@ and shared with `npm run brief` — connecting Telegram is transport only.
 ## 7. Scheduling — unblocks the §7 cadence table firing on its own
 
 `npm run tick` runs whatever is due, and is idempotent, so any scheduler can
-call it. Nothing is wired to a clock yet.
+call it. **`/api/tick` and `vercel.json` are now wired**; all that is missing is
+the secret.
+
+| Blank | Where | Notes |
+|---|---|---|
+| `CRON_SECRET` | `.env` | Until set, `/api/tick` returns 503. `npm run tick` is unaffected |
+
+```bash
+# generate one
+openssl rand -hex 32
+```
+
+Set the same value in the Vercel project's environment and Vercel Cron sends it
+as a bearer token on its own. Any other scheduler sends it as a header:
+
+```bash
+curl -H "x-cron-secret: $CRON_SECRET" https://<your-host>/api/tick
+```
 
 | Option | How |
 |---|---|
-| Vercel Cron | `vercel.json` → hit an API route that calls `tick()` every 15 min |
-| A server | `*/15 * * * * cd /path && npm run tick` |
-| Inngest / Trigger.dev | Call `tick()` from a scheduled function |
+| Vercel Cron | Already in `vercel.json` — every 15 min, no further setup |
+| A server | `*/15 * * * * cd /path && npm run tick` (needs no secret) |
+| Inngest / Trigger.dev | Call `tick()` directly from a scheduled function |
+
+The route replays the **last 15 minutes** rather than only the current one.
+`cronMatches` compares the minute exactly, so a cron delivered even a minute
+late would otherwise skip everything due; replaying is safe because the
+idempotency key makes an already-run minute a no-op. Override with `?window=N`
+(1–60).
 
 Check what would fire, without running anything:
 
 ```bash
 npm run tick -- --plan
 npm run tick -- --at "2026-08-24T09:00:00+03:00"
+curl -H "x-cron-secret: $CRON_SECRET" "https://<your-host>/api/tick?plan=1"
 ```
+
+**On serverless:** `tick()` runs due agents sequentially, each with a 120s
+timeout and two retries. Eight leads come due together at 17:00, which can
+outlast any function limit. A server cron running `npm run tick` has no such
+ceiling and is the safer choice once the cadences get real.
 
 ---
 

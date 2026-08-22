@@ -92,4 +92,5 @@ src/db/                         schema · client · migrate · seed
 
 Hepsi `SETUP_TODO.md`'de, neyi açtığına göre gruplanmış durumda. Özet: entegrasyon
 yok (Stripe, takvim, CRM, gönderim, Lighthouse), Telegram taşıma katmanı bağlı
-değil, zamanlayıcı bir saate bağlı değil. `npm run tick` çalışıyor ve idempotent.
+değil. Zamanlayıcı `/api/tick` + `vercel.json` ile saate bağlandı; yalnızca
+`CRON_SECRET` bekliyor. `npm run tick` çalışıyor ve idempotent.

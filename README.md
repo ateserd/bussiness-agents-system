@@ -219,6 +219,13 @@ npm run tick             # run whatever the cadence table says is due
 npm run tick -- --plan   # show the cadence table without running
 ```
 
+On a deployment the same thing happens on its own every 15 minutes, through
+`/api/tick` and the cron in `vercel.json` — once `CRON_SECRET` is set:
+
+```bash
+curl -H "x-cron-secret: $CRON_SECRET" "https://<your-host>/api/tick?plan=1"
+```
+
 ---
 
 ## What is not wired up
@@ -232,7 +239,8 @@ one that is:
   automation platforms are all unconnected; agents report them unavailable.
 - **Telegram is a stub.** The command handling is real and tested; the transport
   needs a bot token.
-- **Nothing is on a clock.** `npm run tick` works and is idempotent; wiring it to
-  a scheduler is yours.
+- **The clock needs a secret.** `/api/tick` and a 15-minute `vercel.json` cron
+  are wired, but the route returns 503 until `CRON_SECRET` is set. `npm run tick`
+  needs nothing and is unaffected.
 
 All of it is itemised in `SETUP_TODO.md`, grouped by what each blank unblocks.
