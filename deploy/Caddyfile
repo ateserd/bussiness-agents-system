@@ -11,10 +11,30 @@
 #   sudo cp deploy/Caddyfile /etc/caddy/Caddyfile
 #   sudo systemctl reload caddy
 #
-# Both the dashboard and everything under /api/ (the Telegram webhook,
-# /api/tick if you ever want the HTTP path too) live on the same Next.js
-# app, so one proxy block covers all of it — no path routing needed.
+# The dashboard has no login of its own — every page and every server
+# action (approve, run agent, delete memory...) trusts whoever can reach
+# it. So everything on this domain sits behind HTTP Basic Auth, except the
+# three webhook paths that already carry their own secret check and whose
+# callers (Telegram, Resend, a cron service) cannot supply a username and
+# password: TELEGRAM_WEBHOOK_SECRET header, Svix signature, and the
+# CRON_SECRET header respectively.
+#
+# Generate your own hash before first use — never commit a real one here:
+#   caddy hash-password
+# Replace REPLACE_WITH_YOUR_OWN_HASH below with its output, and "ates"
+# with whatever username you want to type at the prompt.
 
 mission.atesflowagency.com {
-	reverse_proxy localhost:3000
+	@webhooks path /api/telegram* /api/resend* /api/tick*
+
+	handle @webhooks {
+		reverse_proxy localhost:3000
+	}
+
+	handle {
+		basicauth {
+			ates REPLACE_WITH_YOUR_OWN_HASH
+		}
+		reverse_proxy localhost:3000
+	}
 }

@@ -161,6 +161,22 @@ systemctl list-timers mission-control-tick.timer   # shows the next fire
 
 ## 5. Caddy
 
+The dashboard has no login of its own — every page and every server action
+(approve a card, run an agent, delete a memory) trusts whoever can reach it.
+`deploy/Caddyfile` puts the whole domain behind HTTP Basic Auth to close
+that, carving out only the three webhook paths that already check their own
+secret and whose callers can't supply a username/password (Telegram, Resend,
+`/api/tick`). Generate your own password hash first — never commit a real
+one:
+
+```bash
+caddy hash-password
+```
+
+It prompts for a password and prints a bcrypt hash. Open `deploy/Caddyfile`
+and replace `REPLACE_WITH_YOUR_OWN_HASH` with that output, and `ates` with
+whatever username you want to type at the browser prompt. Then:
+
 ```bash
 cp deploy/Caddyfile /etc/caddy/Caddyfile
 systemctl reload caddy
@@ -172,9 +188,11 @@ at the separate VPS running n8n. Point *that subdomain's* DNS A record at
 this VPS before reloading Caddy; the apex record and n8n's OAuth redirect
 URIs are untouched.
 
-Visit `https://mission.atesflowagency.com` — the dashboard should load,
-showing 49 agents and none of the demo fixtures (no leads, no deals, no
-activity yet — that's correct for a system that hasn't run anything real).
+Visit `https://mission.atesflowagency.com` — the browser should now ask for
+a username and password before showing anything. After that, the dashboard
+loads as before: 49 agents and none of the demo fixtures (no leads, no
+deals, no activity yet — that's correct for a system that hasn't run
+anything real).
 
 ## 6. Telegram webhook
 
