@@ -52,7 +52,14 @@ needs that to resolve before it can request a certificate.
 
 ```bash
 ssh root@your-vps-ip
-apt update && apt install -y curl git
+apt update && apt upgrade -y
+apt install -y curl git
+
+# Only 22 (SSH), 80 and 443 (Caddy) need to be reachable — the app itself
+# binds localhost:3000 and is never exposed directly.
+apt install -y ufw
+ufw allow 22/tcp && ufw allow 80/tcp && ufw allow 443/tcp
+ufw --force enable
 
 # Node 22
 curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
