@@ -151,7 +151,7 @@ const ACTIONS: Record<string, { action: string; lines: string[] }> = {
   },
   closer_support: {
     action: "draft_proposal",
-    lines: ["{c} için teklif taslağı: kapsam, takvim, fiyat kartından.", "{c} sözleşmesi taslak halinde, onay bekliyor."],
+    lines: ["{c} için teklif taslağı: kapsam ve takvim yazıldı, fiyat sahibe bırakıldı.", "{c} sözleşmesi taslak halinde, onay bekliyor."],
   },
   proposal_agent: {
     action: "draft_proposal",
@@ -345,13 +345,14 @@ function buildMemories(): MemSpec[] {
   g("Sözleşme imzası elle atılır; e-imza aracı bağlı değil. Ajanın işi onaya düşen sözleşme taslağında biter.", true, 0.95);
   g("Tahsilat nakit veya IBAN havalesi ile alınır, Stripe kullanılmaz. Gelir ve giderler sahibi tarafından elle girilir.", true, 0.95);
   g("Soğuk arama sahibi tarafından elle yapılır; ajanlar arama listesi ve açılış metni hazırlar, aramayı yapmaz.", true, 0.92);
+  g("Sabit fiyat listesi yok. Her projenin fiyatını sahip belirler; ajan kapsamı ve süreyi yazar, rakamı boş bırakır ve sahibe sorar.", true, 0.96);
+  g("Tutarlar ABD doları cinsindendir.", true, 0.95);
 
   /* --- web branch --- */
   web("Web şubesinde en değerli hedef: sitesi olmayan ama telefonu olan bağımsız işletme.", "fact", 0.85);
   web("Zincir markalar web şubesi için diskalifiye; ICP dışı.", "decision", 0.88);
   web("Denetimde ölçülmeyen metrik yazılmaz; Lighthouse çalışmadıysa öyle denir.", "preference", 0.9);
   web("İlk temas mesajı işletmenin kendi sorunuyla açılır, ajans adıyla değil.", "preference", 0.86);
-  web("Teklif fiyatı her zaman Beyin'deki fiyat kartından okunur.", "decision", 0.9);
   web("QA temiz olmadan hiçbir proje Handoff'a geçmez.", "decision", 0.95);
   web("Restoran ve kafe segmentinde yanıt oranı diğer sektörlerin iki katı.", "lesson", 0.72);
   web("Sitesi hiç olmayan adaylara giden mesajlar, kötü sitesi olanlardan daha çok yanıt alıyor.", "lesson", 0.68);

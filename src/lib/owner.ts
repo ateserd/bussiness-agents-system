@@ -1,14 +1,42 @@
 /**
- * The one human in the system.
- *
- * `[[ YOUR NAME ]]` is a literal placeholder, not a bug: it was never supplied,
- * and inventing it would be worse than showing the gap. Replace the string and
- * it propagates everywhere — the deck apex, the brief header, the chat channel.
- * Listed in SETUP_TODO.md under "Identity".
+ * The one human in the system. Shows at the tree apex, opens every brief, and
+ * names the account the chat channel answers to.
  */
-export const OWNER_NAME = "[[ YOUR NAME ]]";
-export const OWNER_TITLE = "[[ e.g. Founder / The Human ]]";
+export const OWNER_NAME = "Ateş";
+export const OWNER_TITLE = "Kurucu";
 
 /** Europe/Istanbul, per the spec. Used by the scheduler and the brief. */
 export const TIMEZONE = "Europe/Istanbul";
-export const WORKING_HOURS = "[[ e.g. 09:00–19:00 ]]";
+
+/**
+ * Inverted against the usual working week: weekday evenings, full weekend days.
+ *
+ * This is not decoration. Agents run unattended whenever they are scheduled,
+ * but anything that *wants the owner* — the morning brief, an approval that
+ * blocks a send — should land inside these windows, or it waits hours to be
+ * seen. The §7 cadence table was written around a 09:00–19:00 weekday owner and
+ * does not match this yet; see SETUP_TODO.md → Scheduling.
+ */
+export const WORKING_HOURS = "Hafta içi 16:00–20:00 · Hafta sonu 09:00–19:00";
+
+/** Machine-readable form of the above, for scheduling decisions. */
+export const WORKING_WINDOWS = {
+  /** Monday–Friday, 24h clock, Europe/Istanbul. */
+  weekday: { start: 16, end: 20 },
+  /** Saturday and Sunday. */
+  weekend: { start: 9, end: 19 },
+} as const;
+
+/** True when `date` falls inside a window where the owner is actually reachable. */
+export function isWorkingHour(date = new Date()): boolean {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: TIMEZONE,
+    hour12: false,
+    hour: "2-digit",
+    weekday: "short",
+  }).formatToParts(date);
+  const hour = Number(parts.find((p) => p.type === "hour")?.value ?? -1);
+  const day = parts.find((p) => p.type === "weekday")?.value ?? "";
+  const window = day === "Sat" || day === "Sun" ? WORKING_WINDOWS.weekend : WORKING_WINDOWS.weekday;
+  return hour >= window.start && hour < window.end;
+}

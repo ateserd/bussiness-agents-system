@@ -25,13 +25,22 @@ The dashboard runs with all of these unfilled. `npm run dev` needs none of them.
 
 ## 1. Identity — unblocks the deck header, the brief, and the chat channel
 
-| Blank | Where | Notes |
-|---|---|---|
-| `[[ YOUR NAME ]]` | `src/lib/owner.ts` → `OWNER_NAME` | Shows at the tree apex and opens every brief |
-| `[[ e.g. Founder / The Human ]]` | `src/lib/owner.ts` → `OWNER_TITLE` | |
-| `[[ e.g. 09:00–19:00 ]]` | `src/lib/owner.ts` → `WORKING_HOURS` | Used to decide what counts as "today" |
+**Filled.** Ateş · Kurucu · weekdays 16:00–20:00, weekends 09:00–19:00
+(`src/lib/owner.ts`), with `isWorkingHour()` for scheduling decisions.
 
-One edit to `src/lib/owner.ts` clears all three.
+**These hours are inverted against the §7 cadence table**, which was written for
+a 09:00–19:00 weekday owner and has not been adjusted. Agents run unattended
+whenever scheduled, so nothing breaks — but anything that *wants Ateş* lands
+outside his window:
+
+| Cadence | Fires | Reaches him |
+|---|---|---|
+| Morning brief | 07:45 daily | 8 hours before he starts, on a weekday |
+| Department leads' end-of-day | 17:00 weekdays | inside the window |
+| Director weekly review | 09:00 Monday | outside; he starts at 16:00 |
+| Anything at all | — | nothing is scheduled on weekends, his longest working days |
+
+See §7 for the proposed shift.
 
 ---
 
@@ -54,17 +63,10 @@ Brain as permanent global memories, so every agent reads them at run time.
 |---|---|---|
 | `[[ ICP A ]]` | write to the Brain, scope `branch.web` | Prospector reads it at run time and **stops** if absent |
 | `[[ ICP B ]]` | write to the Brain, scope `branch.automation` | same |
-| `APOLLO_API_KEY` | `.env` | **Chosen: Apollo.** Phone numbers are a requirement — the owner cold-calls by hand — and they cost mobile credits on top of the seat. See the credit note below |
+| `[[ LEAD SOURCE ]]` | `.env` | **Apollo rejected.** Still open. Must carry phone numbers — Ateş cold-calls by hand — so a source without them is only half useful |
 | `RESEND_API_KEY` | `.env` | **Chosen: cold email**, plus manual calls. Every message still waits for its own approval |
 | `[[ N ]]/day/channel` | `agents/*/outreach/sender.yaml` → `kpis.target` | Still open. Per-message approval is the real cap now, but a daily ceiling still protects domain reputation |
 | `[[ N ]]` KPI targets | `agents/*/outreach/*.yaml` | Still open. Weekly leads, audits, dossiers |
-
-**Apollo credits, before committing to a plan.** Mobile numbers cost 8 credits
-each and direct dials 5, out of a monthly bucket of 75 on Basic, 100 on
-Professional, 200 on Organization. On Basic that is roughly **9 mobile numbers
-a month** — the binding constraint is credits, not the seat price. Apollo's
-built-in dialer starts at Professional, but that does not matter here: the
-owner dials manually, so Basic buys the same data.
 
 **How to write an ICP into the Brain** (this is the intended path — business
 facts never live in prompt files). No API key, no dev server:
@@ -108,8 +110,7 @@ await writeMemory({
 
 | Blank | Where | Notes |
 |---|---|---|
-| `[[ PRICE POINTS A ]]` | Brain, scope `branch.web` | The rate card. Agents refuse to quote without it |
-| `[[ PRICE POINTS B ]]` | Brain, scope `branch.automation` | Build fee bands + retainer bands |
+| Pricing | — | **Chosen: no rate card.** Prices are per-project and set by Ateş, in USD. Seeded as a permanent global rule: an agent writes the scope and the timeline, leaves the number blank, and asks. The old "read the price from the Brain's rate card" rule is gone — it described a card that will never exist |
 | E-signature | — | **Chosen: manual.** No tool. `send_contract` is gated unconditionally, so an agent's job ends at a drafted contract in the approval queue; the owner signs |
 | `[[ N ]] days` stale threshold | Brain, scope `dept.web.sales` / `dept.automation.sales` | Currently seeded at 14 days |
 | `[[ $N ]]` escalation ceiling | `agents/shared/command/chief_of_staff.yaml` | Above this, the COS escalates rather than deciding |
