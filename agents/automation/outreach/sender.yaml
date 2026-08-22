@@ -32,5 +32,5 @@ escalate_to_human_when:
 kpis:
   - name: messages_sent
     label: "Gönderim"
-    target: "[[ N ]]"
+    target: 10
     window: daily

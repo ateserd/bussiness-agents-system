@@ -28,19 +28,21 @@ The dashboard runs with all of these unfilled. `npm run dev` needs none of them.
 **Filled.** Ateş · Kurucu · weekdays 16:00–20:00, weekends 09:00–19:00
 (`src/lib/owner.ts`), with `isWorkingHour()` for scheduling decisions.
 
-**These hours are inverted against the §7 cadence table**, which was written for
-a 09:00–19:00 weekday owner and has not been adjusted. Agents run unattended
-whenever scheduled, so nothing breaks — but anything that *wants Ateş* lands
-outside his window:
+These hours are inverted against a normal working week, and the §7 cadences
+were rewritten around them — everything that wants Ateş is now ready *before* a
+window opens rather than during it:
 
-| Cadence | Fires | Reaches him |
+| Cadence | Was | Now |
 |---|---|---|
-| Morning brief | 07:45 daily | 8 hours before he starts, on a weekday |
-| Department leads' end-of-day | 17:00 weekdays | inside the window |
-| Director weekly review | 09:00 Monday | outside; he starts at 16:00 |
-| Anything at all | — | nothing is scheduled on weekends, his longest working days |
+| Morning brief | 07:45 daily | **07:30 daily** |
+| Department leads' end-of-day | 17:00 weekdays | **15:15 weekdays** — filed before he sits down at 16:00 |
+| Director weekly review | 09:00 Monday | **07:00 Monday** |
 
-See §7 for the proposed shift.
+Still on the old clock, not raised: the evening wrap (19:00 daily), the weekly
+P&L (09:00 Monday), Client Success (10:00 weekdays), Brain Keeper (16:00 Friday)
+and Call Prep (09:30 weekdays). Call Prep is the one worth a second look — it
+writes briefs for the day's calls at 09:30, which on a weekday is six hours
+before he is reachable.
 
 ---
 
@@ -59,14 +61,32 @@ asked rather than expected to check a dashboard. Agents never write replies to
 incoming mail; they draft, and the draft waits. These rules also live in the
 Brain as permanent global memories, so every agent reads them at run time.
 
+**ICP A — Ateş Design** (Brain, `branch.web`): anywhere in Turkey, any sector,
+under 30 staff, and **no website at all**. Disqualified: chains and franchises,
+and businesses with zero Google reviews — no reviews means too small for this
+work. A prospect who turns out to have a site is out, however good it looks.
+
+**ICP B — Ateş Flow** (Brain, `branch.automation`): anywhere in Turkey, any
+sector, under 30 staff, running systems that AI can be integrated into. The
+qualifying test is n8n: if n8n cannot connect to what they use, the lead is out.
+That constraint is the filter, not a footnote. Same disqualifiers as ICP A.
+
 | Blank | Where | Notes |
 |---|---|---|
-| `[[ ICP A ]]` | write to the Brain, scope `branch.web` | Prospector reads it at run time and **stops** if absent |
-| `[[ ICP B ]]` | write to the Brain, scope `branch.automation` | same |
-| `[[ LEAD SOURCE ]]` | `.env` | **Apollo rejected.** Still open. Must carry phone numbers — Ateş cold-calls by hand — so a source without them is only half useful |
-| `RESEND_API_KEY` | `.env` | **Chosen: cold email**, plus manual calls. Every message still waits for its own approval |
-| `[[ N ]]/day/channel` | `agents/*/outreach/sender.yaml` → `kpis.target` | Still open. Per-message approval is the real cap now, but a daily ceiling still protects domain reputation |
-| `[[ N ]]` KPI targets | `agents/*/outreach/*.yaml` | Still open. Weekly leads, audits, dossiers |
+| Lead source | — | **Chosen: Google Maps scraping**, both branches. It carries the two signals the ICPs turn on — has-a-website and review count — plus the phone number Ateş dials. **Not wired yet**: needs a fetch route chosen (Places API, a scraper service, or custom) |
+| `RESEND_API_KEY` | `.env` | **Chosen: cold email**, plus manual calls |
+| Sender daily cap | `agents/*/outreach/sender.yaml` | **10 per mailbox per day.** Below the 20–30 "safe" ceiling on purpose: every message needs its own approval, and 10 approvals fits a 4-hour weekday window where 50 would not |
+| Prospector target | `agents/*/outreach/prospector.yaml` | **100 / week** |
+| Auditor target | `agents/web/outreach/auditor.yaml` | **30 / week** |
+| Draftsman target | — | **None, deliberately.** It writes exactly as many drafts as there are messages to send; a number would either cap real work or invent it |
+
+**The Auditor was rebuilt for ICP A.** Its job was "visit the prospect's current
+website and score it" — but every valid ICP A lead has no website, so there
+would have been nothing to visit. It now confirms the absence, then audits what
+a customer actually finds instead: the Maps listing, the review count and
+recency, whether the owner replies, the photos, and which social profile is
+doing a website's job. Lighthouse stays for the rare prospect who turns out to
+have a site — which is a disqualification, and a finding.
 
 **How to write an ICP into the Brain** (this is the intended path — business
 facts never live in prompt files). No API key, no dev server:

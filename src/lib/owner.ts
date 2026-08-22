@@ -13,9 +13,9 @@ export const TIMEZONE = "Europe/Istanbul";
  *
  * This is not decoration. Agents run unattended whenever they are scheduled,
  * but anything that *wants the owner* — the morning brief, an approval that
- * blocks a send — should land inside these windows, or it waits hours to be
- * seen. The §7 cadence table was written around a 09:00–19:00 weekday owner and
- * does not match this yet; see SETUP_TODO.md → Scheduling.
+ * blocks a send — has to land where he will see it. The §7 cadences were
+ * rewritten around these windows: work is filed *before* a window opens rather
+ * than during it, so he starts each session with the reports already waiting.
  */
 export const WORKING_HOURS = "Hafta içi 16:00–20:00 · Hafta sonu 09:00–19:00";
 

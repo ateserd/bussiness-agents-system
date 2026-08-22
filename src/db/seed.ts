@@ -347,9 +347,14 @@ function buildMemories(): MemSpec[] {
   g("Soğuk arama sahibi tarafından elle yapılır; ajanlar arama listesi ve açılış metni hazırlar, aramayı yapmaz.", true, 0.92);
   g("Sabit fiyat listesi yok. Her projenin fiyatını sahip belirler; ajan kapsamı ve süreyi yazar, rakamı boş bırakır ve sahibe sorar.", true, 0.96);
   g("Tutarlar ABD doları cinsindendir.", true, 0.95);
+  g("Lead listesi Google Haritalar'dan çıkarılır — iki şube için de. İşletme adı, telefon, adres, kategori, yorum sayısı ve sitesi olup olmadığı oradan gelir.", true, 0.95);
+  g("Soğuk e-posta kutu başına günde 10 mesajı geçmez. Hacim asla bir günden diğerine iki katına çıkarılmaz; alan adı itibarını yakan en yaygın hata budur.", true, 0.96);
 
   /* --- web branch --- */
   web("Web şubesinde en değerli hedef: sitesi olmayan ama telefonu olan bağımsız işletme.", "fact", 0.85);
+  web("ICP A — Ateş Design hedef müşterisi: Türkiye'nin her şehri, her sektör, 30 kişinin altında çalışanı olan, HİÇ web sitesi olmayan işletmeler.", "decision", 0.97);
+  web("ICP A diskalifiye: zincir ve franchise işletmeler; ayrıca Google yorumu hiç olmayan çok küçük işletmeler — yorum yokluğu işletmenin bu iş için fazla küçük olduğunun işareti.", "decision", 0.95);
+  web("Sitesi zayıf olan değil, sitesi HİÇ OLMAYAN işletme hedeftir. Mevcut sitesi olan aday ICP A dışıdır.", "decision", 0.95);
   web("Zincir markalar web şubesi için diskalifiye; ICP dışı.", "decision", 0.88);
   web("Denetimde ölçülmeyen metrik yazılmaz; Lighthouse çalışmadıysa öyle denir.", "preference", 0.9);
   web("İlk temas mesajı işletmenin kendi sorunuyla açılır, ajans adıyla değil.", "preference", 0.86);
@@ -370,6 +375,9 @@ function buildMemories(): MemSpec[] {
 
   /* --- automation branch --- */
   auto("Otomasyon şubesi gözlemlenen bir elle süreç üzerinden satar, teknoloji üzerinden değil.", "fact", 0.9);
+  auto("ICP B — Ateş Flow hedef müşterisi: Türkiye'nin her şehri, her sektör, 30 kişinin altında çalışanı olan, kullandığı sistemlere yapay zekâ entegre edilebilen işletmeler.", "decision", 0.97);
+  auto("Entegrasyon n8n ile yapılıyor; eleme kriteri bu. Adayın kullandığı sisteme n8n bağlanamıyorsa aday ICP B dışıdır — esneklik sınırı burada.", "decision", 0.96);
+  auto("ICP B diskalifiye: zincir ve franchise işletmeler; ayrıca Google yorumu hiç olmayan çok küçük işletmeler.", "decision", 0.95);
   auto("Teklif her zaman kurulum ücreti + aylık bakım olarak ikiye ayrılır.", "decision", 0.92);
   auto("Aylık bakım bedeli izleme maliyetinin altına inemez.", "decision", 0.94);
   auto("Canlı akış sağlığı, yeni satıştan önce gelir.", "decision", 0.95);

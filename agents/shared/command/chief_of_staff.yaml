@@ -23,7 +23,7 @@ memory_scopes:
   - "global"
   - "branch.web"
   - "branch.automation"
-schedule: "45 7 * * *"
+schedule: "30 7 * * *"
 autonomy: propose
 approval_required_for: []
 escalate_to_human_when:

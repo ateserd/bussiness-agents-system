@@ -25,8 +25,7 @@ schedule: null
 autonomy: propose
 approval_required_for: []
 escalate_to_human_when: []
-kpis:
-  - name: sequences_written
-    label: "Dizi"
-    target: "[[ N ]]"
-    window: weekly
+# No count target on purpose: the Draftsman writes exactly as many drafts as
+# there are messages to send, so a number here would either cap real work or
+# invent work to hit. The Sender's daily cap is the real ceiling.
+kpis: []

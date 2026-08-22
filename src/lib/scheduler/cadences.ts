@@ -30,14 +30,14 @@ export const EXTRA_CADENCES: Cadence[] = [
   },
   {
     id: "leads.end_of_day",
-    cron: "0 17 * * 1-5",
+    cron: "15 15 * * 1-5",
     agents: (ids) => ids.filter((id) => id.endsWith(".lead")),
     label: "Bölüm liderleri gün sonu rakamları",
     task: "Bugünün rakamlarını direktörüne dosyala. Huniyi sırayla kontrol et ve en dar adımı adlandır.",
   },
   {
     id: "directors.weekly_review",
-    cron: "0 9 * * 1",
+    cron: "0 7 * * 1",
     agents: ["web.command.director", "automation.command.director"],
     label: "Haftalık şube incelemesi",
     task: "Haftalık şube incelemesini dosyala: rakamlar, ne ilerledi, ne takıldı, ne değiştiriyorsun.",

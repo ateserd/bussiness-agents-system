@@ -21,7 +21,7 @@ memory_scopes:
   - "global"
   - "branch.automation"
   - "dept.automation.content"
-schedule: "0 17 * * 1-5"
+schedule: "15 15 * * 1-5"
 autonomy: propose
 approval_required_for: []
 escalate_to_human_when: []

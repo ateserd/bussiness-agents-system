@@ -31,5 +31,5 @@ escalate_to_human_when: []
 kpis:
   - name: leads_added
     label: "Lead"
-    target: "[[ N ]]"
+    target: 100
     window: weekly

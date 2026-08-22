@@ -22,7 +22,7 @@ tools:
 memory_scopes:
   - "global"
   - "branch.automation"
-schedule: "0 9 * * 1"
+schedule: "0 7 * * 1"
 autonomy: propose
 approval_required_for: []
 escalate_to_human_when:
