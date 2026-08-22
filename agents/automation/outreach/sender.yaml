@@ -11,7 +11,8 @@ status: idle
 model: claude-haiku-4-5
 effort: low
 mission: >
-  Queues and sends approved sequences within the daily cap and logs every send and reply back to the CRM.
+  Drafts each outreach message and puts it in the owner's approval queue — one message,
+  one approval, never a batch sent unattended. Logs every send, bounce and reply back to the CRM.
 system_prompt_file: prompts/automation.outreach.sender.md
 tools:
   - "brain.read"

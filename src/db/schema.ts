@@ -333,8 +333,38 @@ export const invoices = pgTable(
   (t) => [index("invoices_branch_state_idx").on(t.branch, t.state)],
 );
 
+/**
+ * Costs the owner enters by hand.
+ *
+ * There is no accounting integration and no card processor: money arrives as
+ * cash or a bank transfer, and goes out the same way. Without this table the
+ * LEDGER can only ever show revenue, which is not a P&L — it is half of one,
+ * and the flattering half.
+ *
+ * Agent token spend is not an expense row. It is already counted per run in
+ * `activity.cost_usd`, and writing it here too would double it.
+ */
+export const expenses = pgTable(
+  "expenses",
+  {
+    id: text("id").primaryKey(),
+    /** null when the cost belongs to the business rather than to one branch. */
+    branch: text("branch").$type<Branch>(),
+    category: text("category").notNull(),
+    description: text("description").notNull(),
+    amountUsd: numeric("amount_usd", { precision: 12, scale: 2 }).notNull(),
+    /** true for rent, subscriptions and anything else that repeats monthly. */
+    recurring: boolean("recurring").notNull().default(false),
+    spentAt: timestamp("spent_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("expenses_branch_spent_idx").on(t.branch, t.spentAt)],
+);
+
 export type Agent = typeof agents.$inferSelect;
 export type NewAgent = typeof agents.$inferInsert;
+export type Expense = typeof expenses.$inferSelect;
+export type NewExpense = typeof expenses.$inferInsert;
 export type Activity = typeof activity.$inferSelect;
 export type NewActivity = typeof activity.$inferInsert;
 export type Memory = typeof memories.$inferSelect;

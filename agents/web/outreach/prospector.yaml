@@ -11,7 +11,8 @@ status: idle
 model: claude-haiku-4-5
 effort: low
 mission: >
-  Builds lead lists matching ICP A from the configured sources, deduplicates against everything already in the CRM, and hands each new lead to the Auditor.
+  Builds the branch's lead list from the configured source against ICP A in the Brain, and records a
+  phone number wherever one exists — the owner cold-calls by hand, so a lead without a number is half a lead.
 system_prompt_file: prompts/web.outreach.prospector.md
 tools:
   - "brain.read"

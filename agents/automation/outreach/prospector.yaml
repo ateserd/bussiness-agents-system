@@ -11,7 +11,7 @@ status: idle
 model: claude-haiku-4-5
 effort: low
 mission: >
-  Builds lead lists matching ICP B, deduplicates against the CRM, and hands each qualifying lead to Dossier.
+  Builds lead lists matching ICP B, deduplicates against the CRM, records a phone number wherever one exists for the owner's manual calls, and hands each qualifying lead to Dossier.
 system_prompt_file: prompts/automation.outreach.prospector.md
 tools:
   - "brain.read"

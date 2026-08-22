@@ -6,6 +6,7 @@ import {
   approvals,
   clients,
   deals,
+  expenses,
   invoices,
   kpiSnapshots,
   memories,
@@ -19,7 +20,7 @@ import {
   type Memory,
 } from "@/db/schema";
 import { fmt } from "@/lib/copy";
-import { fetchRevenueMtd } from "@/lib/integrations/stripe";
+import { fetchRevenueMtd, stripeConfigured } from "@/lib/integrations/stripe";
 
 /**
  * Every read the views make. Server Components call these directly; nothing in
@@ -128,6 +129,10 @@ export type BranchLedger = {
   branch: Branch;
   revenueMtd: number;
   cashCollected: number;
+  /** Hand-entered costs for the month. Agent token spend is not counted here. */
+  expensesMtd: number;
+  /** revenue − expenses − agent cost. The half of the P&L that was missing. */
+  netMtd: number;
   pipelineValue: number;
   liveProjects: number;
   unpaidInvoices: number;
@@ -149,7 +154,7 @@ export async function getLedger(): Promise<{
   const db = await getDb();
   const monthStart = MONTH_START();
 
-  const [invoiceRows, dealRows, projectRows, costRows] = await Promise.all([
+  const [invoiceRows, dealRows, projectRows, costRows, expenseRows] = await Promise.all([
     db.select().from(invoices),
     db.select().from(deals),
     db.select().from(projects),
@@ -161,15 +166,29 @@ export async function getLedger(): Promise<{
       .from(activity)
       .where(gte(activity.startedAt, monthStart))
       .groupBy(activity.branch),
+    db.select().from(expenses).where(gte(expenses.spentAt, monthStart)),
   ]);
 
   const costByBranch = new Map(costRows.map((r) => [r.branch, Number(r.total)]));
 
-  // Revenue is what Stripe actually settled, not what the invoice table hoped
-  // for. When Stripe cannot answer — no key, mixed currencies, too many pages —
-  // the field is reported unavailable with that reason rather than falling back
-  // to the local number, which would look like revenue and not be.
-  const revenue = await fetchRevenueMtd(monthStart);
+  // Branch-less expenses — the accountant, bank fees — belong to the business,
+  // not to either P&L, so they are split evenly rather than landing on whichever
+  // branch happens to be listed first.
+  const shared = expenseRows.filter((e) => !e.branch).reduce((n, e) => n + Number(e.amountUsd), 0);
+  const expenseByBranch = new Map<string, number>();
+  for (const branch of ["web", "automation"]) {
+    const own = expenseRows
+      .filter((e) => e.branch === branch)
+      .reduce((n, e) => n + Number(e.amountUsd), 0);
+    expenseByBranch.set(branch, own + shared / 2);
+  }
+
+  // Money arrives as cash or a bank transfer and is entered by hand, so the
+  // recorded payments *are* the source of truth — not a stand-in for one. Stripe
+  // is consulted only if a key exists, for whoever wires a processor later; when
+  // it is configured but cannot answer, that is reported rather than papered
+  // over with the manual figure, which would silently mean something else.
+  const stripe = stripeConfigured() ? await fetchRevenueMtd(monthStart) : null;
 
   const branches: BranchLedger[] = (["web", "automation"] as const).map((branch) => {
     const inv = invoiceRows.filter((i) => i.branch === branch);
@@ -182,21 +201,29 @@ export async function getLedger(): Promise<{
     );
 
     const unavailable: { field: string; reason: string }[] = [];
-    if (!revenue.ok) {
-      unavailable.push({ field: "revenueMtd", reason: revenue.reason });
-    } else if (revenue.untagged > 0) {
+    if (stripe && !stripe.ok) {
+      unavailable.push({ field: "revenueMtd", reason: stripe.reason });
+    } else if (stripe?.ok && stripe.untagged > 0) {
       // Two branches, two P&Ls: an untagged charge belongs to neither until
       // someone tags it. Saying so beats splitting it by guess.
       unavailable.push({
         field: "revenueMtd",
-        reason: `${fmt.money(revenue.untagged, revenue.currency)} tahsilatta branch etiketi yok`,
+        reason: `${fmt.money(stripe.untagged, stripe.currency)} tahsilatta branch etiketi yok`,
       });
     }
 
+    const expensesMtd = expenseByBranch.get(branch) ?? 0;
+    const revenueMtd = stripe?.ok ? stripe.byBranch[branch] : collected;
+
     return {
       branch,
-      revenueMtd: revenue.ok ? revenue.byBranch[branch] : 0,
+      revenueMtd: stripe && !stripe.ok ? 0 : revenueMtd,
       cashCollected: collected,
+      expensesMtd,
+      // Revenue less what it cost to earn: hand-entered expenses plus the token
+      // spend already recorded per run. Without the expense side this was
+      // revenue wearing a profit label.
+      netMtd: (stripe && !stripe.ok ? 0 : revenueMtd) - expensesMtd - (costByBranch.get(branch) ?? 0),
       pipelineValue: open.reduce((n, d) => n + Number(d.valueUsd), 0),
       liveProjects: projectRows.filter((p) => p.branch === branch).length,
       unpaidInvoices: unpaid.reduce((n, i) => n + Number(i.amountUsd), 0),

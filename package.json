@@ -17,7 +17,8 @@
     "agent:list": "tsx scripts/run-agent.ts --list",
     "tick": "tsx scripts/tick.ts",
     "brief": "tsx scripts/brief.ts",
-    "remember": "tsx scripts/remember.ts"
+    "remember": "tsx scripts/remember.ts",
+    "money": "tsx scripts/money.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.120.0",

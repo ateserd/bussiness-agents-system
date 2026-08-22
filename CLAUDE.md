@@ -36,6 +36,13 @@ src/db/                         schema · client · migrate · seed
   bir fiyat değişikliğini kod değişikliğine çevirir.
 - **Onay kapıları araç `run()`'ının İÇİNDE.** Başka bir döngü, retry veya yeni
   bir çağıran kapıyı atlayamaz. Dışarıya tek bir yol var, o da oradan geçer.
+- **`outreach_send` ve `send_contract` KOŞULSUZ kapılı** — `gatedBy` kontrolü
+  yok. YAML'dan kapıyı silmek ya da ajanı `act_freely` yapmak bir yabancının
+  gelen kutusuna yol açamaz. Sahibin duran talimatı bu; config'e bağlı bir kural
+  bu talimat değildir. `publish`/`deploy`/`spend` ajan bazında kalmaya devam
+  ediyor, onlar meşru biçimde role bağlı.
+- **Her onay kartı oluşturulduğunda Telegram'a düşer** (`notifyOwner`). Sahip
+  panele bakmak zorunda değil; bildirim başarısız olursa çalışma bozulmaz.
 - **Kapsam yalıtımı tek bir yerde:** `src/lib/brain/scope.ts` → `scopeMatches`.
   Başka hiçbir yerde kapsam kontrolü yazma.
 - **Kaynak yoksa sayı uydurulmaz.** `⚠️ <kaynak> kullanılamıyor (<sebep>)`

@@ -7,6 +7,7 @@ import { getDb } from "@/db/client";
 import { agents, approvals, leads } from "@/db/schema";
 import { recall } from "@/lib/brain/search";
 import { writeMemory } from "@/lib/brain/write";
+import { clip, notifyOwner } from "@/lib/chat/notify";
 import type { AgentConfig } from "./registry";
 
 /**
@@ -35,8 +36,9 @@ async function requireApproval(
   context: Record<string, unknown> = {},
 ): Promise<string> {
   const db = await getDb();
+  const approvalId = randomUUID();
   await db.insert(approvals).values({
-    id: randomUUID(),
+    id: approvalId,
     agentId: ctx.agent.id,
     branch: ctx.agent.branch,
     gate,
@@ -49,6 +51,21 @@ async function requireApproval(
   });
   await db.update(agents).set({ status: "needs_approval" }).where(eq(agents.id, ctx.agent.id));
   ctx.gated.push({ gate, title });
+
+  // Ask, rather than wait to be checked on. Deliberately not awaited into the
+  // control flow beyond this point: the card is already written, so a failed
+  // ping must not fail the run.
+  await notifyOwner(
+    [
+      `⏸ ONAY GEREKİYOR — ${ctx.agent.display_name}`,
+      title,
+      "",
+      clip(draft),
+      "",
+      `/approve ${approvalId}`,
+      `/reject ${approvalId} <sebep>`,
+    ].join("\n"),
+  );
 
   return [
     `DURDURULDU — bu aksiyon "${gate}" onay kapısının arkasında.`,
@@ -274,13 +291,15 @@ const outreachSend = (ctx: ToolContext) =>
       body: z.string(),
     }),
     run: async ({ to, channel, body }) => {
-      if (gatedBy(ctx.agent, "sending_external_messages")) {
-        return requireApproval(ctx, "sending_external_messages", `${to} — ${channel} gönderimi`, body, {
-          to,
-          channel,
-        });
-      }
-      return `Kuyruğa alındı: ${to} (${channel}). Kota kontrolü gönderim sırasında yapılacak.`;
+      // Unconditional, unlike the other gates: no `gatedBy` check, so removing
+      // the gate from an agent's YAML or raising it to act_freely cannot open a
+      // path to a stranger's inbox. The owner's standing instruction is that
+      // nothing reaches a prospect without being asked first, and a rule that
+      // depends on config being right is not that rule.
+      return requireApproval(ctx, "sending_external_messages", `${to} — ${channel} gönderimi`, body, {
+        to,
+        channel,
+      });
     },
   });
 
@@ -290,13 +309,13 @@ const sendContract = (ctx: ToolContext) =>
     description: "Sözleşme veya teklif gönderir. Her zaman onay kapısı arkasındadır.",
     inputSchema: z.object({ client: z.string(), document: z.string(), valueUsd: z.number().optional() }),
     run: async ({ client, document, valueUsd }) => {
-      if (gatedBy(ctx.agent, "sending_contracts") || gatedBy(ctx.agent, "sending_external_messages")) {
-        return requireApproval(ctx, "sending_contracts", `${client} — sözleşme`, document, {
-          client,
-          valueUsd,
-        });
-      }
-      return `${client} sözleşmesi gönderildi.`;
+      // Unconditional, like outreach_send — which is what the description above
+      // has always claimed. Signing is manual by the owner's decision, so an
+      // agent's job ends at a drafted contract sitting in the approval queue.
+      return requireApproval(ctx, "sending_contracts", `${client} — sözleşme`, document, {
+        client,
+        valueUsd,
+      });
     },
   });
 

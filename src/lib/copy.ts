@@ -136,6 +136,8 @@ export const copy = {
     liveProjects: "Canlı proje",
     unpaidInvoices: "Ödenmemiş fatura",
     agentCost: "Ajan maliyeti",
+    expensesMtd: "Bu ay gider",
+    netMtd: "Net",
     trend: "12 haftalık seyir",
     unavailable: "kaynak bağlı değil",
   },

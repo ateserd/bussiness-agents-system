@@ -8,6 +8,13 @@
       "when": 1787335007317,
       "tag": "0000_lumpy_mandrill",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1787385124423,
+      "tag": "0001_melted_jackal",
+      "breakpoints": true
     }
   ]
 }

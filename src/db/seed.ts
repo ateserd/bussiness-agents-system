@@ -338,6 +338,14 @@ function buildMemories(): MemSpec[] {
   g("Sahip sesli not gönderdiğinde bu bir talimattır, bilgi değil.", false, 0.75);
   g("Onay kapısı olan hiçbir aksiyon, onay kaydı olmadan yürütülmez.", true, 0.98);
 
+  /* --- the owner's standing control rules --- */
+  g("Hiçbir ajan sahibin onayı olmadan bir yabancıya mesaj göndermez; her temas ayrı ayrı onaylanır.", true, 0.99);
+  g("Onay istekleri Telegram'dan sahibin telefonuna gider; sahip panele bakmak zorunda bırakılmaz.", true, 0.95);
+  g("Gelen e-postalara ajanlar yanıt yazmaz. Yanıtı sahip yazar; ajan yalnızca taslak hazırlar ve onaya sunar.", true, 0.97);
+  g("Sözleşme imzası elle atılır; e-imza aracı bağlı değil. Ajanın işi onaya düşen sözleşme taslağında biter.", true, 0.95);
+  g("Tahsilat nakit veya IBAN havalesi ile alınır, Stripe kullanılmaz. Gelir ve giderler sahibi tarafından elle girilir.", true, 0.95);
+  g("Soğuk arama sahibi tarafından elle yapılır; ajanlar arama listesi ve açılış metni hazırlar, aramayı yapmaz.", true, 0.92);
+
   /* --- web branch --- */
   web("Web şubesinde en değerli hedef: sitesi olmayan ama telefonu olan bağımsız işletme.", "fact", 0.85);
   web("Zincir markalar web şubesi için diskalifiye; ICP dışı.", "decision", 0.88);

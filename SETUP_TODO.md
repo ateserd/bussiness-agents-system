@@ -40,14 +40,31 @@ One edit to `src/lib/owner.ts` clears all three.
 Until these exist, outreach agents can list and audit but cannot legitimately
 build a target list or send anything.
 
+**The owner's standing rule, and how it is enforced.** Nothing reaches a
+stranger without being approved first, one message at a time. This is not a
+config setting: `outreach_send` and `send_contract` call `requireApproval`
+**unconditionally**, with no `gatedBy` check, so deleting the gate from an
+agent's YAML or raising it to `act_freely` still cannot open a path to an
+inbox. Each approval is pushed to Telegram as it is created, so the owner is
+asked rather than expected to check a dashboard. Agents never write replies to
+incoming mail; they draft, and the draft waits. These rules also live in the
+Brain as permanent global memories, so every agent reads them at run time.
+
 | Blank | Where | Notes |
 |---|---|---|
 | `[[ ICP A ]]` | write to the Brain, scope `branch.web` | Prospector reads it at run time and **stops** if absent |
 | `[[ ICP B ]]` | write to the Brain, scope `branch.automation` | same |
-| `[[ LEAD SOURCE ]]` | Apollo / Apify / LinkedIn / local | `APOLLO_API_KEY` in `.env` |
-| `[[ SENDING TOOL ]]` | email / IG DM / LinkedIn / cold call | `RESEND_API_KEY` or equivalent |
-| `[[ N ]]/day/channel` | `agents/*/outreach/sender.yaml` → `kpis.target` | Hard cap; exceeding it burns domain reputation |
-| `[[ N ]]` KPI targets | `agents/*/outreach/*.yaml` | Weekly leads, audits, dossiers |
+| `APOLLO_API_KEY` | `.env` | **Chosen: Apollo.** Phone numbers are a requirement — the owner cold-calls by hand — and they cost mobile credits on top of the seat. See the credit note below |
+| `RESEND_API_KEY` | `.env` | **Chosen: cold email**, plus manual calls. Every message still waits for its own approval |
+| `[[ N ]]/day/channel` | `agents/*/outreach/sender.yaml` → `kpis.target` | Still open. Per-message approval is the real cap now, but a daily ceiling still protects domain reputation |
+| `[[ N ]]` KPI targets | `agents/*/outreach/*.yaml` | Still open. Weekly leads, audits, dossiers |
+
+**Apollo credits, before committing to a plan.** Mobile numbers cost 8 credits
+each and direct dials 5, out of a monthly bucket of 75 on Basic, 100 on
+Professional, 200 on Organization. On Basic that is roughly **9 mobile numbers
+a month** — the binding constraint is credits, not the seat price. Apollo's
+built-in dialer starts at Professional, but that does not matter here: the
+owner dials manually, so Basic buys the same data.
 
 **How to write an ICP into the Brain** (this is the intended path — business
 facts never live in prompt files). No API key, no dev server:
@@ -93,7 +110,7 @@ await writeMemory({
 |---|---|---|
 | `[[ PRICE POINTS A ]]` | Brain, scope `branch.web` | The rate card. Agents refuse to quote without it |
 | `[[ PRICE POINTS B ]]` | Brain, scope `branch.automation` | Build fee bands + retainer bands |
-| `[[ E-SIGN TOOL ]]` | integration | Contract delivery |
+| E-signature | — | **Chosen: manual.** No tool. `send_contract` is gated unconditionally, so an agent's job ends at a drafted contract in the approval queue; the owner signs |
 | `[[ N ]] days` stale threshold | Brain, scope `dept.web.sales` / `dept.automation.sales` | Currently seeded at 14 days |
 | `[[ $N ]]` escalation ceiling | `agents/shared/command/chief_of_staff.yaml` | Above this, the COS escalates rather than deciding |
 
@@ -121,14 +138,23 @@ platform-agnostic on purpose, so no prompt needs touching.
 
 ## 5. The Ledger — unblocks Finance and the cash lines in every brief
 
-Right now the LEDGER shows real pipeline, project and invoice numbers from the
-database, and reports revenue as unavailable. That is deliberate.
+The LEDGER now shows a real per-branch P&L: revenue less hand-entered expenses
+less the token spend already recorded per run. Expenses with no branch — the
+accountant, bank fees — are split evenly rather than landing on whichever
+branch is listed first.
+
+```bash
+npm run money -- in  --amount 45000 --branch web --client "Kumsal Balık"
+npm run money -- out --amount 18000 --category kira --recurring "Ofis kirası"
+npm run money -- list --days 30
+```
 
 | Blank | Where | Notes |
 |---|---|---|
-| `STRIPE_SECRET_KEY` | `.env` | **Wired.** Revenue is what Stripe settled, not what the invoice table hoped for. Tag each charge `metadata.branch = web \| automation`; an untagged amount is reported as untagged, never split by guess. Mixed currencies or more than 1000 charges in a month are refused rather than summed wrong |
+| Income + expenses | `npm run money` | **Chosen: manual.** Money arrives as cash or bank transfer, so the recorded payments *are* the source of truth. `money in` records a collection, `money out` an expense, `money list` shows both. The LEDGER now reports a real net, not revenue wearing a profit label |
+| `STRIPE_SECRET_KEY` | `.env` | Optional, unused. If a key is ever set, revenue switches to what Stripe settled and expects `metadata.branch = web \| automation` on each charge |
 | `CALENDAR_URL` | `.env` | **Wired.** A secret-address `.ics` feed (Google Calendar → "Secret address in iCal format") — no OAuth. Feeds `callsToday` in the brief |
-| `[[ ACCOUNTING TOOL ]]` | integration | Expenses, for a real P&L. Still a decision — name the tool and it can be wired |
+| `[[ ACCOUNTING TOOL ]]` | integration | Optional now. `npm run money out` covers the expense side; an integration would only save typing |
 | `[[ CRM ]]` | integration | Currently the built-in `leads` / `deals` tables, which work. Only worth replacing if you already live in another CRM |
 
 ---

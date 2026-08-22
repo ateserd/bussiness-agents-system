@@ -22,6 +22,8 @@ export default async function LedgerPage() {
     unpaidInvoices: branches.reduce((n, b) => n + b.unpaidInvoices, 0),
     unpaidCount: branches.reduce((n, b) => n + b.unpaidCount, 0),
     agentCostMtd: branches.reduce((n, b) => n + b.agentCostMtd, 0),
+    expensesMtd: branches.reduce((n, b) => n + b.expensesMtd, 0),
+    netMtd: branches.reduce((n, b) => n + b.netMtd, 0),
   };
 
   const allUnavailable = [...new Set(branches.flatMap((b) => b.unavailable.map((u) => u.reason)))];
@@ -80,6 +82,8 @@ type Stats = {
   unpaidInvoices: number;
   unpaidCount: number;
   agentCostMtd: number;
+  expensesMtd: number;
+  netMtd: number;
 };
 
 function Column({
@@ -106,6 +110,8 @@ function Column({
       value: `${fmt.money(stats.unpaidInvoices)} · ${stats.unpaidCount} adet`,
     },
     { key: "agentCostMtd", label: copy.ledger.agentCost, value: fmt.cost(stats.agentCostMtd) },
+    { key: "expensesMtd", label: copy.ledger.expensesMtd, value: fmt.money(stats.expensesMtd) },
+    { key: "netMtd", label: copy.ledger.netMtd, value: fmt.money(stats.netMtd) },
   ];
 
   return (

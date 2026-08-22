@@ -193,6 +193,7 @@ drift:
 |---|---|
 | **Branch isolation** — an agent reads only its own scopes | `src/lib/brain/scope.ts` (`scopeMatches`) |
 | **Approval gates** — nothing leaves without your tap | inside each gated tool's `run()`, `src/lib/agents/tools.ts` |
+| **Contacting a stranger always asks** — not per-agent config, so no YAML edit or autonomy change can open it | `outreach_send` and `send_contract` call `requireApproval` with no `gatedBy` check |
 | **Report reality** — a missing source is named, never faked | `getLedger()`, `buildBrief()`, and the `lighthouse` tool |
 | **Everything is logged** | `runAgent()` writes one `activity` row per run |
 | **Self-critique** | the house rules in `src/lib/agents/prompt.ts` require a closing `BELİRSİZ:` line, parsed by `extractUnsure()` |
@@ -217,6 +218,9 @@ npm run agent:run -- <agent.id> [--task "..."]
 npm run brief            # today's brief, as it would arrive on your phone
 npm run remember -- --scope branch.web "…"   # write a business fact to the Brain
 npm run remember -- --list branch.web        # read back what a scope holds
+npm run money -- in --amount N --branch web --client "…"   # a collection
+npm run money -- out --amount N --category kira "…"        # an expense
+npm run money -- list                                       # both, last 30 days
 npm run tick             # run whatever the cadence table says is due
 npm run tick -- --plan   # show the cadence table without running
 ```
@@ -237,10 +241,15 @@ one that is:
 
 - **No model is called** without `ANTHROPIC_API_KEY`. Simulate mode writes real
   activity and memory rows so the loop is verifiable, and labels itself `SİMÜLE`.
-- **No integrations.** Stripe, calendar, CRM, sending tools, Lighthouse and the
-  automation platforms are all unconnected; agents report them unavailable.
-- **Telegram is a stub.** The command handling is real and tested; the transport
-  needs a bot token.
+- **Some integrations need keys.** Lighthouse (PageSpeed), the calendar feed and
+  cold email are wired but inert until their keys exist; each reports itself
+  unavailable rather than guessing. Money in and out is entered by hand with
+  `npm run money` — there is no processor to read it from.
+- **Telegram needs a bot token.** The command handling and the transport are
+  both real; approvals are pushed to the phone as they are created.
+- **Nothing reaches a stranger unattended.** `outreach_send` and `send_contract`
+  require an approval unconditionally — not via per-agent config — so no YAML
+  edit or autonomy change can open a path to someone's inbox.
 - **The clock needs a secret.** `/api/tick` and a 15-minute `vercel.json` cron
   are wired, but the route returns 503 until `CRON_SECRET` is set. `npm run tick`
   needs nothing and is unaffected.
