@@ -56,6 +56,15 @@ and Caddy can get a real Let's Encrypt certificate for it since it's a
 real, resolvable name. Use that everywhere a domain is asked for below,
 then switch to a real domain later by changing one line in the Caddyfile.
 
+Already pointing this domain at another VPS for something else — n8n, say,
+where OAuth redirect URIs are registered against its exact hostname? Don't
+touch that record. A domain isn't bound to one IP; every subdomain is its
+own independent DNS record. Add a new one just for this app, e.g.
+`mission.yourdomain.com` → this VPS's IP, and leave whatever record n8n
+uses exactly as it is. Caddy requests its own certificate for the new
+subdomain — nothing about that touches the other server's certificate or
+its OAuth callbacks.
+
 ```bash
 ssh root@your-vps-ip
 apt update && apt upgrade -y
