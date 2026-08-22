@@ -146,22 +146,27 @@ systemctl list-timers mission-control-tick.timer   # shows the next fire
 
 ```bash
 cp deploy/Caddyfile /etc/caddy/Caddyfile
-# edit the domain in it first if you haven't
 systemctl reload caddy
 ```
 
-Visit `https://your-domain` — the dashboard should load, showing 49 agents
-and none of the demo fixtures (no leads, no deals, no activity yet — that's
-correct for a system that hasn't run anything real).
+`deploy/Caddyfile` is already set to `mission.atesflowagency.com` — a new
+subdomain, not the apex, since `atesflowagency.com` itself already points
+at the separate VPS running n8n. Point *that subdomain's* DNS A record at
+this VPS before reloading Caddy; the apex record and n8n's OAuth redirect
+URIs are untouched.
+
+Visit `https://mission.atesflowagency.com` — the dashboard should load,
+showing 49 agents and none of the demo fixtures (no leads, no deals, no
+activity yet — that's correct for a system that hasn't run anything real).
 
 ## 6. Telegram webhook
 
 ```bash
-curl -F "url=https://your-domain/api/telegram" \
+curl -F "url=https://mission.atesflowagency.com/api/telegram" \
      -F "secret_token=$TELEGRAM_WEBHOOK_SECRET" \
      "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/setWebhook"
 
-curl https://your-domain/api/telegram   # {"status":…,"voice":…}
+curl https://mission.atesflowagency.com/api/telegram   # {"status":…,"voice":…}
 ```
 
 Send `/brief` from your phone — it should answer, with the real (empty)

@@ -1,8 +1,11 @@
 # Reverse proxy + automatic HTTPS for Mission Control.
 #
-# Replace mission.example.com with your real domain before installing, and
-# point its DNS A record at the VPS IP first — Caddy requests the TLS
-# certificate on first start and needs that to already resolve.
+# Set to mission.atesflowagency.com — a new subdomain, not the domain's
+# apex, which already points at the separate VPS running n8n. Point this
+# subdomain's own DNS A record at *this* VPS's IP first — Caddy requests
+# the TLS certificate on first start and needs that to already resolve.
+# It doesn't touch the apex record or n8n's OAuth redirect URIs, which
+# are registered against that separate hostname.
 #
 # Install:
 #   sudo cp deploy/Caddyfile /etc/caddy/Caddyfile
@@ -12,6 +15,6 @@
 # /api/tick if you ever want the HTTP path too) live on the same Next.js
 # app, so one proxy block covers all of it — no path routing needed.
 
-mission.example.com {
+mission.atesflowagency.com {
 	reverse_proxy localhost:3000
 }
