@@ -150,9 +150,6 @@ const MONTH_START = () => {
 export async function getLedger(): Promise<{
   branches: BranchLedger[];
   weekly: { week: string; web: number; automation: number }[];
-  /** Cost of `shared.*` agents (Chief of Staff, Brain Keeper, ...) — real spend
-   *  that belongs to neither branch's own P&L, so it only shows up in Combined. */
-  sharedAgentCostMtd: number;
 }> {
   const db = await getDb();
   const monthStart = MONTH_START();
@@ -173,6 +170,10 @@ export async function getLedger(): Promise<{
   ]);
 
   const costByBranch = new Map(costRows.map((r) => [r.branch, Number(r.total)]));
+  // shared.* agents (Chief of Staff, Brain Keeper, ...) run both branches at
+  // once — same story as the expenses below, split in half rather than owned
+  // by neither or double-counted in Combined.
+  const sharedAgentCost = costByBranch.get("shared") ?? 0;
 
   // Branch-less expenses — the accountant, bank fees — belong to the business,
   // not to either P&L, so they are split evenly rather than landing on whichever
@@ -217,6 +218,7 @@ export async function getLedger(): Promise<{
 
     const expensesMtd = expenseByBranch.get(branch) ?? 0;
     const revenueMtd = stripe?.ok ? stripe.byBranch[branch] : collected;
+    const agentCostMtd = (costByBranch.get(branch) ?? 0) + sharedAgentCost / 2;
 
     return {
       branch,
@@ -226,12 +228,12 @@ export async function getLedger(): Promise<{
       // Revenue less what it cost to earn: hand-entered expenses plus the token
       // spend already recorded per run. Without the expense side this was
       // revenue wearing a profit label.
-      netMtd: (stripe && !stripe.ok ? 0 : revenueMtd) - expensesMtd - (costByBranch.get(branch) ?? 0),
+      netMtd: (stripe && !stripe.ok ? 0 : revenueMtd) - expensesMtd - agentCostMtd,
       pipelineValue: open.reduce((n, d) => n + Number(d.valueUsd), 0),
       liveProjects: projectRows.filter((p) => p.branch === branch).length,
       unpaidInvoices: unpaid.reduce((n, i) => n + Number(i.amountUsd), 0),
       unpaidCount: unpaid.length,
-      agentCostMtd: costByBranch.get(branch) ?? 0,
+      agentCostMtd,
       unavailable,
     };
   });
@@ -253,7 +255,7 @@ export async function getLedger(): Promise<{
     });
   }
 
-  return { branches, weekly, sharedAgentCostMtd: costByBranch.get("shared") ?? 0 };
+  return { branches, weekly };
 }
 
 /* ---------------------------------------------------------------------------

@@ -12,11 +12,8 @@ const ACCENT: Record<string, string> = {
 };
 
 export default async function LedgerPage() {
-  const { branches, weekly, sharedAgentCostMtd } = await getLedger();
+  const { branches, weekly } = await getLedger();
 
-  // Chief of Staff, Brain Keeper and the rest of shared.* belong to neither
-  // branch's own P&L, but their token spend is real — Combined is the only
-  // total honest enough to include it.
   const combined = {
     revenueMtd: branches.reduce((n, b) => n + b.revenueMtd, 0),
     cashCollected: branches.reduce((n, b) => n + b.cashCollected, 0),
@@ -24,9 +21,9 @@ export default async function LedgerPage() {
     liveProjects: branches.reduce((n, b) => n + b.liveProjects, 0),
     unpaidInvoices: branches.reduce((n, b) => n + b.unpaidInvoices, 0),
     unpaidCount: branches.reduce((n, b) => n + b.unpaidCount, 0),
-    agentCostMtd: branches.reduce((n, b) => n + b.agentCostMtd, 0) + sharedAgentCostMtd,
+    agentCostMtd: branches.reduce((n, b) => n + b.agentCostMtd, 0),
     expensesMtd: branches.reduce((n, b) => n + b.expensesMtd, 0),
-    netMtd: branches.reduce((n, b) => n + b.netMtd, 0) - sharedAgentCostMtd,
+    netMtd: branches.reduce((n, b) => n + b.netMtd, 0),
   };
 
   const allUnavailable = [...new Set(branches.flatMap((b) => b.unavailable.map((u) => u.reason)))];
