@@ -3,7 +3,7 @@ import { eq, sql } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { memories, memoryLinks, type Memory, type MemoryKind } from "@/db/schema";
 import { cosine, embedSync } from "./embed";
-import { scopeOverlapSql } from "./scope";
+import { assertWritableScopes, scopeOverlapSql } from "./scope";
 
 /**
  * The only way a memory enters the Brain (§5 rules).
@@ -47,7 +47,7 @@ export async function writeMemory(input: WriteMemoryInput): Promise<WriteResult>
       `writeMemory: ${content.length} chars is a transcript, not a memory. Summarise into one statement and link the artifact.`,
     );
   }
-  if (input.scopes.length === 0) throw new Error("writeMemory: at least one scope is required");
+  assertWritableScopes(input.scopes);
 
   const vector = embedSync(content);
 

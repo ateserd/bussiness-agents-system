@@ -21,9 +21,34 @@ export type Command =
   | { kind: "reject"; id: string; reason: string }
   | { kind: "pause"; agent: string }
   | { kind: "run"; agent: string }
-  | { kind: "remember"; fact: string }
+  | { kind: "remember"; fact: string; scope: string }
   | { kind: "blockers" }
   | { kind: "ask"; text: string };
+
+/**
+ * `/remember web: ...` writes to that branch; a bare `/remember ...` stays
+ * global, which is what a note typed on a phone usually means.
+ *
+ * The prefix matters more than it looks. SETUP_TODO offers `/remember` as the
+ * way to record an ICP, and an ICP written to `global` reaches both branches —
+ * a web ICP would quietly become the automation branch's ICP too. `assertWritableScopes`
+ * would not catch it, because a single `global` scope is perfectly legal; only
+ * the author knows the fact was branch-specific.
+ */
+function parseRemember(arg: string): Command {
+  const match = /^(web|automation|otomasyon|genel|global)\s*:\s*(.+)$/is.exec(arg);
+  if (!match) return { kind: "remember", fact: arg, scope: "global" };
+
+  const [, label, fact] = match;
+  const key = label.toLowerCase();
+  const scope =
+    key === "web"
+      ? "branch.web"
+      : key === "automation" || key === "otomasyon"
+        ? "branch.automation"
+        : "global";
+  return { kind: "remember", fact: fact.trim(), scope };
+}
 
 export function parseCommand(input: string): Command {
   const text = input.trim();
@@ -50,7 +75,7 @@ export function parseCommand(input: string): Command {
     case "run":
       return { kind: "run", agent: arg };
     case "remember":
-      return { kind: "remember", fact: arg };
+      return parseRemember(arg);
     case "blockers":
       return { kind: "blockers" };
     default:
@@ -119,18 +144,31 @@ export async function executeCommand(command: Command): Promise<string> {
     }
 
     case "remember": {
-      if (!command.fact) return "Ne hatırlamamı istiyorsun? `/remember <bilgi>`";
+      if (!command.fact) {
+        return [
+          "Ne hatırlamamı istiyorsun?",
+          "  `/remember <bilgi>`              — her iki şube için",
+          "  `/remember web: <bilgi>`         — yalnızca Ateş Design",
+          "  `/remember otomasyon: <bilgi>`   — yalnızca Ateş Flow",
+        ].join("\n");
+      }
       const result = await writeMemory({
         kind: "preference",
-        scopes: ["global"],
+        scopes: [command.scope],
         content: command.fact,
         sourceAgentId: "shared.command.chief_of_staff",
         confidence: 0.95,
         permanent: true,
       });
+      const where =
+        command.scope === "branch.web"
+          ? " (yalnızca web şubesi)"
+          : command.scope === "branch.automation"
+            ? " (yalnızca otomasyon şubesi)"
+            : "";
       return result.action === "merged"
-        ? "Bunu zaten biliyordum — güveni artırdım."
-        : "Kaydedildi, kalıcı olarak.";
+        ? `Bunu zaten biliyordum — güveni artırdım${where}.`
+        : `Kaydedildi, kalıcı olarak${where}.`;
     }
 
     case "ask": {
@@ -169,4 +207,4 @@ export const COMMAND_HELP = `/brief            günün brifingi
 /reject <id> <s>  gerekçesiyle reddet
 /pause <agent>    ajanı duraklat / sürdür
 /run <agent>      ajanı şimdi çalıştır
-/remember <bilgi> kalıcı hafızaya yaz`;
+/remember <bilgi> kalıcı hafızaya yaz — "web:" / "otomasyon:" ile şubeye yaz`;

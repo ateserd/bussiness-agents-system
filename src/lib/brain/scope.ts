@@ -54,6 +54,54 @@ export function scopeOverlapSql(granted: readonly string[]): string {
   return `scopes && ARRAY[${quoted}]::text[]`;
 }
 
+/**
+ * The write-side half of the same rule: what a memory's scope list may say.
+ *
+ * Two mistakes are easy to make and impossible to see afterwards, because both
+ * produce a memory that looks correctly scoped and reads as global:
+ *
+ *   ["global", "branch.web"]  — `scopeMatches` returns true on the first
+ *                               `global` it sees, so the branch scope beside it
+ *                               is decoration and every automation agent reads
+ *                               a web fact.
+ *   ["dept.outreach"]         — both branches have an outreach department, so
+ *                               an unqualified department scope crosses the
+ *                               branch line. Must be `dept.web.outreach`.
+ *
+ * Called from `writeMemory`, the single write path, so no caller can route
+ * around it — the same reasoning that puts approval gates inside `run()`.
+ */
+export function assertWritableScopes(scopes: readonly string[]): void {
+  if (scopes.length === 0) {
+    throw new Error("kapsam gerekli: en az bir kapsam yazılmalı");
+  }
+
+  if (scopes.includes(GLOBAL_SCOPE) && scopes.length > 1) {
+    throw new Error(
+      `bir anı ya "${GLOBAL_SCOPE}" ya da kapsamlıdır, ikisi birden değil — ` +
+        `["${scopes.join('", "')}"] yazıldığında global her şeyi herkese açar`,
+    );
+  }
+
+  for (const scope of scopes) {
+    if (scope === GLOBAL_SCOPE) continue;
+    const parts = scope.split(".");
+    if (parts[0] === "branch" && parts.length === 2) continue;
+    if (parts[0] === "client" && parts.length === 2) continue;
+    if (parts[0] === "dept") {
+      if (parts.length === 3) continue;
+      throw new Error(
+        `"${scope}" şube nitelikli değil — iki şubede de aynı departman var, ` +
+          `"dept.<şube>.<departman>" yaz (örn. dept.web.outreach)`,
+      );
+    }
+    throw new Error(
+      `"${scope}" tanınmayan kapsam — global, branch.<şube>, dept.<şube>.<departman> ` +
+        `veya client.<id> olmalı`,
+    );
+  }
+}
+
 /** True when this agent may see across both branches at once. */
 export function isCrossBranch(agent: Pick<AgentConfig, "memory_scopes">): boolean {
   return (

@@ -215,6 +215,8 @@ npm run db:seed          # 49 agents, ~140 memories, 30 days of activity
 npm run agent:list       # the whole crew
 npm run agent:run -- <agent.id> [--task "..."]
 npm run brief            # today's brief, as it would arrive on your phone
+npm run remember -- --scope branch.web "…"   # write a business fact to the Brain
+npm run remember -- --list branch.web        # read back what a scope holds
 npm run tick             # run whatever the cadence table says is due
 npm run tick -- --plan   # show the cadence table without running
 ```

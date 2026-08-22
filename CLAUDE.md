@@ -51,7 +51,10 @@ src/db/                         schema · client · migrate · seed
   seed'de yakalandı.
 - **Bir anı ya `global` ya şube kapsamlıdır, ikisi birden değil.** `["global",
   "branch.web"]` yazarsan `global` her şeyi herkese açar ve yalıtım tamamen
-  çöker.
+  çöker. Artık `assertWritableScopes` (scope.ts) bunu `writeMemory()`'nin içinde
+  reddediyor — ama kapsamı *yanlış seçmek* hâlâ senin sorumluluğun: tek başına
+  `global` tamamen geçerlidir, o bilginin şubeye ait olduğunu yalnızca sen
+  bilirsin. `npm run remember` bu yüzden `--scope`'u varsayılansız istiyor.
 - **`getBrain()` departmanı kapsamın SON parçasından okur** (`.at(-1)`), ikinci
   parçasından değil — yukarıdaki nitelendirme yüzünden.
 - **xyflow `base.css` `.react-flow`'a yükseklik VERMEZ**, yalnızca

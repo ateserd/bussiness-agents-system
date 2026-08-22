@@ -50,15 +50,29 @@ build a target list or send anything.
 | `[[ N ]]` KPI targets | `agents/*/outreach/*.yaml` | Weekly leads, audits, dossiers |
 
 **How to write an ICP into the Brain** (this is the intended path — business
-facts never live in prompt files):
+facts never live in prompt files). No API key, no dev server:
 
 ```bash
-npm run dev
-# then, in the chat channel or via a script:
-#   /remember Web şubesi ICP'si: 5-30 çalışanlı, İstanbul/İzmir/Antalya'da …
+npm run remember -- --scope branch.web --permanent \
+  "Web şubesi ICP'si: 5-30 çalışanlı, İstanbul/İzmir/Antalya'da …"
+
+npm run remember -- --list branch.web    # what that branch knows
 ```
 
-or directly:
+**The scope is the whole point.** An ICP written to `global` reaches both
+branches, so the web ICP silently becomes the automation branch's ICP too —
+`scopeMatches` returns true on the first `global` it sees. `--scope` has no
+default for exactly this reason.
+
+From the phone, prefix the branch:
+
+```
+/remember web: Web şubesi ICP'si: …
+/remember otomasyon: Otomasyon ICP'si: …
+/remember Sahip önce sayı ister.        ← no prefix stays global
+```
+
+Or in code, through the same single write path:
 
 ```ts
 import { writeMemory } from "@/lib/brain/write";
