@@ -1,0 +1,40 @@
+# Mission Control — the Next.js app itself.
+#
+# Install:
+#   sudo cp deploy/mission-control.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now mission-control
+#
+# Assumes the app lives at /opt/mission-control, already built
+# (`npm run build`), and /opt/mission-control/.env is filled in. See
+# DEPLOY.md for the full setup this depends on, including why every
+# integration key is optional and what runs in its absence.
+#
+# Runs as a dedicated system user, not root:
+#   sudo useradd --system --home /opt/mission-control --shell /usr/sbin/nologin missioncontrol
+#   sudo chown -R missioncontrol:missioncontrol /opt/mission-control
+
+[Unit]
+Description=Mission Control — dashboard
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=missioncontrol
+Group=missioncontrol
+WorkingDirectory=/opt/mission-control
+EnvironmentFile=/opt/mission-control/.env
+# The direct binary, not "npm run start" — npm has historically been an
+# unreliable middleman for SIGTERM on stop/restart; systemd should signal
+# the Next process itself.
+ExecStart=/opt/mission-control/node_modules/.bin/next start -p 3000
+Restart=on-failure
+RestartSec=5
+
+# Next only needs to bind localhost:3000; Caddy is the public-facing side
+# and reverse-proxies to it (see Caddyfile). No inbound port here needs to
+# be open on the firewall.
+
+[Install]
+WantedBy=multi-user.target

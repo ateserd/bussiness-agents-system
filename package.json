@@ -12,6 +12,7 @@
     "db:generate": "drizzle-kit generate",
     "db:push": "tsx src/db/migrate.ts",
     "db:seed": "tsx src/db/seed.ts",
+    "db:seed:fresh": "tsx src/db/seed.ts --fresh",
     "db:reset": "tsx src/db/migrate.ts --reset && tsx src/db/seed.ts",
     "agent:run": "tsx scripts/run-agent.ts",
     "agent:list": "tsx scripts/run-agent.ts --list",

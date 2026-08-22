@@ -311,11 +311,29 @@ function phrase(agentId: string, ctx: { c?: string }): { action: string; summary
 
 /* --------------------------------------------------------------------------
    Memories — written as atomic statements, the way the rules require.
+
+   Split in two, because only one half is safe to put in front of a real
+   deployment:
+
+   buildStandingMemories() is every business fact and rule Ateş actually
+   decided in conversation — control rules, ICP A/B, money handling, the
+   14-day stale threshold. Agents read the Brain at run time (assemblePrompt),
+   so this is not documentation, it is the configuration a live agent acts on.
+   It ships in both --fresh and demo mode.
+
+   buildDemoMemories() is texture invented to make a clean checkout's BRAIN
+   view look like a month of real operation — fabricated "lessons" about
+   response rates, notes about fictional clients, a superseded-decision pair
+   for Brain Keeper to have something to reconcile. None of it was said by
+   the owner. It must never reach a production Brain: an agent cannot tell a
+   seeded lesson from a real one, and "kaynak yoksa sayı uydurulmaz" cuts both
+   ways — inventing a performance lesson is the same failure as inventing a
+   metric.
 -------------------------------------------------------------------------- */
 
 type MemSpec = { kind: Parameters<typeof embedSync> extends never ? never : string; text: string; scopes: string[]; permanent?: boolean; conf?: number };
 
-function buildMemories(): MemSpec[] {
+function buildStandingMemories(): MemSpec[] {
   const out: MemSpec[] = [];
   const g = (text: string, permanent = false, conf = 0.8) =>
     out.push({ kind: "fact", text, scopes: ["global"], permanent, conf });
@@ -329,7 +347,7 @@ function buildMemories(): MemSpec[] {
   /* --- global: how the owner works --- */
   g("Sahibin çalışma dili Türkçe; sistem arayüzü ve brifingler Türkçe olmalı.", true, 0.95);
   g("Sahip tek insan; hiçbir ajan başka bir insana iş devredemez.", true, 0.98);
-  g("Saat dilimi Europe/Istanbul. Brifing 07:45, gün sonu özeti 19:00.", true, 0.95);
+  g("Saat dilimi Europe/Istanbul. Sabah brifingi 07:30 her gün, gün sonu özeti 19:00.", true, 0.95);
   g("Sahip önce sayı ister, sonra kendisine düşenleri. Övgü ve giriş cümlesi istemez.", true, 0.92);
   g("Sahibe aynı anda en fazla 3 karar taşınır; fazlası eleme yapılmadığı anlamına gelir.", true, 0.9);
   g("Bir kaynak bağlı değilse sayı uydurulmaz, uyarı ile geçilir.", true, 0.97);
@@ -352,11 +370,33 @@ function buildMemories(): MemSpec[] {
   g("Chief of Staff para bağlayan hiçbir kararı kendi başına vermez; tutar ne olursa olsun sahibe sorar.", true, 0.97);
   g("Soğuk e-posta kutu başına günde 10 mesajı geçmez. Hacim asla bir günden diğerine iki katına çıkarılmaz; alan adı itibarını yakan en yaygın hata budur.", true, 0.96);
 
-  /* --- web branch --- */
-  web("Web şubesinde en değerli hedef: sitesi olmayan ama telefonu olan bağımsız işletme.", "fact", 0.85);
+  /* --- web branch: ICP A, as the owner defined it --- */
   web("ICP A — Ateş Design hedef müşterisi: Türkiye'nin her şehri, her sektör, 30 kişinin altında çalışanı olan, HİÇ web sitesi olmayan işletmeler.", "decision", 0.97);
   web("ICP A diskalifiye: zincir ve franchise işletmeler; ayrıca Google yorumu hiç olmayan çok küçük işletmeler — yorum yokluğu işletmenin bu iş için fazla küçük olduğunun işareti.", "decision", 0.95);
   web("Sitesi zayıf olan değil, sitesi HİÇ OLMAYAN işletme hedeftir. Mevcut sitesi olan aday ICP A dışıdır.", "decision", 0.95);
+  web("İlk temas soğuk e-posta ile yapılır; soğuk arama sahibin kendisi tarafından elle yapılacağı için adayda telefon numarası da bulunmalıdır.", "decision", 0.93);
+  dept("web", "sales", "Bayat fırsat eşiği 14 gündür. 14 gün kıpırdamayan fırsat brifinge 'kapatılsın mı, kovalansın mı' diye taşınır.", "decision", 0.95);
+
+  /* --- automation branch: ICP B, as the owner defined it --- */
+  auto("ICP B — Ateş Flow hedef müşterisi: Türkiye'nin her şehri, her sektör, 30 kişinin altında çalışanı olan, kullandığı sistemlere yapay zekâ entegre edilebilen işletmeler.", "decision", 0.97);
+  auto("Entegrasyon n8n ile yapılıyor; eleme kriteri bu. Adayın kullandığı sisteme n8n bağlanamıyorsa aday ICP B dışıdır — esneklik sınırı burada.", "decision", 0.96);
+  auto("ICP B diskalifiye: zincir ve franchise işletmeler; ayrıca Google yorumu hiç olmayan çok küçük işletmeler.", "decision", 0.95);
+  dept("automation", "sales", "Bayat fırsat eşiği 14 gündür. 14 gün kıpırdamayan fırsat brifinge 'kapatılsın mı, kovalansın mı' diye taşınır.", "decision", 0.95);
+
+  return out;
+}
+
+function buildDemoMemories(): MemSpec[] {
+  const out: MemSpec[] = [];
+  const web = (text: string, kind = "fact", conf = 0.7) =>
+    out.push({ kind, text, scopes: ["branch.web"], conf });
+  const auto = (text: string, kind = "fact", conf = 0.7) =>
+    out.push({ kind, text, scopes: ["branch.automation"], conf });
+  const dept = (branch: string, d: string, text: string, kind = "lesson", conf = 0.7) =>
+    out.push({ kind, text, scopes: [`branch.${branch}`, `dept.${branch}.${d}`], conf });
+
+  /* --- web branch --- */
+  web("Web şubesinde en değerli hedef: sitesi olmayan ama telefonu olan bağımsız işletme.", "fact", 0.85);
   web("Zincir markalar web şubesi için diskalifiye; ICP dışı.", "decision", 0.88);
   web("Denetimde ölçülmeyen metrik yazılmaz; Lighthouse çalışmadıysa öyle denir.", "preference", 0.9);
   web("İlk temas mesajı işletmenin kendi sorunuyla açılır, ajans adıyla değil.", "preference", 0.86);
@@ -370,7 +410,6 @@ function buildMemories(): MemSpec[] {
   dept("web", "sales", "Görüşmede en sık üç itiraz: fiyat, süre, 'yeğenim yapıyordu'.", "lesson", 0.8);
   dept("web", "sales", "Kapsam dışı olanları teklifte yazmak, sonradan çıkan tartışmayı bitiriyor.", "lesson", 0.82);
   dept("web", "sales", "14 günden uzun hareketsiz fırsatların geri dönüş oranı çok düşük.", "lesson", 0.7);
-  dept("web", "sales", "Bayat fırsat eşiği 14 gündür. 14 gün kıpırdamayan fırsat brifinge 'kapatılsın mı, kovalansın mı' diye taşınır.", "decision", 0.95);
   dept("web", "delivery", "Wireframe gerçek metinle yapılmazsa yerleşim canlıda bozuluyor.", "lesson", 0.84);
   dept("web", "delivery", "Müşteri içeriği geç gönderdiğinde lansman kayması neredeyse kesin.", "lesson", 0.8);
   dept("web", "delivery", "Devir dokümanı olmadan yapılan lansmanlar iki hafta içinde destek talebi üretiyor.", "lesson", 0.78);
@@ -378,9 +417,6 @@ function buildMemories(): MemSpec[] {
 
   /* --- automation branch --- */
   auto("Otomasyon şubesi gözlemlenen bir elle süreç üzerinden satar, teknoloji üzerinden değil.", "fact", 0.9);
-  auto("ICP B — Ateş Flow hedef müşterisi: Türkiye'nin her şehri, her sektör, 30 kişinin altında çalışanı olan, kullandığı sistemlere yapay zekâ entegre edilebilen işletmeler.", "decision", 0.97);
-  auto("Entegrasyon n8n ile yapılıyor; eleme kriteri bu. Adayın kullandığı sisteme n8n bağlanamıyorsa aday ICP B dışıdır — esneklik sınırı burada.", "decision", 0.96);
-  auto("ICP B diskalifiye: zincir ve franchise işletmeler; ayrıca Google yorumu hiç olmayan çok küçük işletmeler.", "decision", 0.95);
   auto("Teklif her zaman kurulum ücreti + aylık bakım olarak ikiye ayrılır.", "decision", 0.92);
   auto("Aylık bakım bedeli izleme maliyetinin altına inemez.", "decision", 0.94);
   auto("Canlı akış sağlığı, yeni satıştan önce gelir.", "decision", 0.95);
@@ -392,7 +428,6 @@ function buildMemories(): MemSpec[] {
   dept("automation", "outreach", "'AI' kelimesiyle açılan mesajlar belirgin şekilde daha az yanıt alıyor.", "lesson", 0.78);
   dept("automation", "outreach", "Dosyada somut saat tahmini verildiğinde görüşme oranı yükseliyor.", "lesson", 0.72);
   dept("automation", "sales", "Kapsam anlaşılmadan verilen fiyat, bu şubede zararın ana kaynağı.", "lesson", 0.88);
-  dept("automation", "sales", "Bayat fırsat eşiği 14 gündür. 14 gün kıpırdamayan fırsat brifinge 'kapatılsın mı, kovalansın mı' diye taşınır.", "decision", 0.95);
   dept("automation", "sales", "En sık itiraz: 'bizim sürecimiz farklı' ve 'bozulunca ne olacak'.", "lesson", 0.82);
   dept("automation", "build", "Akışlar mutlu yolda değil, istisna yollarında kırılıyor.", "lesson", 0.9);
   dept("automation", "build", "Auth süresi dolması, canlı akışlarda en sık görülen tek hata sebebi.", "lesson", 0.84);
@@ -565,6 +600,19 @@ async function main() {
   const db = await getDb();
   const { raw } = await getConnection();
 
+  /*
+   * --fresh seeds the 49 agents and every business fact Ateş actually decided
+   * — nothing else. No fake leads, deals, clients, invoices, activity feed or
+   * "lessons" that never happened. That is what goes on a real deployment:
+   * a LEDGER showing fabricated revenue on day one would be exactly the
+   * "kaynak yoksa sayı uydurulmaz" rule broken by the seed script itself.
+   *
+   * Without the flag, seed keeps building the believable month of demo
+   * texture it always has — that is what a clean local checkout wants.
+   */
+  const FRESH = process.argv.includes("--fresh");
+  console.log(FRESH ? "· fresh mode — agents and standing decisions only, no demo data" : "· demo mode");
+
   console.log("· clearing");
   await raw(`truncate table
     memory_links, memories, kpi_snapshots, activity, approvals, tasks,
@@ -575,25 +623,32 @@ async function main() {
   const configs = allAgents();
 
   // A believable Thursday morning: most idle, a handful mid-run, one waiting on
-  // the owner, one genuinely broken.
-  const WORKING = new Set([
-    "web.outreach.auditor",
-    "web.sales.pipeline_watch",
-    "automation.outreach.prospector",
-    "automation.build.tester",
-    "shared.services.client_success",
-  ]);
-  const NEEDS_APPROVAL = new Set(["web.outreach.sender", "automation.sales.proposal_agent"]);
-  const BLOCKED = new Map([
-    [
-      "automation.build.monitor",
-      "Poyraz İK aday eleme akışı 14 Ağustos'tan beri hata veriyor — tedarikçi API anahtarı süresi doldu, yenisi gerekiyor.",
-    ],
-    [
-      "shared.services.finance",
-      "Stripe bağlı değil — ciro ve tahsilat satırları raporlanamıyor. STRIPE_SECRET_KEY gerekiyor.",
-    ],
-  ]);
+  // the owner, one genuinely broken. Skipped in fresh mode — a real deployment
+  // starts with every agent idle because none of them have run yet.
+  const WORKING = FRESH
+    ? new Set<string>()
+    : new Set([
+        "web.outreach.auditor",
+        "web.sales.pipeline_watch",
+        "automation.outreach.prospector",
+        "automation.build.tester",
+        "shared.services.client_success",
+      ]);
+  const NEEDS_APPROVAL = FRESH
+    ? new Set<string>()
+    : new Set(["web.outreach.sender", "automation.sales.proposal_agent"]);
+  const BLOCKED = FRESH
+    ? new Map<string, string>()
+    : new Map([
+        [
+          "automation.build.monitor",
+          "Poyraz İK aday eleme akışı 14 Ağustos'tan beri hata veriyor — tedarikçi API anahtarı süresi doldu, yenisi gerekiyor.",
+        ],
+        [
+          "shared.services.finance",
+          "Stripe bağlı değil — ciro ve tahsilat satırları raporlanamıyor. STRIPE_SECRET_KEY gerekiyor.",
+        ],
+      ]);
 
   await db.insert(agents).values(
     configs.map((c) => ({
@@ -624,13 +679,14 @@ async function main() {
       autonomy: c.autonomy,
       paused: false,
       blocker: BLOCKED.get(c.id) ?? null,
-      lastRunAt: c.schedule ? daysAgo(0, 8) : rnd() > 0.5 ? daysAgo(int(1, 5), 12) : null,
-      nextRunAt: c.schedule ? new Date(now.getTime() + int(1, 22) * 3_600_000) : null,
-      createdAt: daysAgo(34),
+      lastRunAt: FRESH ? null : c.schedule ? daysAgo(0, 8) : rnd() > 0.5 ? daysAgo(int(1, 5), 12) : null,
+      nextRunAt: FRESH ? null : c.schedule ? new Date(now.getTime() + int(1, 22) * 3_600_000) : null,
+      createdAt: FRESH ? now : daysAgo(34),
     })),
   );
   console.log(`· ${configs.length} agents`);
 
+  if (!FRESH) {
   /* --- leads ------------------------------------------------------------- */
   const leadRows: (typeof leads.$inferInsert)[] = [];
   for (const [name, city, sector] of WEB_PROSPECTS) {
@@ -991,9 +1047,14 @@ Loom metni 2 dakikalık, üç işlemi kapsıyor: menü kalemi ekleme, fiyat değ
   }
   await db.insert(kpiSnapshots).values(kpiRows);
   console.log(`· ${kpiRows.length} KPI snapshots`);
+  } // !FRESH
 
-  /* --- memories ---------------------------------------------------------- */
-  const specs = buildMemories();
+  /* --- memories ------------------------------------------------------------
+     Standing decisions ship always — agents read the Brain at run time, so a
+     fresh deployment without ICP A/B and the control rules would run with an
+     empty rulebook. Demo texture (fabricated lessons, fictional client notes)
+     is opt-out via the same --fresh flag as everything else above. --------- */
+  const specs = FRESH ? buildStandingMemories() : [...buildStandingMemories(), ...buildDemoMemories()];
   const memRows: (typeof memories.$inferInsert)[] = specs.map((m) => ({
     id: randomUUID(),
     kind: m.kind as (typeof memories.$inferInsert)["kind"],
@@ -1005,10 +1066,10 @@ Loom metni 2 dakikalık, üç işlemi kapsıyor: menü kalemi ekleme, fiyat değ
     confidence: m.conf ?? 0.7,
     permanent: m.permanent ?? false,
     embedding: embedSync(m.text),
-    useCount: m.permanent ? int(14, 60) : int(0, 22),
+    useCount: FRESH ? 0 : m.permanent ? int(14, 60) : int(0, 22),
     supersedes: null,
-    createdAt: daysAgo(int(1, 33), 20),
-    lastUsedAt: rnd() > 0.25 ? daysAgo(int(0, 6), 12) : null,
+    createdAt: FRESH ? now : daysAgo(int(1, 33), 20),
+    lastUsedAt: FRESH ? null : rnd() > 0.25 ? daysAgo(int(0, 6), 12) : null,
   }));
 
   // Wire the superseding pair explicitly — Brain Keeper's real work.
@@ -1045,7 +1106,7 @@ Loom metni 2 dakikalık, üç işlemi kapsıyor: menü kalemi ekleme, fiyat değ
   await db.insert(memoryLinks).values(linkRows);
   console.log(`· ${memRows.length} memories · ${linkRows.length} links`);
 
-  console.log("\n✓ seeded — npm run dev");
+  console.log(FRESH ? "\n✓ seeded (fresh) — npm run dev" : "\n✓ seeded — npm run dev");
   await closeDb();
 }
 

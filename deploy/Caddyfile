@@ -1,0 +1,17 @@
+# Reverse proxy + automatic HTTPS for Mission Control.
+#
+# Replace mission.example.com with your real domain before installing, and
+# point its DNS A record at the VPS IP first — Caddy requests the TLS
+# certificate on first start and needs that to already resolve.
+#
+# Install:
+#   sudo cp deploy/Caddyfile /etc/caddy/Caddyfile
+#   sudo systemctl reload caddy
+#
+# Both the dashboard and everything under /api/ (the Telegram webhook,
+# /api/tick if you ever want the HTTP path too) live on the same Next.js
+# app, so one proxy block covers all of it — no path routing needed.
+
+mission.example.com {
+	reverse_proxy localhost:3000
+}

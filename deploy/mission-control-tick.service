@@ -1,0 +1,31 @@
+# Mission Control — one scheduler tick.
+#
+# This calls `npm run tick` directly, not /api/tick. README already says why
+# for a real deployment: `tick()` runs due agents sequentially, each with a
+# 120s timeout and two retries, and eight leads coming due at once (15:15,
+# department leads) can outlast a serverless request. A server cron has no
+# such ceiling, so it skips the HTTP layer and CRON_SECRET entirely — this
+# unit is only ever invoked by mission-control-tick.timer, never exposed.
+#
+# Install alongside the .timer file:
+#   sudo cp deploy/mission-control-tick.service deploy/mission-control-tick.timer /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now mission-control-tick.timer
+#
+# Runs and exits — Type=oneshot, no Restart=. Idempotency is already handled
+# inside tick() itself (a run_key unique per agent+cadence+minute), so a tick
+# that overlaps a slow previous one, or is retried, does the work once.
+
+[Unit]
+Description=Mission Control — scheduler tick (oneshot, fired by the .timer)
+
+[Service]
+Type=oneshot
+User=missioncontrol
+Group=missioncontrol
+WorkingDirectory=/opt/mission-control
+EnvironmentFile=/opt/mission-control/.env
+ExecStart=/opt/mission-control/node_modules/.bin/tsx scripts/tick.ts
+# Due agents run sequentially inside one tick; give it real headroom rather
+# than being the reason a legitimately slow run gets killed mid-way.
+TimeoutStartSec=600

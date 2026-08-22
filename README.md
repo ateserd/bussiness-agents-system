@@ -19,6 +19,8 @@ No API key, no Postgres server, no Docker, no network. The dashboard comes up
 fully populated, and every agent runs in **simulate mode** until you add
 `ANTHROPIC_API_KEY`.
 
+Putting this on a server that stays up — `DEPLOY.md`.
+
 ---
 
 ## The four views
@@ -213,6 +215,7 @@ npm run lint
 npm run db:generate      # schema.ts → drizzle/*.sql
 npm run db:push          # apply migrations   (-- --reset drops the local db)
 npm run db:seed          # 49 agents, ~140 memories, 30 days of activity
+npm run db:seed:fresh    # 49 agents + standing decisions only — no demo data (real deployments)
 
 npm run agent:list       # the whole crew
 npm run agent:run -- <agent.id> [--task "..."]
@@ -226,12 +229,22 @@ npm run tick             # run whatever the cadence table says is due
 npm run tick -- --plan   # show the cadence table without running
 ```
 
-On a deployment the same thing happens on its own every 15 minutes, through
-`/api/tick` and the cron in `vercel.json` — once `CRON_SECRET` is set:
+On a deployment the same thing happens on its own every 15 minutes. Two
+paths exist:
+
+- **Vercel** — already wired via `/api/tick` and `vercel.json`, once
+  `CRON_SECRET` is set. Fine for light load; a request-timeout ceiling makes
+  it the wrong choice once several agents come due in the same minute (see
+  `DEPLOY.md`).
+- **A server with its own cron** (recommended) — `*/15 * * * * cd /path &&
+  npm run tick`, no secret needed, no request timeout to outlast.
 
 ```bash
 curl -H "x-cron-secret: $CRON_SECRET" "https://<your-host>/api/tick?plan=1"
 ```
+
+`DEPLOY.md` walks through the second path end to end — a VPS, Supabase
+instead of PGlite, systemd instead of a serverless function, Caddy for TLS.
 
 ---
 
@@ -256,3 +269,5 @@ one that is:
   needs nothing and is unaffected.
 
 All of it is itemised in `SETUP_TODO.md`, grouped by what each blank unblocks.
+`DEPLOY.md` covers the other axis — not what to configure, but where this
+actually runs once it's live.

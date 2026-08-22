@@ -1,0 +1,18 @@
+# Fires mission-control-tick.service every 15 minutes — the same cadence
+# vercel.json used for the Vercel-cron path this replaces.
+#
+# Persistent=true: if the box was down when a tick was due (reboot,
+# maintenance), it runs once on the next boot instead of silently skipping
+# a whole window. tick() being idempotent per minute makes this safe even
+# if it overlaps a tick that would have fired anyway.
+
+[Unit]
+Description=Mission Control — scheduler tick, every 15 minutes
+
+[Timer]
+OnCalendar=*:0/15
+Persistent=true
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target
