@@ -264,6 +264,10 @@ one that is:
   `/approve` on an email-channel card calls Resend directly — no separate
   "now send it" step. Other channels (Instagram DM, etc.) still land approved
   but stay manual; no provider is wired for those.
+- **Replies come back through `/api/resend`.** Enable receiving on the domain
+  in Resend, point its webhook there, set `RESEND_WEBHOOK_SECRET`. A reply is
+  written to the Brain and pushed to Telegram — never auto-replied to; the
+  owner still writes and sends the reply by hand, same as everything else.
 - **Telegram needs a bot token.** The command handling and the transport are
   both real; approvals are pushed to the phone as they are created.
 - **Nothing reaches a stranger unattended.** `outreach_send` and `send_contract`

@@ -172,6 +172,25 @@ curl https://mission.atesflowagency.com/api/telegram   # {"status":…,"voice":�
 Send `/brief` from your phone — it should answer, with the real (empty)
 state rather than demo numbers.
 
+## 7. Resend inbound (optional)
+
+Only if replies should come back through the Brain and Telegram rather than
+just an inbox nobody's watching. In Resend's dashboard, on each verified
+domain: turn on **Enable receiving**, set the webhook URL to
+`https://mission.atesflowagency.com/api/resend`, copy the signing secret it
+gives you into `RESEND_WEBHOOK_SECRET`, restart the service.
+
+```bash
+curl https://mission.atesflowagency.com/api/resend   # {"status":"configured"}
+```
+
+Send a real reply to a `RESEND_FROM_WEB` / `RESEND_FROM_AUTOMATION` address
+and confirm it shows up on Telegram. The inbound payload shape the route
+parses is Resend's documented one at the time it was written — an inbound
+schema drifts more easily than an outbound API call, so if nothing arrives,
+check the request actually reached Caddy/the app (not a signature rejection)
+before assuming the field names moved.
+
 ## Updating
 
 ```bash
