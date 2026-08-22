@@ -45,6 +45,11 @@ src/db/                         schema · client · migrate · seed
   panele bakmak zorunda değil; bildirim başarısız olursa çalışma bozulmaz.
 - **Kapsam yalıtımı tek bir yerde:** `src/lib/brain/scope.ts` → `scopeMatches`.
   Başka hiçbir yerde kapsam kontrolü yazma.
+- **Dokunulmamış lead 30 günden uzun tutulmaz.** `pruneLeads()` her gün `tick()`
+  içinde çalışıyor — cadence'te değil, çünkü cadence *ajan* çalıştırır ve
+  saklama kuralı bir ajanın onu hatırlamasına bağlı olamaz. Temas kurulan ya da
+  fırsata dönüşen lead kalır: o artık Google'ın verisi değil, kendi ticari
+  ilişkimizin kaydı.
 - **Kaynak yoksa sayı uydurulmaz.** `⚠️ <kaynak> kullanılamıyor (<sebep>)`
   yazılır. `lighthouse` aracı bilerek "kullanılamıyor" döner — sahte skor
   döndürmek kuralı model'in göremeyeceği katmanda çiğnerdi.

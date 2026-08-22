@@ -73,10 +73,10 @@ That constraint is the filter, not a footnote. Same disqualifiers as ICP A.
 
 | Blank | Where | Notes |
 |---|---|---|
-| Lead source | — | **Chosen: Google Maps scraping**, both branches. It carries the two signals the ICPs turn on — has-a-website and review count — plus the phone number Ateş dials. **Not wired yet**: needs a fetch route chosen (Places API, a scraper service, or custom) |
+| `GOOGLE_PLACES_API_KEY` | `.env` | **Wired: Google Places API**, both branches. Returns the two signals the ICPs turn on — has-a-website and review count — plus the phone number Ateş dials. The `places_search` tool applies each branch's filter itself, so what comes back is already qualified. Behind the `spending_money` gate: a search costs money |
 | `RESEND_API_KEY` | `.env` | **Chosen: cold email**, plus manual calls |
 | Sender daily cap | `agents/*/outreach/sender.yaml` | **10 per mailbox per day.** Below the 20–30 "safe" ceiling on purpose: every message needs its own approval, and 10 approvals fits a 4-hour weekday window where 50 would not |
-| Prospector target | `agents/*/outreach/prospector.yaml` | **100 / week** |
+| Prospector target | `agents/*/outreach/prospector.yaml` | **50 / week** — matched to the 10/day send cap, so no lead is found and then deleted unused |
 | Auditor target | `agents/web/outreach/auditor.yaml` | **30 / week** |
 | Draftsman target | — | **None, deliberately.** It writes exactly as many drafts as there are messages to send; a number would either cap real work or invent it |
 
@@ -132,8 +132,8 @@ await writeMemory({
 |---|---|---|
 | Pricing | — | **Chosen: no rate card.** Prices are per-project and set by Ateş, in USD. Seeded as a permanent global rule: an agent writes the scope and the timeline, leaves the number blank, and asks. The old "read the price from the Brain's rate card" rule is gone — it described a card that will never exist |
 | E-signature | — | **Chosen: manual.** No tool. `send_contract` is gated unconditionally, so an agent's job ends at a drafted contract in the approval queue; the owner signs |
-| `[[ N ]] days` stale threshold | Brain, scope `dept.web.sales` / `dept.automation.sales` | Currently seeded at 14 days |
-| `[[ $N ]]` escalation ceiling | `agents/shared/command/chief_of_staff.yaml` | Above this, the COS escalates rather than deciding |
+| Stale threshold | Brain, `dept.web.sales` / `dept.automation.sales` | **14 days**, now an explicit decision in both branches rather than a low-confidence lesson |
+| Escalation ceiling | `agents/shared/command/chief_of_staff.yaml` | **None — every decision that commits money is escalated**, whatever the amount |
 
 ---
 

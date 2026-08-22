@@ -347,7 +347,9 @@ function buildMemories(): MemSpec[] {
   g("Soğuk arama sahibi tarafından elle yapılır; ajanlar arama listesi ve açılış metni hazırlar, aramayı yapmaz.", true, 0.92);
   g("Sabit fiyat listesi yok. Her projenin fiyatını sahip belirler; ajan kapsamı ve süreyi yazar, rakamı boş bırakır ve sahibe sorar.", true, 0.96);
   g("Tutarlar ABD doları cinsindendir.", true, 0.95);
-  g("Lead listesi Google Haritalar'dan çıkarılır — iki şube için de. İşletme adı, telefon, adres, kategori, yorum sayısı ve sitesi olup olmadığı oradan gelir.", true, 0.95);
+  g("Lead listesi Google Places API ile çıkarılır — iki şube için de. İşletme adı, telefon, adres, kategori, yorum sayısı ve sitesi olup olmadığı oradan gelir.", true, 0.95);
+  g("Dokunulmamış lead 30 günden uzun tutulmaz, otomatik silinir. Temas kurulan ya da müşteriye dönüşen kayıt kalır — o artık kendi ticari ilişkimizin kaydıdır.", true, 0.96);
+  g("Chief of Staff para bağlayan hiçbir kararı kendi başına vermez; tutar ne olursa olsun sahibe sorar.", true, 0.97);
   g("Soğuk e-posta kutu başına günde 10 mesajı geçmez. Hacim asla bir günden diğerine iki katına çıkarılmaz; alan adı itibarını yakan en yaygın hata budur.", true, 0.96);
 
   /* --- web branch --- */
@@ -368,6 +370,7 @@ function buildMemories(): MemSpec[] {
   dept("web", "sales", "Görüşmede en sık üç itiraz: fiyat, süre, 'yeğenim yapıyordu'.", "lesson", 0.8);
   dept("web", "sales", "Kapsam dışı olanları teklifte yazmak, sonradan çıkan tartışmayı bitiriyor.", "lesson", 0.82);
   dept("web", "sales", "14 günden uzun hareketsiz fırsatların geri dönüş oranı çok düşük.", "lesson", 0.7);
+  dept("web", "sales", "Bayat fırsat eşiği 14 gündür. 14 gün kıpırdamayan fırsat brifinge 'kapatılsın mı, kovalansın mı' diye taşınır.", "decision", 0.95);
   dept("web", "delivery", "Wireframe gerçek metinle yapılmazsa yerleşim canlıda bozuluyor.", "lesson", 0.84);
   dept("web", "delivery", "Müşteri içeriği geç gönderdiğinde lansman kayması neredeyse kesin.", "lesson", 0.8);
   dept("web", "delivery", "Devir dokümanı olmadan yapılan lansmanlar iki hafta içinde destek talebi üretiyor.", "lesson", 0.78);
@@ -389,6 +392,7 @@ function buildMemories(): MemSpec[] {
   dept("automation", "outreach", "'AI' kelimesiyle açılan mesajlar belirgin şekilde daha az yanıt alıyor.", "lesson", 0.78);
   dept("automation", "outreach", "Dosyada somut saat tahmini verildiğinde görüşme oranı yükseliyor.", "lesson", 0.72);
   dept("automation", "sales", "Kapsam anlaşılmadan verilen fiyat, bu şubede zararın ana kaynağı.", "lesson", 0.88);
+  dept("automation", "sales", "Bayat fırsat eşiği 14 gündür. 14 gün kıpırdamayan fırsat brifinge 'kapatılsın mı, kovalansın mı' diye taşınır.", "decision", 0.95);
   dept("automation", "sales", "En sık itiraz: 'bizim sürecimiz farklı' ve 'bozulunca ne olacak'.", "lesson", 0.82);
   dept("automation", "build", "Akışlar mutlu yolda değil, istisna yollarında kırılıyor.", "lesson", 0.9);
   dept("automation", "build", "Auth süresi dolması, canlı akışlarda en sık görülen tek hata sebebi.", "lesson", 0.84);

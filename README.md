@@ -196,6 +196,7 @@ drift:
 | **Contacting a stranger always asks** — not per-agent config, so no YAML edit or autonomy change can open it | `outreach_send` and `send_contract` call `requireApproval` with no `gatedBy` check |
 | **Report reality** — a missing source is named, never faked | `getLedger()`, `buildBrief()`, and the `lighthouse` tool |
 | **Everything is logged** | `runAgent()` writes one `activity` row per run |
+| **Lead retention** — untouched leads are deleted after 30 days, contacted ones kept | `pruneLeads()`, run daily from `tick()` |
 | **Self-critique** | the house rules in `src/lib/agents/prompt.ts` require a closing `BELİRSİZ:` line, parsed by `extractUnsure()` |
 | **Atomic memory** | `writeMemory()` rejects anything over 600 chars and merges near-duplicates |
 

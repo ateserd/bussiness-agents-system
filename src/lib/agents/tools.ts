@@ -8,6 +8,7 @@ import { agents, approvals, leads } from "@/db/schema";
 import { recall } from "@/lib/brain/search";
 import { writeMemory } from "@/lib/brain/write";
 import { clip, notifyOwner } from "@/lib/chat/notify";
+import { passesAutomationFloor, qualifiesForWeb, searchPlaces } from "@/lib/integrations/places";
 import type { AgentConfig } from "./registry";
 
 /**
@@ -278,6 +279,64 @@ const crmWrite = (ctx: ToolContext) =>
     },
   });
 
+/**
+ * Lead discovery. Costs money per search, so it sits behind the same
+ * `spending_money` gate the Prospectors already carry.
+ *
+ * The ICP filters run here rather than in the model: whether a business has a
+ * website and how many reviews it has are facts the API returns, and a model
+ * asked to "remember to filter" eventually forgets. What comes back is already
+ * qualified, with the rejected count stated so a thin list is visibly thin
+ * rather than quietly short.
+ */
+const placesSearch = (ctx: ToolContext) =>
+  betaZodTool({
+    name: "places_search",
+    description:
+      "Google Haritalar'dan işletme arar ve ICP filtresini uygular. Ücretli — her arama para harcar.",
+    inputSchema: z.object({
+      query: z.string().describe("Örn: \"Antalya'da balık restoranı\""),
+      maxResults: z.number().int().min(1).max(20).optional(),
+    }),
+    run: async ({ query, maxResults }) => {
+      if (gatedBy(ctx.agent, "spending_money")) {
+        return requireApproval(
+          ctx,
+          "spending_money",
+          `Places araması — "${query}"`,
+          `Google Places API'de "${query}" araması yapılacak (en fazla ${maxResults ?? 20} sonuç).`,
+          { query },
+        );
+      }
+
+      const result = await searchPlaces({ query, maxResults });
+      if (!result.ok) {
+        return `⚠️ Google Places kullanılamıyor (${result.reason}). Liste uydurma; kaynağın çalışmadığını yaz.`;
+      }
+
+      const web = ctx.agent.branch === "web";
+      const qualified = result.places.filter(web ? qualifiesForWeb : passesAutomationFloor);
+      const rejected = result.places.length - qualified.length;
+
+      if (qualified.length === 0) {
+        return `"${query}": ${result.places.length} sonuç geldi, hiçbiri ICP'yi geçmedi (${rejected} elendi). Bu da bir bulgu — sorguyu daralt ya da başka bir şehir dene.`;
+      }
+
+      const rows = qualified.map(
+        (p) =>
+          `- ${p.name} · ${p.category ?? "?"} · ${p.phone ?? "telefon yok"} · ${p.reviewCount} yorum${p.rating ? ` (${p.rating})` : ""} · ${p.website ? `site: ${p.website}` : "site yok"} · ${p.address ?? "?"} · place:${p.placeId}`,
+      );
+      return [
+        `"${query}" — ${qualified.length} aday ICP'yi geçti, ${rejected} elendi.`,
+        ...rows,
+        "",
+        web
+          ? "Eleme: sitesi olan ve hiç yorumu olmayan işletmeler çıkarıldı."
+          : "Eleme: hiç yorumu olmayan işletmeler çıkarıldı. n8n bağlanabilirliğini Dossier kanıtla doğrulayacak.",
+      ].join("\n");
+    },
+  });
+
 /* --------------------------------------------------------- gated tools --- */
 
 const outreachSend = (ctx: ToolContext) =>
@@ -383,6 +442,7 @@ const BUILDERS: Record<string, (ctx: ToolContext) => AnyTool> = {
   "docs.write": publish,
   "automation.deploy": deploy,
   "automation.build": deploy,
+  "places.search": placesSearch,
 };
 
 /**

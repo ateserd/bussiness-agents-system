@@ -18,6 +18,7 @@ tools:
   - "brain.write"
   - "browser"
   - "crm.write"
+  - "places.search"
 memory_scopes:
   - "global"
   - "branch.automation"
@@ -30,5 +31,5 @@ escalate_to_human_when: []
 kpis:
   - name: leads_added
     label: "Lead"
-    target: 100
+    target: 50
     window: weekly

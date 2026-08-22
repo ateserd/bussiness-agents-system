@@ -28,14 +28,16 @@ autonomy: propose
 approval_required_for: []
 escalate_to_human_when:
   - "a branch misses its weekly number two weeks running"
-  - "any single decision would commit more than [[ $N ]]"
+  - "any decision that would commit money at all — there is no ceiling below which the Chief of Staff spends on its own"
   - "a client threatens to leave, sue, or claw back"
 kpis:
   - name: briefs_delivered
     label: "Brifing"
     target: "7"
     window: weekly
+  # No target: clearing a blocker is worth doing when there is one, and a
+  # number here would reward manufacturing blockers to clear.
   - name: blockers_cleared
     label: "Çözülen engel"
-    target: "[[ N ]]"
+    target: 0
     window: weekly

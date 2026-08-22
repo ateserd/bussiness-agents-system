@@ -189,9 +189,12 @@ export const tasks = pgTable(
   "tasks",
   {
     id: text("id").primaryKey(),
-    agentId: text("agent_id")
-      .notNull()
-      .references(() => agents.id, { onDelete: "cascade" }),
+    /**
+     * Null for housekeeping the system owns rather than an agent — lead
+     * retention is the first. Attributing those to some agent would put work in
+     * its history that it never did.
+     */
+    agentId: text("agent_id").references(() => agents.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
     /** "queued" | "running" | "done" | "failed" | "blocked" */
     status: text("status").notNull().default("queued"),
@@ -254,9 +257,31 @@ export const leads = pgTable(
     thesis: text("thesis"),
     source: text("source"),
     sourceAgentId: text("source_agent_id"),
+    /**
+     * Google's stable identifier for the place. Kept even after the rest of the
+     * Google-derived fields are purged: it is an opaque key, not place content,
+     * and re-fetching by it is cheaper than searching again.
+     */
+    placeId: text("place_id"),
+    /**
+     * Google review count. Load-bearing for both ICPs — zero reviews
+     * disqualifies a business as too small, so this is a filter, not a nicety.
+     */
+    reviewCount: integer("review_count"),
+    rating: numeric("rating", { precision: 2, scale: 1 }),
+    /**
+     * When outreach actually reached this business. Null means untouched, which
+     * is what the retention rule turns on: an untouched lead is Google's data
+     * sitting in our database, and it is deleted after 30 days. Once contacted,
+     * the row is a record of our own business relationship and stays.
+     */
+    contactedAt: timestamp("contacted_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index("leads_branch_idx").on(t.branch)],
+  (t) => [
+    index("leads_branch_idx").on(t.branch),
+    index("leads_retention_idx").on(t.contactedAt, t.createdAt),
+  ],
 );
 
 export const deals = pgTable(
