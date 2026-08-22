@@ -97,6 +97,13 @@ export async function POST(req: Request) {
   const text = typeof event.data.text === "string" ? event.data.text : "(gövde okunamadı)";
   if (!from || !to) return NextResponse.json({ ok: true, ignored: true });
 
+  // `from`/`to`/`subject` are confirmed correct against a real delivered
+  // event; `text` is not — this stays until it is, then comes out.
+  if (typeof event.data.text !== "string") {
+    console.warn("resend inbound: no string .text field. event.data keys:", Object.keys(event.data));
+    console.warn("resend inbound: raw data:", JSON.stringify(event.data).slice(0, 2000));
+  }
+
   const branch =
     to === process.env.RESEND_FROM_WEB?.toLowerCase()
       ? "web"

@@ -1,7 +1,6 @@
 import { copy, fmt } from "./copy";
 import { getBriefData } from "./data";
 import { fetchDay } from "./integrations/calendar";
-import { fetchRevenueMtd } from "./integrations/stripe";
 
 /**
  * The §6 morning brief, built from live data.
@@ -28,12 +27,14 @@ export async function buildBrief(): Promise<Brief> {
   monthStart.setDate(1);
   monthStart.setHours(0, 0, 0, 0);
 
-  const [revenue, today] = await Promise.all([fetchRevenueMtd(monthStart), fetchDay()]);
+  const today = await fetchDay();
 
+  // No Stripe check here: the owner takes payment in cash/IBAN and enters it
+  // by hand (npm run money), by permanent decision, not a pending setup step
+  // — collectedMtd below already comes from invoices, never from Stripe.
+  // Nagging about a key that will never exist isn't "report reality", it's
+  // noise about a door that was never meant to open.
   const unavailable: BriefSource[] = [];
-  if (!revenue.ok) {
-    unavailable.push({ name: "Stripe", reason: revenue.reason });
-  }
   if (!today.ok) {
     unavailable.push({ name: "Takvim", reason: today.reason });
   } else if (today.unparsed > 0) {
