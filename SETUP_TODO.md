@@ -126,10 +126,10 @@ database, and reports revenue as unavailable. That is deliberate.
 
 | Blank | Where | Notes |
 |---|---|---|
-| `STRIPE_SECRET_KEY` | `.env` | Until set, revenue reads `⚠️ kaynak bağlı değil` everywhere |
-| `[[ ACCOUNTING TOOL ]]` | integration | Expenses, for a real P&L |
-| `[[ CRM ]]` | integration | Currently the built-in `leads` / `deals` tables |
-| `[[ CALENDAR ]]` | `GOOGLE_CALENDAR_ID` or `CALENDAR_URL` | Call Prep needs it to know today's calls; brief reports it unavailable |
+| `STRIPE_SECRET_KEY` | `.env` | **Wired.** Revenue is what Stripe settled, not what the invoice table hoped for. Tag each charge `metadata.branch = web \| automation`; an untagged amount is reported as untagged, never split by guess. Mixed currencies or more than 1000 charges in a month are refused rather than summed wrong |
+| `CALENDAR_URL` | `.env` | **Wired.** A secret-address `.ics` feed (Google Calendar → "Secret address in iCal format") — no OAuth. Feeds `callsToday` in the brief |
+| `[[ ACCOUNTING TOOL ]]` | integration | Expenses, for a real P&L. Still a decision — name the tool and it can be wired |
+| `[[ CRM ]]` | integration | Currently the built-in `leads` / `deals` tables, which work. Only worth replacing if you already live in another CRM |
 
 ---
 

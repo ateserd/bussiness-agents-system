@@ -1,5 +1,7 @@
 import { copy, fmt } from "./copy";
 import { getBriefData } from "./data";
+import { fetchDay } from "./integrations/calendar";
+import { fetchRevenueMtd } from "./integrations/stripe";
 
 /**
  * The §6 morning brief, built from live data.
@@ -26,12 +28,20 @@ export async function buildBrief(): Promise<Brief> {
   monthStart.setDate(1);
   monthStart.setHours(0, 0, 0, 0);
 
+  const [revenue, today] = await Promise.all([fetchRevenueMtd(monthStart), fetchDay()]);
+
   const unavailable: BriefSource[] = [];
-  if (!process.env.STRIPE_SECRET_KEY) {
-    unavailable.push({ name: "Stripe", reason: "STRIPE_SECRET_KEY tanımlı değil" });
+  if (!revenue.ok) {
+    unavailable.push({ name: "Stripe", reason: revenue.reason });
   }
-  if (!process.env.GOOGLE_CALENDAR_ID && !process.env.CALENDAR_URL) {
-    unavailable.push({ name: "Takvim", reason: "takvim kaynağı bağlı değil" });
+  if (!today.ok) {
+    unavailable.push({ name: "Takvim", reason: today.reason });
+  } else if (today.unparsed > 0) {
+    // The count would look complete and not be. Say which part is missing.
+    unavailable.push({
+      name: "Takvim",
+      reason: `${today.unparsed} tekrarlayan kayıt çözümlenemedi, bugünün sayısı eksik olabilir`,
+    });
   }
 
   const open = (branch: string) =>
@@ -76,7 +86,7 @@ export async function buildBrief(): Promise<Brief> {
     web: {
       openDeals: open("web").length,
       pipelineValue: open("web").reduce((n, d) => n + Number(d.valueUsd), 0),
-      callsToday: 0,
+      callsToday: today.ok ? today.events.length : 0,
       projects: webProjects.length,
       atRisk: webProjects.filter((p) => p.atRisk).length,
     },

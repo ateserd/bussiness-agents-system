@@ -18,6 +18,8 @@ import {
   type KpiSnapshot,
   type Memory,
 } from "@/db/schema";
+import { fmt } from "@/lib/copy";
+import { fetchRevenueMtd } from "@/lib/integrations/stripe";
 
 /**
  * Every read the views make. Server Components call these directly; nothing in
@@ -163,9 +165,11 @@ export async function getLedger(): Promise<{
 
   const costByBranch = new Map(costRows.map((r) => [r.branch, Number(r.total)]));
 
-  // Stripe is not connected in this environment. Revenue is therefore reported
-  // as unavailable rather than derived — §3 rule 3.
-  const stripeConnected = Boolean(process.env.STRIPE_SECRET_KEY);
+  // Revenue is what Stripe actually settled, not what the invoice table hoped
+  // for. When Stripe cannot answer — no key, mixed currencies, too many pages —
+  // the field is reported unavailable with that reason rather than falling back
+  // to the local number, which would look like revenue and not be.
+  const revenue = await fetchRevenueMtd(monthStart);
 
   const branches: BranchLedger[] = (["web", "automation"] as const).map((branch) => {
     const inv = invoiceRows.filter((i) => i.branch === branch);
@@ -176,18 +180,29 @@ export async function getLedger(): Promise<{
     const open = dealRows.filter(
       (d) => d.branch === branch && !["won", "lost"].includes(d.stage),
     );
+
+    const unavailable: { field: string; reason: string }[] = [];
+    if (!revenue.ok) {
+      unavailable.push({ field: "revenueMtd", reason: revenue.reason });
+    } else if (revenue.untagged > 0) {
+      // Two branches, two P&Ls: an untagged charge belongs to neither until
+      // someone tags it. Saying so beats splitting it by guess.
+      unavailable.push({
+        field: "revenueMtd",
+        reason: `${fmt.money(revenue.untagged, revenue.currency)} tahsilatta branch etiketi yok`,
+      });
+    }
+
     return {
       branch,
-      revenueMtd: stripeConnected ? collected : 0,
+      revenueMtd: revenue.ok ? revenue.byBranch[branch] : 0,
       cashCollected: collected,
       pipelineValue: open.reduce((n, d) => n + Number(d.valueUsd), 0),
       liveProjects: projectRows.filter((p) => p.branch === branch).length,
       unpaidInvoices: unpaid.reduce((n, i) => n + Number(i.amountUsd), 0),
       unpaidCount: unpaid.length,
       agentCostMtd: costByBranch.get(branch) ?? 0,
-      unavailable: stripeConnected
-        ? []
-        : [{ field: "revenueMtd", reason: "STRIPE_SECRET_KEY tanımlı değil" }],
+      unavailable,
     };
   });
 
