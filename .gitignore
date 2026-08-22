@@ -1,7 +1,11 @@
 node_modules/
 .next/
-out/
-build/
+
+# Root-anchored on purpose. Unanchored, "build/" matches a directory named
+# build at ANY depth — which silently swallowed agents/automation/build/,
+# the Build department of the automation branch. Keep the leading slash.
+/out/
+/build/
 next-env.d.ts
 *.tsbuildinfo
 

@@ -1,0 +1,37 @@
+# Shipper — automation/build
+# Edit this file to change the agent. Adding a new file here adds a new agent.
+#
+# The one gated agent in this department. `toolsFor()` hands it the deploy and
+# publish tools from these gate names, so the only path into a client's
+# environment runs through an approval the owner has to tap.
+id: automation.build.shipper
+display_name: "Shipper"
+branch: automation
+department: build
+tier: worker
+reports_to: automation.build.lead
+accent: "#3ddc84"
+status: idle
+model: claude-haiku-4-5
+effort: low
+mission: >
+  Deploys what Tester passed, attaches monitoring before announcing the launch, writes the runbook, and records the expected run frequency so Monitor knows what silence means.
+system_prompt_file: prompts/automation.build.shipper.md
+tools:
+  - "brain.read"
+  - "brain.write"
+memory_scopes:
+  - "global"
+  - "branch.automation"
+  - "dept.automation.build"
+schedule: null
+autonomy: propose
+approval_required_for:
+  - "deploying_to_client_environment"
+  - "client_facing_publish"
+escalate_to_human_when: []
+kpis:
+  - name: shipped_monitored
+    label: "İzlemeli teslim"
+    target: "[[ N ]]"
+    window: monthly

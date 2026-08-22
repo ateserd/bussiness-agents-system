@@ -1,0 +1,32 @@
+# Builder — automation/build
+# Edit this file to change the agent. Adding a new file here adds a new agent.
+#
+# No deploy tool on purpose: the prompt forbids touching the client's
+# environment, and Shipper owns that step behind an approval gate. Leaving the
+# tool off keeps the rule in the layer the model cannot argue with.
+id: automation.build.builder
+display_name: "Builder"
+branch: automation
+department: build
+tier: worker
+reports_to: automation.build.lead
+accent: "#3ddc84"
+status: idle
+model: claude-haiku-4-5
+effort: low
+mission: >
+  Implements the workflow on the configured platform to the Solution Architect's spec, failure branches included, with every step logging what came in and what went out.
+system_prompt_file: prompts/automation.build.builder.md
+tools:
+  - "brain.read"
+  - "brain.write"
+  - "browser"
+memory_scopes:
+  - "global"
+  - "branch.automation"
+  - "dept.automation.build"
+schedule: null
+autonomy: propose
+approval_required_for: []
+escalate_to_human_when: []
+kpis: []
