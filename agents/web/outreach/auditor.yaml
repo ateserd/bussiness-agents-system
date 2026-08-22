@@ -24,7 +24,7 @@ memory_scopes:
   - "branch.web"
   - "dept.web.outreach"
 schedule: "0 8 * * 1-5"
-autonomy: act_with_log
+autonomy: act_freely
 approval_required_for: []
 escalate_to_human_when: []
 kpis:

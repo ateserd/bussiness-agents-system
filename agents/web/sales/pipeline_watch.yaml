@@ -23,7 +23,7 @@ memory_scopes:
   - "branch.web"
   - "dept.web.sales"
 schedule: "0 */4 * * *"
-autonomy: act_with_log
+autonomy: act_freely
 approval_required_for: []
 escalate_to_human_when: []
 kpis:

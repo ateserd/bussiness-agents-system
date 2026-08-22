@@ -27,7 +27,7 @@ memory_scopes:
   - "branch.automation"
   - "dept.automation.build"
 schedule: "0 * * * *"
-autonomy: act_with_log
+autonomy: act_freely
 approval_required_for: []
 escalate_to_human_when:
   - "a client-facing automation has been silent past its expected run"

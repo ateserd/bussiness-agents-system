@@ -281,6 +281,16 @@ autonomy: act_freely   # was: propose
 That is the only switch. `gatedBy()` in `src/lib/agents/tools.ts` checks it, so
 the gate lifts everywhere at once for that agent and nowhere else.
 
-Suggested order, safest first: `Pipeline Watch` → `Monitor` → `Auditor` →
-`Dossier` → `Trend Scout`. Leave `Sender`, `Proposal Agent`, `Shipper` and
-`Handoff Agent` gated the longest — those are the ones that touch clients.
+**Done:** `Pipeline Watch`, `Monitor`, `Auditor`, `Dossier`, `Trend Scout` are
+now `act_freely` (both branches, where the role exists on both). Worth being
+honest about why these were first: all five ship with an empty
+`approval_required_for` — they only ever had `brain`/`crm`/`browser`/
+`lighthouse` tools, nothing a gate was checking. Flipping them was a real
+statement of trust and it is now visible on the dashboard, but it changed no
+actual behavior; there was nothing to lift.
+
+The next real lever is `Prospector` (`spending_money` — a real, small,
+per-search cost). Leave `Sender`, `Proposal Agent`, `Shipper` and
+`Handoff Agent` gated the longest — those are the ones that touch clients,
+and `Sender`'s `sending_external_messages` can never be lifted by this
+switch at all: that gate has no `gatedBy()` check, by design.
