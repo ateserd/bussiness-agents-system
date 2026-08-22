@@ -48,7 +48,13 @@ DATABASE_URL=postgresql://postgres.xxxx:PASSWORD@aws-0-xxxx.pooler.supabase.com:
 
 Any KVM-virtualized box works — the app is a few hundred MB of RAM, Next.js
 plus a systemd timer. Point a domain's A record at the box's IP now; Caddy
-needs that to resolve before it can request a certificate.
+needs that to resolve before it can request a certificate — a bare IP
+cannot get one, and the Telegram webhook requires valid HTTPS, so this
+isn't optional. No domain yet? [sslip.io](https://sslip.io) resolves
+`anything.<ip-with-dashes>.sslip.io` to that IP with no DNS setup at all,
+and Caddy can get a real Let's Encrypt certificate for it since it's a
+real, resolvable name. Use that everywhere a domain is asked for below,
+then switch to a real domain later by changing one line in the Caddyfile.
 
 ```bash
 ssh root@your-vps-ip
