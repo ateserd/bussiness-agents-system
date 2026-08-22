@@ -232,7 +232,8 @@ export async function executeCommand(command: Command): Promise<string> {
       const { runAgent } = await import("@/lib/agents/run");
       const result = await runAgent("shared.command.chief_of_staff", {
         trigger: "dispatch",
-        task: `Sahip sordu: "${command.text}"\nDoğru lideri belirle, cevabı onun adıyla ve rakamlarla ver.`,
+        mode: "chat",
+        task: `Sahip Telegram'dan yazdı: "${command.text}"\n\nBu bir sohbet mesajı, rapor değil — doğrudan ve doğal cevap ver. Soru gerçekten bir departmanın durumunu/rakamını gerektiriyorsa ilgili lideri adıyla an; gerektirmiyorsa yönlendirme icat etme, sadece cevapla.`,
       });
       return result.summary;
     }

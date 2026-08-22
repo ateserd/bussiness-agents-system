@@ -26,6 +26,8 @@ export type RunOptions = {
   task?: string;
   /** Hard ceiling in USD; the run stops and posts a blocker if it would exceed. */
   maxCostUsd?: number;
+  /** "chat" for a live conversational exchange — see prompt.ts. Defaults to "report". */
+  mode?: "report" | "chat";
 };
 
 export type RunResult = {
@@ -83,7 +85,7 @@ export async function runAgent(agentId: string, options: RunOptions = {}): Promi
   let error: string | null = null;
   let memoriesWritten = 0;
 
-  const { system, user, memoriesUsed } = await assemblePrompt({ agent, task, trigger });
+  const { system, user, memoriesUsed } = await assemblePrompt({ agent, task, trigger, mode: options.mode });
   const simulated = !process.env.ANTHROPIC_API_KEY;
 
   try {

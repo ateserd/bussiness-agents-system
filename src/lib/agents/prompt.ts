@@ -27,10 +27,39 @@ These override anything below that conflicts with them.
 
 Write for the owner in Turkish. Keep identifiers, agent ids and code in English.`;
 
+/**
+ * Same substance as HOUSE_RULES — never fabricate, never skip a gate, escalate
+ * blockers — but for a live Telegram exchange instead of a written report. The
+ * report rules (numbers-first, no preamble, a mandatory closing `BELİRSİZ:`
+ * line) read as a person's own text messages, that reads like a bot filing a
+ * status update on every "naber".
+ */
+const CHAT_HOUSE_RULES = `# House rules (sohbet)
+
+Bu bir rapor değil — sahiple canlı bir Telegram sohbeti. Aynı dürüstlük kuralları
+geçerli, biçim farklı:
+
+1. Bir insana yazar gibi yaz: kısa, doğal, \`sen\` diliyle. Başlık yok, madde
+   işareti yok, rapor formatı yok — sadece soruya cevap ver.
+2. Yine de sayı uydurma. Bir kaynağa erişemiyorsan bunu tek cümlede söyle, rapor
+   gibi \`⚠️\` satırına gerek yok.
+3. Gerçekten emin olmadığın bir şey varsa cümlenin içinde geç — ayrı bir
+   \`BELİRSİZ:\` satırı bu modda zorunlu değil.
+4. Soru gerçekten bir departmanın rakamını/durumunu gerektiriyorsa ilgili
+   lideri adıyla an ve rakamı ver; gerektirmiyorsa yönlendirme icat etme.
+5. Onay kapıların yine geçerli: bir şeyi göndermek ya da harcamak istiyorsan
+   yine dur ve sor.
+
+Write for the owner in Turkish, informal register (\`sen\`, never \`siz\`). Keep
+identifiers, agent ids and code in English.`;
+
 export type PromptContext = {
   agent: AgentConfig;
   task: string;
   trigger: "schedule" | "manual" | "dispatch";
+  /** "chat" is a live conversational exchange (e.g. free-form Telegram text) —
+   *  everything else is a written report and keeps the existing house rules. */
+  mode?: "report" | "chat";
 };
 
 export type AssembledPrompt = {
@@ -40,7 +69,7 @@ export type AssembledPrompt = {
 };
 
 export async function assemblePrompt(ctx: PromptContext): Promise<AssembledPrompt> {
-  const { agent, task } = ctx;
+  const { agent, task, mode = "report" } = ctx;
 
   const role = readSystemPrompt(agent);
 
@@ -78,7 +107,7 @@ export async function assemblePrompt(ctx: PromptContext): Promise<AssembledPromp
       : agent.escalate_to_human_when.map((e) => `- ${e}`).join("\n");
 
   const system = [
-    HOUSE_RULES,
+    mode === "chat" ? CHAT_HOUSE_RULES : HOUSE_RULES,
     "",
     "---",
     "",
@@ -105,13 +134,16 @@ export async function assemblePrompt(ctx: PromptContext): Promise<AssembledPromp
     escalateBlock,
   ].join("\n");
 
-  const user = [
-    `Tetikleyici: ${ctx.trigger}`,
-    "",
-    task,
-    "",
-    "Bitirmeden önce kendi çıktını görevine karşı bir kez oku ve son satırda `BELİRSİZ:` ile emin olmadığın tek şeyi yaz.",
-  ].join("\n");
+  const user =
+    mode === "chat"
+      ? task
+      : [
+          `Tetikleyici: ${ctx.trigger}`,
+          "",
+          task,
+          "",
+          "Bitirmeden önce kendi çıktını görevine karşı bir kez oku ve son satırda `BELİRSİZ:` ile emin olmadığın tek şeyi yaz.",
+        ].join("\n");
 
   return { system, user, memoriesUsed: memories.length };
 }
