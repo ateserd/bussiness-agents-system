@@ -131,6 +131,19 @@ export function getAgent(id: string): AgentConfig | undefined {
   return allAgents().find((a) => a.id === id);
 }
 
+/**
+ * The one agent with no manager — the owner's single point of contact.
+ *
+ * Derived rather than a constant so renaming the coordinator is a YAML change,
+ * not a hunt through five files for a string literal. `load()` already
+ * guarantees exactly one root, so this cannot be ambiguous.
+ */
+export function rootAgent(): AgentConfig {
+  const root = allAgents().find((a) => a.reports_to === null);
+  if (!root) throw new Error("no root agent — every agent has a reports_to");
+  return root;
+}
+
 export function requireAgent(id: string): AgentConfig {
   const agent = getAgent(id);
   if (!agent) {

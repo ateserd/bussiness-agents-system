@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db/client";
-import { agents, approvals } from "@/db/schema";
+import { rootAgent } from "@/lib/agents/registry";
+import { agents } from "@/db/schema";
 
 /**
  * Mutations the deck can trigger. Everything here is deliberately small: the
@@ -35,26 +36,11 @@ export async function decideApproval(
   decision: "approved" | "rejected",
   reason?: string,
 ): Promise<void> {
-  const db = await getDb();
-  const [approval] = await db.select().from(approvals).where(eq(approvals.id, approvalId));
-  if (!approval || approval.state !== "pending") return;
-
-  await db
-    .update(approvals)
-    .set({
-      state: decision,
-      decidedAt: new Date(),
-      rejectionReason: decision === "rejected" ? (reason ?? null) : null,
-    })
-    .where(eq(approvals.id, approvalId));
-
-  // Releasing the gate returns the agent to idle so the tree stops asking —
-  // unless it still has another approval waiting.
-  const remaining = await db.select().from(approvals).where(eq(approvals.agentId, approval.agentId));
-  const stillPending = remaining.some((a) => a.id !== approvalId && a.state === "pending");
-  if (!stillPending) {
-    await db.update(agents).set({ status: "idle" }).where(eq(agents.id, approval.agentId));
-  }
+  // Goes through the same path the Telegram `/approve` uses. It used to have
+  // its own copy that marked the row and stopped, so approving here looked
+  // successful and never sent the email.
+  const { settleApproval } = await import("./approvals");
+  await settleApproval(approvalId, decision, reason);
 
   revalidatePath("/");
   revalidatePath("/activity");
@@ -82,7 +68,7 @@ export async function addBrainNote(scopes: string[], content: string): Promise<{
       kind: "fact",
       scopes,
       content: trimmed,
-      sourceAgentId: "shared.command.chief_of_staff",
+      sourceAgentId: rootAgent().id,
       confidence: 0.9,
     });
     revalidatePath("/brain");

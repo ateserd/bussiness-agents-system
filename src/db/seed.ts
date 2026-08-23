@@ -102,197 +102,36 @@ const AUTO_CLIENTS = [
 -------------------------------------------------------------------------- */
 
 const ACTIONS: Record<string, { action: string; lines: string[] }> = {
-  prospector: {
-    action: "build_list",
-    lines: [
-      "{n} yeni işletme tarandı, {m} tanesi ICP eşiğini geçti.",
-      "Liste çekildi: {n} aday, {d} tekrar elendi.",
-      "{m} lead CRM'e yazıldı, hepsinde alan adı ve telefon var.",
-    ],
-  },
-  auditor: {
-    action: "audit_site",
-    lines: [
-      "{c} sitesi denetlendi — mobilde 4.1sn açılıyor, tek CTA yok.",
-      "{c}: site yok, sadece Instagram profili. En güçlü kanca bu.",
-      "{c} denetimi: Lighthouse 34, hero görseli 3.8MB.",
-      "{c}: form çalışmıyor, gönderim hiçbir yere düşmüyor.",
-    ],
-  },
-  dossier: {
-    action: "write_dossier",
-    lines: [
-      "{c}: sipariş formu e-postaya düşüyor, elle tabloya giriliyor. Haftada ~6 saat.",
-      "{c} dosyası: 3 kişilik ekip, 2 ayrı yerde çift veri girişi.",
-      "{c}: teklif hazırlama tamamen elle, ilan metninden anlaşılıyor.",
-    ],
-  },
-  draftsman: {
-    action: "draft_sequence",
-    lines: [
-      "{c} için ilk temas + 4 takip yazıldı, e-posta ve DM varyantı ayrı.",
-      "Dizi taslağı hazır: kanca denetimden, ask tek satır.",
-    ],
-  },
-  sender: {
-    action: "queue_send",
-    lines: [
-      "{n} mesaj kuyruğa alındı, günlük kota içinde.",
-      "{n} gönderildi, {m} yanıt geldi, {d} sert bounce.",
-      "Kuyruk onay bekliyor — {n} mesaj hazır, gönderilmedi.",
-    ],
-  },
-  call_prep: {
-    action: "write_brief",
-    lines: [
-      "{c} görüşmesi için brifing hazır: paket önerisi ve 3 itiraz.",
-      "Bugün {n} görüşme var, brifingler yazıldı.",
-    ],
-  },
-  closer_support: {
-    action: "draft_proposal",
-    lines: ["{c} için teklif taslağı: kapsam ve takvim yazıldı, fiyat sahibe bırakıldı.", "{c} sözleşmesi taslak halinde, onay bekliyor."],
-  },
-  proposal_agent: {
-    action: "draft_proposal",
-    lines: ["{c}: kurulum + aylık bakım teklifi hazırlandı.", "{c} sözleşmesi taslakta, onay bekliyor."],
-  },
-  scoper: {
-    action: "estimate_build",
-    lines: [
-      "{c} akışı {n} saat tahmin edildi, en büyük bilinmeyen: veri temizliği.",
-      "{c}: aylık işletme maliyeti hesaplandı, izleme dahil.",
-    ],
-  },
-  pipeline_watch: {
-    action: "sweep_pipeline",
-    lines: [
-      "Hat tarandı: {n} açık fırsat, {m} tanesi {d} gündür hareketsiz.",
-      "Dönüşüm: yanıt {n} → görüşme {m} → teklif {d}.",
-      "Hareket yok. {n} fırsatın hiçbiri bugün ilerlemedi.",
-    ],
-  },
-  brief_builder: {
-    action: "build_brief",
-    lines: ["{c} için site haritası ve sayfa hedefleri çıkarıldı.", "{c} brifi hazır: 6 sayfa, her birinin tek işi var."],
-  },
-  copy_agent: {
-    action: "write_copy",
-    lines: ["{c} anasayfa ve hizmetler metni yazıldı.", "{c}: tüm sayfa metinleri marka sesinde tamamlandı."],
-  },
-  design_agent: {
-    action: "design_layout",
-    lines: ["{c} wireframe'leri gerçek metinle çıkarıldı.", "{c}: bileşen seti ve tipografi ölçeği belirlendi."],
-  },
-  build_agent: {
-    action: "build_site",
-    lines: ["{c} bileşen sistemi kuruldu, 4 sayfa yerleşti.", "{c}: formlar bağlandı, test gönderimi ulaştı."],
-  },
-  qa_agent: {
-    action: "run_qa",
-    lines: [
-      "{c}: 5 kırılma noktası tarandı, Lighthouse 92, 2 kırık link bulundu.",
-      "{c} QA geçti — engelleyen hata yok.",
-      "{c} QA başarısız: iletişim formu gönderim yapmıyor. Handoff engellendi.",
-    ],
-  },
-  handoff_agent: {
-    action: "prepare_handoff",
-    lines: ["{c} lansman kontrol listesi ve devir dokümanı hazır.", "{c}: Loom metni yazıldı, fatura tetiklendi."],
-  },
-  solution_architect: {
-    action: "spec_workflow",
-    lines: [
-      "{c} akışı çıkarıldı: 4 tetikleyici, 11 adım, 6 hata durumu.",
-      "{c}: istisna yolları tanımlandı — asıl kırılma orada.",
-    ],
-  },
-  builder: {
-    action: "build_workflow",
-    lines: ["{c} akışı kuruldu, hata dalları dahil.", "{c}: her adım loglanıyor, girdi/çıktı görünür."],
-  },
-  tester: {
-    action: "test_workflow",
-    lines: [
-      "{c}: {n} senaryo koşuldu, {m} geçti. Boş girdi dalı düzeltildi.",
-      "{c} testleri temiz — süresi dolmuş auth dahil.",
-    ],
-  },
-  shipper: {
-    action: "deploy_workflow",
-    lines: ["{c} canlıya alındı, izleme bağlandı, runbook yazıldı.", "{c}: dağıtım onay bekliyor."],
-  },
-  monitor: {
-    action: "health_check",
-    lines: [
-      "{n} canlı akış tarandı, {m} sağlıklı.",
-      "{c} akışı beklenen saatte çalışmadı — sessiz kalma olayı açıldı.",
-      "{c}: art arda iki hata, olay açıldı.",
-    ],
-  },
-  trend_scout: {
-    action: "scan_trends",
-    lines: ["{n} format tarandı, 3 tanesi bu hafta üretilebilir.", "Öne çıkan format kaydedildi, örnek link eklendi."],
-  },
-  scriptwriter: {
-    action: "write_script",
-    lines: ["{n} kısa metin yazıldı, hepsi tek fikir üstünde.", "Metin hazır: kanca ilk satırda."],
-  },
-  carousel: {
-    action: "build_carousel",
-    lines: ["{n} slaytlık karusel hazır, ilk slayt kaydırmayı hak ediyor.", "Karusel taslağı onay bekliyor."],
-  },
-  repurposer: {
-    action: "repurpose",
-    lines: ["Bir içerik {n} platforma yeniden biçimlendirildi.", "Her platform kendi formatında aldı."],
-  },
-  lead: {
-    action: "file_numbers",
-    lines: [
-      "Gün sonu rakamları direktöre iletildi.",
-      "Huni sırayla kontrol edildi, en dar adım: {s}.",
-      "Bugün hareket yok. Sebep: kimse aramadı.",
-    ],
-  },
-  director: {
-    action: "branch_review",
-    lines: ["Haftalık şube incelemesi dosyalandı.", "Hedefe göre sapma: {s}. Değiştirilen: kaynak dağılımı."],
-  },
-  chief_of_staff: {
+  manager: {
     action: "morning_brief",
     lines: [
       "Sabah brifingi gönderildi. Sana düşen 2 madde vardı.",
       "Gün sonu özeti: ne çıktı, ne kaydı, yarının ilk 3'ü.",
-      "Kasa kaynağı bağlı olmadığı için nakit satırı uyarı ile geçildi.",
+      "{n} görev dağıtıldı, {m} tanesi bugün kapandı.",
     ],
   },
-  finance: {
-    action: "reconcile",
+  scout: {
+    action: "build_list",
     lines: [
-      "⚠️ Bu ay gider kaydı yok — net rakam gider tarafı olmadan raporlandı.",
-      "Ödenmemiş fatura taraması: {n} açık, en eskisi {d} gün.",
+      "{n} yeni işletme tarandı, {m} tanesi ICP eşiğini geçti.",
+      "{c}: sitesi yok, {n} yorum — telefonla aranacaklar listesine eklendi.",
+      "{c} sektörü için 3 örnek site çıkarıldı, linkleriyle birlikte.",
     ],
   },
-  client_success: {
-    action: "check_clients",
+  writer: {
+    action: "draft_outreach",
     lines: [
-      "{n} müşteri tarandı, {m} tanesinde risk sinyali var.",
-      "{c}: 18 gündür temas yok, kontrol araması öneriliyor.",
+      "{n} cold mail taslağı hazır, toplu onaya sunuldu.",
+      "{c} için arama metni yazıldı, telefon numarası başa alındı.",
+      "{c} yanıtına taslak hazırlandı — gönderim sahibe bırakıldı.",
     ],
   },
-  brain_keeper: {
-    action: "curate_memory",
+  assistant: {
+    action: "keep_books",
     lines: [
-      "{n} yakın kopya birleştirildi, {m} çelişki işaretlendi.",
-      "Haftalık 'ne öğrendik' özeti yazıldı.",
-      "{n} tekrar eden gerçek kalıcıya terfi etti.",
-    ],
-  },
-  recruiter: {
-    action: "propose_agent",
-    lines: [
-      "Tekrarlayan elle iş tespit edildi, yeni ajan konfigürasyonu taslakta.",
-      "{n} ajan bir aydır çıktı üretmedi — emeklilik önerildi.",
+      "{n} fırsat {d} gündür hareketsiz, işaretlendi.",
+      "{c} toplantısı takvime eklendi, davet gönderildi.",
+      "{n} kalem gider kaydedildi, kur tarihiyle birlikte yazıldı.",
     ],
   },
 };
@@ -627,20 +466,15 @@ async function main() {
   // starts with every agent idle because none of them have run yet.
   const WORKING = FRESH
     ? new Set<string>()
-    : new Set([
-        "web.outreach.auditor",
-        "web.sales.pipeline_watch",
-        "automation.outreach.prospector",
-        "shared.services.client_success",
-      ]);
+    : new Set(["shared.outreach.scout"]);
   const NEEDS_APPROVAL = FRESH
     ? new Set<string>()
-    : new Set(["web.outreach.sender", "automation.sales.proposal_agent"]);
+    : new Set(["shared.outreach.writer"]);
   const BLOCKED = FRESH
     ? new Map<string, string>()
     : new Map([
         [
-          "shared.services.finance",
+          "shared.ops.assistant",
           "Bu ay hiç gider kaydı girilmemiş — P&L'in gider tarafı boş, net rakam eksik çıkıyor.",
         ],
       ]);
@@ -703,7 +537,7 @@ async function main() {
         "Form var ama gönderim hiçbir yere ulaşmıyor.",
       ]),
       source: "osm+manual",
-      sourceAgentId: "web.outreach.prospector",
+      sourceAgentId: "shared.outreach.scout",
       createdAt: daysAgo(int(2, 28), 12),
     });
   }
@@ -726,7 +560,7 @@ async function main() {
         "Aday eleme e-posta üzerinden yürüyor, hacim yüksek.",
       ]),
       source: "apollo+manual",
-      sourceAgentId: "automation.outreach.prospector",
+      sourceAgentId: "shared.outreach.scout",
       createdAt: daysAgo(int(2, 26), 12),
     });
   }
@@ -939,7 +773,7 @@ async function main() {
   const approvalRows: (typeof approvals.$inferInsert)[] = [
     {
       id: randomUUID(),
-      agentId: "web.outreach.sender",
+      agentId: "shared.outreach.writer",
       branch: "web",
       gate: "sending_external_messages",
       title: "Kumsal Balık Restoran — ilk temas + 4 takip",
@@ -957,7 +791,7 @@ Aynı sektörde bunu çözdüğümüz bir örnek var. 15 dakikalık bir görüş
     },
     {
       id: randomUUID(),
-      agentId: "automation.sales.proposal_agent",
+      agentId: "shared.outreach.writer",
       branch: "automation",
       gate: "sending_contracts",
       title: "Ege Tekstil İhracat — kurulum + aylık bakım teklifi",
@@ -1109,22 +943,16 @@ function slug(name: string): string {
     .slice(0, 22);
 }
 
-/** Attribute a memory to a plausible author given its scopes. */
+/**
+ * Attribute a demo memory to a plausible author.
+ *
+ * With four agents this is no longer the branch/department lookup it was —
+ * outreach knowledge comes from Scout, everything else from the coordinator.
+ */
 function pickWriter(scopes: string[], ids: string[]): string | null {
-  const deptScope = scopes.find((s) => s.startsWith("dept."));
-  const branchScope = scopes.find((s) => s.startsWith("branch."));
-  if (deptScope && branchScope) {
-    const branch = branchScope.split(".")[1];
-    const d = deptScope.split(".")[1];
-    const candidates = ids.filter((i) => i.startsWith(`${branch}.${d}.`));
-    if (candidates.length) return pick(candidates);
-  }
-  if (branchScope) {
-    const branch = branchScope.split(".")[1];
-    const candidates = ids.filter((i) => i.startsWith(`${branch}.`));
-    if (candidates.length) return pick(candidates);
-  }
-  return "shared.services.brain_keeper";
+  const outreach = scopes.some((s) => s.includes("outreach"));
+  const wanted = outreach ? "shared.outreach.scout" : "shared.command.manager";
+  return ids.includes(wanted) ? wanted : (ids[0] ?? null);
 }
 
 main().catch(async (err) => {

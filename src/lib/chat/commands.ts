@@ -1,11 +1,10 @@
-import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db/client";
-import { activity, agents, approvals, leads } from "@/db/schema";
-import { allAgents, getAgent } from "@/lib/agents/registry";
+import { agents } from "@/db/schema";
+import { allAgents, getAgent, rootAgent } from "@/lib/agents/registry";
 import { buildBrief, renderBrief } from "@/lib/brief";
 import { writeMemory } from "@/lib/brain/write";
-import { markContacted } from "@/lib/integrations/places";
+import { settleApproval } from "@/lib/approvals";
 import { fmt } from "@/lib/copy";
 
 /**
@@ -25,6 +24,7 @@ export type Command =
   | { kind: "run"; agent: string }
   | { kind: "remember"; fact: string; scope: string }
   | { kind: "blockers" }
+  | { kind: "answer"; id: string; text: string }
   | { kind: "ask"; text: string };
 
 /**
@@ -50,6 +50,11 @@ function parseRemember(arg: string): Command {
         ? "branch.automation"
         : "global";
   return { kind: "remember", fact: fact.trim(), scope };
+}
+
+/** Split an argument string into words, dropping the empties. */
+function rest2(arg: string): string[] {
+  return arg.split(/\s+/).filter(Boolean);
 }
 
 export function parseCommand(input: string): Command {
@@ -80,69 +85,23 @@ export function parseCommand(input: string): Command {
       return parseRemember(arg);
     case "blockers":
       return { kind: "blockers" };
+    case "cevap":
+    case "answer": {
+      // `/cevap <id> <metin>` and, when only one question is open, `/cevap <metin>`.
+      const [maybeId, ...rest] = rest2(arg);
+      const looksLikeId = /^[0-9a-f]{6}$/i.test(maybeId ?? "");
+      return looksLikeId
+        ? { kind: "answer", id: maybeId, text: rest.join(" ") }
+        : { kind: "answer", id: "", text: arg };
+    }
     default:
       return { kind: "ask", text };
   }
 }
 
 /**
- * Delivery for an approved `sending_external_messages` card.
- *
- * Approval only clears the owner's gate (§ the standing rule that nothing
- * reaches a stranger unattended) — it says nothing about whether a provider
- * is actually wired to deliver. Only "email" has one (Resend); everything
- * else lands here approved and stays manual, same as every channel did
- * before this dispatch existed, just reported rather than silent about it.
- */
-async function dispatchOutreach(row: typeof approvals.$inferSelect): Promise<string> {
-  const context = (row.context ?? {}) as { to?: string; channel?: string; subject?: string };
-  if (context.channel !== "email") {
-    return `${context.channel ?? "Bu kanal"} için otomatik gönderim yok — elle göndermen gerekiyor.`;
-  }
-  if (!context.to || !context.subject) {
-    return "⚠️ Gönderilemedi: alıcı ya da konu eksik kaydedilmiş.";
-  }
-
-  const { sendEmail } = await import("@/lib/integrations/resend");
-  const db = await getDb();
-  const started = new Date();
-  const result = await sendEmail({ branch: row.branch, to: context.to, subject: context.subject, text: row.draft });
-
-  await db.insert(activity).values({
-    id: randomUUID(),
-    agentId: row.agentId,
-    branch: row.branch,
-    department: row.agentId.split(".")[1] as (typeof agents.$inferSelect)["department"],
-    action: "send_email",
-    summary: result.ok
-      ? `${context.to} adresine e-posta gönderildi.`
-      : `${context.to} adresine gönderim başarısız: ${result.reason}`,
-    reason: "Sahip onayladı.",
-    input: { to: context.to, subject: context.subject },
-    output: result.ok ? { resendId: result.id } : {},
-    outcome: result.ok ? "success" : "failure",
-    simulated: false,
-    error: result.ok ? null : result.reason,
-    startedAt: started,
-    finishedAt: new Date(),
-  });
-
-  // Mark the lead contacted, or retention deletes the evidence that we wrote
-  // to them. `pruneLeads()` drops any lead with a null `contactedAt` after 30
-  // days; without this the row we just emailed looks untouched and disappears,
-  // taking the "we already approached them" history with it — and inviting a
-  // second cold email to the same business.
-  if (result.ok) {
-    const [lead] = await db.select().from(leads).where(eq(leads.email, context.to));
-    if (lead) await markContacted(lead.id);
-  }
-
-  return result.ok ? "✓ Gönderildi." : `⚠️ Gönderilemedi: ${result.reason}`;
-}
-
-/**
  * `ownerChannel` is proof the message came from the owner's own verified
- * Telegram chat, not from a webhook, a schedule, or text an agent read
+ * Telegram chat — not from a webhook, a schedule, or text an agent read
  * somewhere. Only that path may reach the settings table.
  */
 export type ExecuteOptions = { ownerChannel?: boolean };
@@ -168,6 +127,21 @@ export async function executeCommand(command: Command, options: ExecuteOptions =
       return lines.join("\n");
     }
 
+    case "answer": {
+      const { resolveAnswerTarget, answerTask, shortId } = await import("@/lib/tasks");
+      if (!command.text.trim()) return "Cevap boş. `/cevap <metin>` ya da `/cevap <id> <metin>`.";
+      const target = await resolveAnswerTarget(command.id || undefined);
+      if (target.kind === "none") return "Cevap bekleyen bir görev yok.";
+      if (target.kind === "many") {
+        return [
+          "Birden fazla açık soru var — hangisi?",
+          ...target.tasks.map((t) => `  /cevap ${shortId(t.id)} …  → ${t.question}`),
+        ].join("\n");
+      }
+      await answerTask(target.task.id, command.text.trim());
+      return `#${shortId(target.task.id)} cevaplandı — görev kaldığı yerden devam edecek.`;
+    }
+
     case "blockers": {
       const rows = await db.select().from(agents).where(eq(agents.status, "blocked"));
       if (rows.length === 0) return "Engellenen ajan yok.";
@@ -176,22 +150,12 @@ export async function executeCommand(command: Command, options: ExecuteOptions =
 
     case "approve":
     case "reject": {
-      const [row] = await db.select().from(approvals).where(eq(approvals.id, command.id));
-      if (!row) return `Onay kaydı bulunamadı: ${command.id}`;
-      if (row.state !== "pending") return `Bu kayıt zaten ${row.state}.`;
-      await db
-        .update(approvals)
-        .set({
-          state: command.kind === "approve" ? "approved" : "rejected",
-          decidedAt: new Date(),
-          rejectionReason: command.kind === "reject" ? command.reason : null,
-        })
-        .where(eq(approvals.id, command.id));
-      await db.update(agents).set({ status: "idle" }).where(eq(agents.id, row.agentId));
-
-      const verdict = `${row.title} — ${command.kind === "approve" ? "onaylandı" : "reddedildi"}.`;
-      if (command.kind === "reject" || row.gate !== "sending_external_messages") return verdict;
-      return `${verdict}\n${await dispatchOutreach(row)}`;
+      const settled = await settleApproval(
+        command.id,
+        command.kind === "approve" ? "approved" : "rejected",
+        command.kind === "reject" ? command.reason : undefined,
+      );
+      return settled.message;
     }
 
     case "pause": {
@@ -223,7 +187,7 @@ export async function executeCommand(command: Command, options: ExecuteOptions =
         kind: "preference",
         scopes: [command.scope],
         content: command.fact,
-        sourceAgentId: "shared.command.chief_of_staff",
+        sourceAgentId: rootAgent().id,
         confidence: 0.95,
         permanent: true,
       });
@@ -248,7 +212,7 @@ export async function executeCommand(command: Command, options: ExecuteOptions =
         ].join("\n");
       }
       const { runAgent } = await import("@/lib/agents/run");
-      const result = await runAgent("shared.command.chief_of_staff", {
+      const result = await runAgent(rootAgent().id, {
         trigger: "dispatch",
         mode: "chat",
         ownerChannel: options.ownerChannel === true,
@@ -269,8 +233,12 @@ function unknownAgent(id: string): string {
     : `"${id}" bulunamadı. /run <agent.id> biçiminde yaz.`;
 }
 
-export const COMMAND_HELP = `/brief            günün brifingi
+export const COMMAND_HELP = `Komut ezberlemene gerek yok — ne istediğini normal yaz, Yönetici anlar.
+Kısayollar:
+
+/brief            günün brifingi
 /branch web|ai    tek şubenin rakamları
+/cevap <metin>    sana takılı soruyu cevapla (tek soru varsa id gerekmez)
 /blockers         engellenen ajanlar
 /approve <id>     onay kartını onayla
 /reject <id> <s>  gerekçesiyle reddet

@@ -1,4 +1,4 @@
-import { allAgents } from "@/lib/agents/registry";
+import { allAgents, rootAgent } from "@/lib/agents/registry";
 
 /**
  * The §7 cadence table, as data.
@@ -32,9 +32,9 @@ export type Cadence = {
 
 export const EXTRA_CADENCES: Cadence[] = [
   {
-    id: "cos.evening_wrap",
+    id: "manager.evening_wrap",
     cron: "0 19 * * *",
-    agents: ["shared.command.chief_of_staff"],
+    agents: (ids) => ids.filter((id) => id === rootAgent().id),
     label: "Gün sonu özeti",
     task: "Gün sonu özetini yaz: bugün ne çıktı, ne kaydı, yarının ilk üç işi ne. Sayılarla başla.",
   },

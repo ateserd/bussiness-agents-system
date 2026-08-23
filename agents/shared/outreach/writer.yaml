@@ -1,0 +1,40 @@
+# Outreach — writes what goes out, and never sends it unasked.
+id: shared.outreach.writer
+display_name: "Outreach"
+branch: shared
+department: outreach
+tier: worker
+reports_to: shared.command.manager
+accent: "#a06cff"
+status: idle
+model: claude-sonnet-5
+effort: medium
+mission: >
+  E-postasına ulaşılabilen leadler için cold mail, ulaşılamayanlar için arama metni ve telefon numarası
+  yazar — web şubesinde ikincisi tanımı gereği çoğunluk. Bir aday geri yazdığında taslak hazırlar ve orada
+  durur: yanıtı sahip kendi yazıp gönderir.
+system_prompt_file: prompts/shared.outreach.writer.md
+tools:
+  - "brain.read"
+  - "brain.write"
+  - "crm.read"
+  - "crm.write"
+  - "outreach.send"
+  - "owner.ask"
+memory_scopes:
+  - "global"
+  - "branch.web"
+  - "branch.automation"
+  - "dept.web.outreach"
+  - "dept.automation.outreach"
+schedule: null
+autonomy: propose
+approval_required_for:
+  - "sending_external_messages"
+escalate_to_human_when:
+  - "a prospect replies with a legal or refund threat"
+kpis:
+  - name: messages_sent
+    label: "Gönderilen"
+    target: 10
+    window: daily

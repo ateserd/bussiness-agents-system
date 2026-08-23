@@ -56,9 +56,9 @@ export const copy = {
   },
 
   department: {
+    command: "Komuta",
     outreach: "Outreach",
-    sales: "Sales",
-    shared: "Ortak",
+    ops: "Ops",
   },
 
   command: {

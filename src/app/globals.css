@@ -199,25 +199,3 @@ body {
     transition-duration: 0.001ms !important;
   }
 }
-
-/* --- react-flow overrides -------------------------------------------------- */
-/* xyflow supplies the viewport only; every pixel of chrome is ours. */
-
-/* NOTE: xyflow's base.css sizes .react-flow__container but never .react-flow
-   itself, so the root collapses to zero height and nothing renders. base.css is
-   imported by the client component and lands after this file in the cascade, so
-   the fix is an inline style on <ReactFlow> in org-tree.tsx, not a rule here. */
-
-.react-flow__attribution {
-  display: none;
-}
-.react-flow__node {
-  cursor: pointer;
-}
-.react-flow__handle {
-  opacity: 0;
-  pointer-events: none;
-}
-.react-flow__edge-path {
-  transition: stroke-opacity 0.3s ease;
-}

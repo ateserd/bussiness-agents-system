@@ -571,6 +571,45 @@ const settingsWrite = (ctx: ToolContext) =>
     },
   });
 
+
+/**
+ * Route the owner's reply back to the task that asked.
+ *
+ * The manager can see the open questions in its system map, so it resolves
+ * which one a free-form reply belongs to. It must not guess between two: with
+ * more than one open and no id, this refuses and says so, because an answer
+ * silently attached to the wrong task is acted on as if it were right.
+ */
+const answerTaskTool = () =>
+  betaZodTool({
+    name: "answer_task",
+    description:
+      "Sahibin cevabını, o cevabı bekleyen göreve iletir ve görevi kaldığı yerden devam ettirir. " +
+      "Birden fazla açık soru varsa taskId zorunlu.",
+    inputSchema: z.object({
+      answer: z.string().describe("Sahibin verdiği cevap, olduğu gibi."),
+      taskId: z
+        .string()
+        .optional()
+        .describe("Kısa görev id'si (#a4f2c1 içindeki a4f2c1). Tek açık soru varsa gerekmez."),
+    }),
+    run: async ({ answer, taskId }) => {
+      const { resolveAnswerTarget, answerTask, shortId } = await import("@/lib/tasks");
+      const target = await resolveAnswerTarget(taskId);
+      if (target.kind === "none") return "Cevap bekleyen bir görev yok.";
+      if (target.kind === "many") {
+        return (
+          "Birden fazla açık soru var, hangisini cevapladığını bilmeden ilerleyemem:\n" +
+          target.tasks.map((t) => `#${shortId(t.id)} — ${t.question}`).join("\n") +
+          "\nSahibe hangisi olduğunu sor."
+        );
+      }
+      const resumed = await answerTask(target.task.id, answer);
+      if (!resumed) return "Görev artık cevap bekler durumda değil.";
+      return `#${shortId(target.task.id)} cevaplandı, görev kuyruğa geri alındı.`;
+    },
+  });
+
 /* ------------------------------------------------------------ assembly --- */
 
 /**
@@ -595,6 +634,7 @@ const BUILDERS: Record<string, (ctx: ToolContext) => AnyTool> = {
   "places.search": placesSearch,
   "agent.delegate": delegate,
   "owner.ask": askOwner,
+  "owner.answer": () => answerTaskTool(),
   "settings.read": () => settingsRead(),
 };
 
@@ -604,28 +644,39 @@ const BUILDERS: Record<string, (ctx: ToolContext) => AnyTool> = {
  * gate rather than finding no tool at all.
  */
 export function toolsFor(ctx: ToolContext): AnyTool[] {
+  // Keyed by the tool's *own* name, not by the registry key that produced it.
+  // Two registry keys can build the same tool — an agent with `outreach.send`
+  // in `tools:` and `sending_external_messages` in `approval_required_for` hits
+  // this every time — and keying by registry name sent the API two definitions
+  // called `outreach_send` in one request.
   const out = new Map<string, AnyTool>();
+  const add = (tool: AnyTool) => {
+    if (!out.has(tool.name)) out.set(tool.name, tool);
+  };
 
   for (const name of ctx.agent.tools) {
     const builder = BUILDERS[name];
-    if (builder) out.set(name, builder(ctx));
+    if (builder) add(builder(ctx));
   }
+
+  // An agent that is *allowed* to do a gated thing gets the tool for it, so it
+  // hits the gate rather than finding no tool and inventing a way around it.
   for (const gate of ctx.agent.approval_required_for) {
-    if (gate === "sending_contracts") out.set(gate, sendContract(ctx));
-    if (gate === "client_facing_publish") out.set(gate, publish(ctx));
-    if (gate === "spending_money") out.set(gate, spend(ctx));
-    if (gate === "deploying_to_client_environment") out.set(gate, deploy(ctx));
-    if (gate === "sending_external_messages") out.set(gate, outreachSend(ctx));
+    if (gate === "sending_contracts") add(sendContract(ctx));
+    if (gate === "client_facing_publish") add(publish(ctx));
+    if (gate === "spending_money") add(spend(ctx));
+    if (gate === "deploying_to_client_environment") add(deploy(ctx));
+    if (gate === "sending_external_messages") add(outreachSend(ctx));
   }
 
   // brain.read is universal: an agent that cannot read the Brain would have to
   // invent business facts, which rule 2 forbids.
-  if (!out.has("brain.read")) out.set("brain.read", brainRead(ctx));
+  add(brainRead(ctx));
 
   // Deliberately not grantable from YAML. Writing settings is mounted by
   // *channel*, so a tools: entry can never hand it to an agent that processes
   // untrusted text — see ToolContext.ownerChannel.
-  if (ctx.ownerChannel) out.set("settings.write", settingsWrite(ctx));
+  if (ctx.ownerChannel) add(settingsWrite(ctx));
 
   return [...out.values()];
 }

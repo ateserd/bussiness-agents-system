@@ -4,8 +4,8 @@ import { runAgent } from "../src/lib/agents/run";
 
 /**
  *   npm run agent:list
- *   npm run agent:run -- web.outreach.auditor
- *   npm run agent:run -- web.outreach.auditor --task "Kumsal Balık sitesini denetle"
+ *   npm run agent:run -- shared.outreach.scout
+ *   npm run agent:run -- shared.outreach.scout --task "Antalya'da sitesi olmayan kafeleri çıkar"
  */
 async function main() {
   const args = process.argv.slice(2);

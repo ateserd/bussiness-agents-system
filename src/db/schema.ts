@@ -30,8 +30,8 @@ import {
  * compile error instead of a silent mismatch.
  */
 export const BRANCHES = ["web", "automation", "shared"] as const;
-export const DEPARTMENTS = ["outreach", "sales", "shared"] as const;
-export const TIERS = ["cos", "director", "lead", "worker"] as const;
+export const DEPARTMENTS = ["command", "outreach", "ops"] as const;
+export const TIERS = ["cos", "worker"] as const;
 export const AGENT_STATUSES = ["idle", "working", "blocked", "needs_approval"] as const;
 export const AUTONOMIES = ["observe", "propose", "act_with_log", "act_freely"] as const;
 
@@ -56,7 +56,7 @@ export type MemoryKind =
 export const agents = pgTable(
   "agents",
   {
-    /** Dotted path, e.g. "web.outreach.auditor". Matches the YAML filename. */
+    /** Dotted path, e.g. "shared.outreach.scout". Matches the YAML filename. */
     id: text("id").primaryKey(),
     displayName: text("display_name").notNull(),
     branch: text("branch").$type<Branch>().notNull(),

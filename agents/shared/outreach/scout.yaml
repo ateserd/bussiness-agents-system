@@ -1,0 +1,40 @@
+# Scout — finds who to talk to, and learns enough about them to be useful.
+id: shared.outreach.scout
+display_name: "Scout"
+branch: shared
+department: outreach
+tier: worker
+reports_to: shared.command.manager
+accent: "#ff4d6d"
+status: idle
+model: claude-sonnet-5
+effort: medium
+mission: >
+  Şubenin ICP'sine göre Google Haritalar'dan lead listesini çıkarır ve telefon numarası olan her yerde onu
+  kaydeder — sahip elle arıyor, numarasız bir lead yarım lead demek. Ayrıca istendiğinde müşterinin
+  sektörünü araştırıp sıfat değil, adı ve linki olan gerçek örnekler getirir.
+system_prompt_file: prompts/shared.outreach.scout.md
+tools:
+  - "brain.read"
+  - "brain.write"
+  - "browser"
+  - "crm.read"
+  - "crm.write"
+  - "places.search"
+  - "owner.ask"
+memory_scopes:
+  - "global"
+  - "branch.web"
+  - "branch.automation"
+  - "dept.web.outreach"
+  - "dept.automation.outreach"
+schedule: "0 8 * * 1-5"
+autonomy: act_with_log
+approval_required_for:
+  - "spending_money"
+escalate_to_human_when: []
+kpis:
+  - name: leads_added
+    label: "Lead"
+    target: 50
+    window: weekly

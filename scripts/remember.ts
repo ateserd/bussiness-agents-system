@@ -1,5 +1,6 @@
 import { closeDb } from "../src/db/client";
 import type { MemoryKind } from "../src/db/schema";
+import { rootAgent } from "../src/lib/agents/registry";
 import { writeMemory } from "../src/lib/brain/write";
 
 /**
@@ -165,7 +166,7 @@ async function main() {
     kind: kindArg as MemoryKind,
     scopes: [scope],
     content,
-    sourceAgentId: "shared.command.chief_of_staff",
+    sourceAgentId: rootAgent().id,
     confidence,
     permanent: permanentIndex >= 0,
   });
