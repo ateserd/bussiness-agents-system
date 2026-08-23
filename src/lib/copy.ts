@@ -184,6 +184,32 @@ export const copy = {
     unpaid: "Ödenmemiş",
     needsYou: "SANA DÜŞENLER",
     nothingNeedsYou: "Sana düşen bir şey yok.",
+
+    today: "BUGÜN",
+    noMeetings: "Bugün toplantı yok.",
+    outreachPending: "onayını bekliyor",
+    outreachSentToday: "bugün gitti",
+    outreachCalls: "arama listende",
+
+    active: "AKTİF İŞLER",
+    noActive: "Devam eden proje yok.",
+    dueIn: (days: number) =>
+      days < 0 ? `${Math.abs(days)} gün geçti` : days === 0 ? "bugün teslim" : `${days} gün kaldı`,
+    noDueDate: "tarih yok",
+    atRiskFlag: "riskte",
+    unhealthyFlag: "akış hatalı",
+
+    quiet: "SESSİZLEŞENLER",
+    noQuiet: "Sessizleşen müşteri yok.",
+    quietFor: (days: number) => `${days} gündür sessiz`,
+    neverContacted: "hiç temas edilmemiş",
+
+    potential: "POTANSİYEL",
+    noPotential: "Açık fırsat yok.",
+    stalledFor: (days: number) => `${days} gündür hareketsiz`,
+
+    eveningHeading: "Gün sonu",
+    quietDay: "Bugün kayda değer bir şey olmadı.",
     unavailable: (source: string, reason: string) =>
       `⚠️ ${source} kullanılamıyor (${reason})`,
   },

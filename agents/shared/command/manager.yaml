@@ -35,7 +35,10 @@ memory_scopes:
   - "global"
   - "branch.web"
   - "branch.automation"
-schedule: "30 7 * * *"
+# No cron here on purpose. The brief runs from `brief.time`, a setting the
+# owner changes by saying so — and a static cron would both duplicate it and
+# fire the generic "run your scheduled task" text instead of the brief.
+schedule: null
 autonomy: propose
 approval_required_for:
   - "changing_calendar"

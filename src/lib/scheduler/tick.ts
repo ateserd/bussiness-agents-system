@@ -2,7 +2,9 @@ import { randomUUID } from "node:crypto";
 import { and, eq, inArray } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { approvals, tasks, type Branch } from "@/db/schema";
-import { notifyOwner } from "@/lib/chat/notify";
+import { notifyOwner, sendLong } from "@/lib/chat/notify";
+import { buildBrief, composeBrief } from "@/lib/brief";
+import { getDayActivity } from "@/lib/data";
 import { callRef, claimBatchTask, renderBatch, saveBatch, type CallItem, type MailItem } from "@/lib/outreach/batch";
 import { dayKey } from "@/lib/outreach/plan";
 import { briefLead, selectForDay } from "@/lib/outreach/select";
@@ -106,6 +108,133 @@ async function claim(run: PlannedRun, now: Date): Promise<string | null> {
   return inserted.length > 0 ? id : null;
 }
 
+/** Minutes since midnight in the owner's timezone, not the server's. */
+function minutesNow(now: Date): number {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Istanbul",
+    hour12: false,
+    hour: "2-digit",
+    minute: "2-digit",
+  }).formatToParts(now);
+  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value ?? "0");
+  return get("hour") * 60 + get("minute");
+}
+
+/**
+ * Has an `HH:MM` setting's moment passed today?
+ *
+ * "At or after", never "exactly at": the tick fires on a timer that can drift
+ * or be started late, so an equality check would skip 09:00 entirely on a tick
+ * that happened to land at 09:07. What keeps these to once a day is the run
+ * key, not the minute.
+ */
+function isPast(now: Date, hhmm: string, fallbackMinutes: number): boolean {
+  const [hh, mm] = hhmm.split(":").map(Number);
+  const due = Number.isFinite(hh) && Number.isFinite(mm) ? hh * 60 + mm : fallbackMinutes;
+  return minutesNow(now) >= due;
+}
+
+/**
+ * One system-owned, once-a-day step. Claims by run key, runs `body`, and
+ * settles the row either way.
+ *
+ * Three of these now exist — retention, the outreach batch, the brief — and
+ * each needs the same guarantee: exactly once per day even if the tick runs
+ * every minute, and a failure that is recorded rather than one that takes the
+ * whole tick down with it.
+ */
+async function onceToday(
+  key: string,
+  title: string,
+  now: Date,
+  result: TickResult,
+  body: (taskId: string) => Promise<{ outcome: string; note?: string }>,
+): Promise<void> {
+  const db = await getDb();
+  const id = randomUUID();
+  const claimed = await db
+    .insert(tasks)
+    .values({
+      id,
+      agentId: null,
+      title,
+      status: "running",
+      payload: { kind: key.split(":")[0], source: "system" },
+      runKey: key,
+      scheduledFor: now,
+      startedAt: now,
+      attempts: 0,
+      createdAt: now,
+    })
+    .onConflictDoNothing()
+    .returning();
+  if (claimed.length === 0) return;
+
+  try {
+    const out = await body(id);
+    await db
+      .update(tasks)
+      .set({ status: "done", attempts: 1, result: out.note?.slice(0, 500) ?? null, finishedAt: new Date() })
+      .where(eq(tasks.id, id));
+    result.details.push({ agentId: "—", outcome: out.outcome, note: out.note });
+  } catch (err) {
+    await db
+      .update(tasks)
+      .set({ status: "blocked", attempts: 1, lastError: (err as Error).message, finishedAt: new Date() })
+      .where(eq(tasks.id, id));
+    result.details.push({ agentId: "—", outcome: "blocked", note: `${title}: ${(err as Error).message}` });
+  }
+}
+
+/**
+ * The morning brief, pushed rather than waited for.
+ *
+ * It used to exist only as `/brief` — something the owner had to remember to
+ * ask for, which is the opposite of a brief. The manager's YAML carried a
+ * `schedule: "30 7 * * *"`, but that fired the *generic* scheduled-run text,
+ * not this; and `brief.time` was a setting nothing read. Both are settled here:
+ * the hour comes from the setting, and the manager's own cron is gone so it
+ * cannot run twice.
+ */
+async function runMorningBrief(now: Date, result: TickResult): Promise<void> {
+  if (!isPast(now, await getSetting("brief.time"), 7 * 60 + 30)) return;
+
+  await onceToday(`brief:${dayKey(now)}`, "Sabah brifingi", now, result, async () => {
+    const brief = await buildBrief(now);
+    await sendLong(await composeBrief(brief, "morning"));
+    return {
+      outcome: "brief",
+      note: `${brief.active.length} aktif · ${brief.potential.length} fırsat · ${brief.quiet.length} sessiz · ${brief.needsYou.length} sana düşen`,
+    };
+  });
+}
+
+/**
+ * The evening wrap, and its one rule: on a quiet day it does not arrive.
+ *
+ * The owner asked for exactly that, so "was today eventful" is counted from
+ * activity rows rather than judged by a model — a summary that decides for
+ * itself whether the day felt worth mentioning would arrive every day. The task
+ * row is still written on a silent day, which is how "we checked and there was
+ * nothing" stays distinguishable from "the scheduler never ran".
+ */
+async function runEveningWrap(now: Date, result: TickResult): Promise<void> {
+  if (!isPast(now, await getSetting("brief.evening_time"), 19 * 60)) return;
+
+  await onceToday(`evening:${dayKey(now)}`, "Gün sonu özeti", now, result, async () => {
+    const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const day = await getDayActivity(midnight);
+    if (!day.eventful) return { outcome: "evening", note: "sessiz gün — mesaj gönderilmedi" };
+
+    const brief = await buildBrief(now);
+    await sendLong(await composeBrief(brief, "evening"));
+    return {
+      outcome: "evening",
+      note: `${day.sent} gitti · ${day.tasksDone} görev bitti · ${day.approvalsSettled} onay kapandı`,
+    };
+  });
+}
+
 /**
  * Lead retention, once a day, before anything else runs.
  *
@@ -122,52 +251,19 @@ async function claim(run: PlannedRun, now: Date): Promise<string | null> {
  * failed would turn a housekeeping problem into an outage.
  */
 async function runRetention(now: Date, result: TickResult): Promise<void> {
-  const db = await getDb();
-  const id = randomUUID();
-  const day = now.toISOString().slice(0, 10);
-
-  const claimed = await db
-    .insert(tasks)
-    .values({
-      id,
-      agentId: null,
-      title: "Lead saklama süresi taraması",
-      status: "running",
-      payload: { kind: "retention", source: "system" },
-      runKey: `retention:${day}`,
-      scheduledFor: now,
-      startedAt: now,
-      attempts: 0,
-      createdAt: now,
-    })
-    .onConflictDoNothing()
-    .returning();
-
-  if (claimed.length === 0) return; // already done today
-
-  try {
+  await onceToday(`retention:${dayKey(now)}`, "Lead saklama süresi taraması", now, result, async () => {
     const days = await getSetting("lead.retention_days");
     const { pruneLeads } = await import("@/lib/integrations/places");
     const pruned = await pruneLeads(now, days);
-    await db
-      .update(tasks)
-      .set({ status: "done", attempts: 1, finishedAt: new Date() })
-      .where(eq(tasks.id, id));
-    if (pruned.deleted > 0) {
-      result.details.push({
-        agentId: "—",
-        outcome: "retention",
-        note: `${pruned.deleted} dokunulmamış lead silindi (${days} günü geçti), ${pruned.kept} kaldı`,
-      });
-    }
-  } catch (err) {
-    await db
-      .update(tasks)
-      .set({ status: "blocked", attempts: 1, lastError: (err as Error).message, finishedAt: new Date() })
-      .where(eq(tasks.id, id));
-  }
+    return {
+      outcome: "retention",
+      note:
+        pruned.deleted > 0
+          ? `${pruned.deleted} dokunulmamış lead silindi (${days} günü geçti), ${pruned.kept} kaldı`
+          : undefined,
+    };
+  });
 }
-
 
 /**
  * The day's outreach, prepared and asked about once.
@@ -191,19 +287,7 @@ async function runOutreachBatch(now: Date, result: TickResult): Promise<void> {
   const db = await getDb();
   const day = dayKey(now);
 
-  const batchTime = await getSetting("outreach.batch_time");
-  const [hh, mm] = batchTime.split(":").map(Number);
-  const nowMinutes = Number(
-    new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Istanbul", hour12: false, hour: "2-digit" }).format(now),
-  ) * 60 +
-    Number(
-      new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Istanbul", minute: "2-digit" }).format(now),
-    );
-  const dueMinutes = (Number.isFinite(hh) ? hh : 9) * 60 + (Number.isFinite(mm) ? mm : 0);
-  // At or after the hour, not exactly on it: a tick that runs every 15 minutes
-  // would otherwise miss 09:00 entirely if it happened to fire at 09:07. The
-  // run key is what keeps it to once a day.
-  if (nowMinutes < dueMinutes) return;
+  if (!isPast(now, await getSetting("outreach.batch_time"), 9 * 60)) return;
 
   const taskId = await claimBatchTask(day, now);
   if (!taskId) return; // already prepared today
@@ -392,6 +476,8 @@ export async function tick(now = new Date()): Promise<TickResult> {
 
   await runRetention(now, result);
   await runOutreachBatch(now, result);
+  await runMorningBrief(now, result);
+  await runEveningWrap(now, result);
 
   const units: Unit[] = [];
 

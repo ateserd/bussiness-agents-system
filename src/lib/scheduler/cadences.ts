@@ -31,13 +31,13 @@ export type Cadence = {
 };
 
 export const EXTRA_CADENCES: Cadence[] = [
-  {
-    id: "manager.evening_wrap",
-    cron: "0 19 * * *",
-    agents: (ids) => ids.filter((id) => id === rootAgent().id),
-    label: "Gün sonu özeti",
-    task: "Gün sonu özetini yaz: bugün ne çıktı, ne kaydı, yarının ilk üç işi ne. Sayılarla başla.",
-  },
+  // Empty, and worth saying why rather than deleting the file. Both entries
+  // that used to live here — the morning brief and the evening wrap — moved
+  // into `tick.ts` as system steps, because their hours are *settings*
+  // (`brief.time`, `brief.evening_time`) and a cron string cannot read one.
+  // Anything whose timing the owner can change by talking belongs there, not
+  // here. This table is still the right place for a fan-out across several
+  // agents on a fixed schedule.
 ];
 
 export type PlannedRun = {

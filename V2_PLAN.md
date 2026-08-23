@@ -14,7 +14,7 @@
 | 3 — Dört ajan | ✅ bitti (`465bb32`) |
 | 4 — Entegrasyonlar (kur, Takvim/Meet, web araştırma) | ✅ bitti — kur yalnızca VPS'te doğrulanabilir, aşağıya bak |
 | 5 — Outreach (toplu onay + günlük serbest talimat) | ✅ bitti |
-| 6 — Brifing | ⬜ başlanmadı |
+| 6 — Brifing | ✅ bitti |
 | 7 — UI (önce design canvas) | ⬜ başlanmadı |
 | 8 — Deploy + doğrulama | ⬜ başlanmadı |
 
@@ -24,10 +24,41 @@ var. Geçmiş hareket kayıtları silinmez — `activity.agent_id` artık `SET N
 
 ## Devam ederken ilk yapılacaklar
 
-1. **Faz 6 — Brifing.** Aktif / geçmiş / potansiyel projeler, günün toplantıları,
-   günün gönderim partisi, sana takılı sorular. Rakamlar `brief.ts`'te
-   deterministik kalır; çevresindeki cümleleri Yönetici yazar.
-2. Sonra Faz 7 (UI — önce design canvas), Faz 8 (deploy).
+1. **Faz 7 — UI.** Önce design canvas (dört görünüm: Bugün · Hat · Para ·
+   Hafıza), sonra tasarım token'ları, sonra bileşenler, en son `/api/state` ile
+   gerçek canlı yenileme. 49 düğümlü org ağacı burada siliniyor.
+2. Sonra Faz 8: deploy + uçtan uca doğrulama.
+
+## Faz 6 nasıl çalışıyor (brifing)
+
+Brifing artık **kendiliğinden geliyor** — `brief.time` (07:30) ayarından, statik
+cron'dan değil. Yöneticinin YAML'ındaki `schedule` kaldırıldı, yoksa günde iki
+kez çalışırdı.
+
+İçinde ne var:
+
+- **Bugün** — toplantılar (Meet linkleriyle), bugün giden mail, onay bekleyen
+  taslak sayısı, günün planı
+- **Aktif işler** — her proje adıyla: müşteri, şube, aşama, teslime kalan gün,
+  riskli/hatalı işareti. Sorunlu olanlar üstte
+- **Potansiyel** — her açık fırsat adıyla, değeriyle; bayat olanlar kaç gündür
+  hareketsiz olduğuyla, üstte
+- **Sessizleşenler** — `client.quiet_days` eşiğini geçen müşteriler, kaç gündür
+  sessiz olduklarıyla. Hiç temas edilmemiş olan ayrıca işaretli
+- **Nakit** — bu ay tahsil, ödenmemiş, vadesi geçen
+- **Sana düşenler** — önce sana takılı sorular, sonra parti, sonra tekil onaylar,
+  sonra engelli ajanlar
+
+Rakamların hepsi sayılıyor. Üstündeki üç cümleyi Yönetici yazıyor ve işi listeyi
+tekrarlamak değil, içinden bugün gerçekten önemli olanı seçmek. Model yoksa
+brifing yalnızca rakamlarla gider — uydurmaz, sessizce de düşmez.
+
+**Akşam özeti yalnızca bir şey olduysa gelir.** "Bir şey oldu" sayılarak
+belirleniyor: giden mail, kapanan onay, takvim işlemi, biten görev, yeni engel.
+Hiçbiri yoksa görev yazılır ama mesaj gitmez.
+
+`/brief` yazdığında sabahkinin aynısı gelir (senin kararın — her çağrı bir model
+çağrısı). `npm run brief -- --raw` model çağırmadan yalnız rakamları basar.
 
 ## Faz 5 nasıl çalışıyor (günlük ritim)
 

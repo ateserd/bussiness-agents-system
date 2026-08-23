@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { agents } from "@/db/schema";
 import { allAgents, getAgent, rootAgent } from "@/lib/agents/registry";
-import { buildBrief, renderBrief } from "@/lib/brief";
+import { buildBrief, composeBrief } from "@/lib/brief";
 import { writeMemory } from "@/lib/brain/write";
 import { settleApproval } from "@/lib/approvals";
 import { fmt } from "@/lib/copy";
@@ -132,7 +132,9 @@ export async function executeCommand(command: Command, options: ExecuteOptions =
 
   switch (command.kind) {
     case "brief": {
-      return renderBrief(await buildBrief());
+      // The owner chose this: `/brief` reads the same as the morning one, which
+      // means a model call each time rather than an instant dump of figures.
+      return composeBrief(await buildBrief(), "morning");
     }
 
     case "branch": {

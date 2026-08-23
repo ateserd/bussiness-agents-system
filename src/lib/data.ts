@@ -13,6 +13,7 @@ import {
   memories,
   memoryLinks,
   projects,
+  tasks,
   type Activity,
   type Agent,
   type Approval,
@@ -338,15 +339,65 @@ export async function getBrain(): Promise<{
 
 export async function getBriefData() {
   const db = await getDb();
-  const [dealRows, projectRows, invoiceRows, blocked, pending, clientRows] = await Promise.all([
+  const [dealRows, projectRows, invoiceRows, blocked, pending, clientRows, parked] = await Promise.all([
     db.select().from(deals),
     db.select().from(projects),
     db.select().from(invoices),
     db.select().from(agents).where(eq(agents.status, "blocked")),
     db.select().from(approvals).where(eq(approvals.state, "pending")),
     db.select().from(clients),
+    // A question the owner is holding up is more urgent than a card waiting to
+    // be stamped, so the brief needs it — and until now nothing outside the
+    // system map ever read it.
+    db.select().from(tasks).where(eq(tasks.status, "waiting_owner")),
   ]);
-  return { deals: dealRows, projects: projectRows, invoices: invoiceRows, blocked, pending, clients: clientRows };
+  return {
+    deals: dealRows,
+    projects: projectRows,
+    invoices: invoiceRows,
+    blocked,
+    pending,
+    clients: clientRows,
+    parked,
+  };
+}
+
+/**
+ * Did anything actually happen today?
+ *
+ * The owner's rule for the evening summary: on a quiet day it should not
+ * arrive at all. That decision has to be made from counted facts rather than
+ * from a model's sense of whether the day felt eventful — so this counts, and
+ * the caller stays silent when every number is zero.
+ */
+export async function getDayActivity(since: Date) {
+  const db = await getDb();
+  const [rows, finished, settled] = await Promise.all([
+    db.select().from(activity).where(gte(activity.startedAt, since)),
+    db.select().from(tasks).where(gte(tasks.finishedAt, since)),
+    db.select().from(approvals).where(gte(approvals.decidedAt, since)),
+  ]);
+
+  const sent = rows.filter((r) => r.action === "send_email" && r.outcome === "success").length;
+  const sendFailed = rows.filter((r) => r.action === "send_email" && r.outcome !== "success").length;
+  const calendar = rows.filter((r) => r.action.startsWith("calendar_")).length;
+  const runs = rows.filter((r) => r.action.endsWith("_run")).length;
+  const tasksDone = finished.filter((t) => t.status === "done" && t.agentId !== null).length;
+  const asked = finished.filter((t) => t.askedAt !== null && t.askedAt >= since).length;
+  const cost = rows.reduce((n, r) => n + Number(r.costUsd ?? 0), 0);
+
+  return {
+    sent,
+    sendFailed,
+    calendar,
+    runs,
+    tasksDone,
+    asked,
+    approvalsSettled: settled.length,
+    cost,
+    /** True when at least one thing worth telling him about happened. */
+    eventful: sent + sendFailed + calendar + tasksDone + asked + settled.length > 0,
+  };
 }
 
 export async function getBlockedAgents(): Promise<Agent[]> {
