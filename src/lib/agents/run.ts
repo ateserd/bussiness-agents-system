@@ -2,9 +2,12 @@ import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import Anthropic from "@anthropic-ai/sdk";
 import { getDb } from "@/db/client";
+import type { Branch } from "@/db/schema";
 import { activity, agents, type Outcome } from "@/db/schema";
 import { writeMemory } from "@/lib/brain/write";
 import { costOf } from "./cost";
+import { narrowScopes } from "@/lib/brain/scope";
+import { getSetting } from "@/lib/settings";
 import { assemblePrompt, extractUnsure } from "./prompt";
 import { requireAgent, type AgentConfig } from "./registry";
 import { toolsFor, type ToolContext } from "./tools";
@@ -28,6 +31,18 @@ export type RunOptions = {
   maxCostUsd?: number;
   /** "chat" for a live conversational exchange — see prompt.ts. Defaults to "report". */
   mode?: "report" | "chat";
+  /** The queue row this run belongs to, so `ask_owner` can park the right task. */
+  taskId?: string | null;
+  /**
+   * Which branch the work is for. Narrows the memory scopes for this run only,
+   * which is where branch isolation lives now that agents serve both branches.
+   */
+  branch?: Branch | null;
+  /**
+   * Set only by the Telegram route, and only once the message is proven to be
+   * from the owner's own chat. Gates `settings_write`.
+   */
+  ownerChannel?: boolean;
 };
 
 export type RunResult = {
@@ -72,11 +87,31 @@ export async function runAgent(agentId: string, options: RunOptions = {}): Promi
   const startedAt = new Date();
   const trigger = options.trigger ?? "manual";
   const task = options.task ?? defaultTask();
-  const maxCost = options.maxCostUsd ?? Number(process.env.AGENT_MAX_COST_USD ?? "0.5");
+  // The ceiling is a setting now, not an env var: the owner can raise or lower
+  // it by saying so, and `AGENT_MAX_COST_USD` no longer has to be edited on the
+  // box and redeployed.
+  const maxCost = options.maxCostUsd ?? (await getSetting("agent.max_cost_usd"));
 
-  await db.update(agents).set({ status: "working", lastRunAt: startedAt }).where(eq(agents.id, agentId));
+  // What this agent may see for *this* task, which is at most what it may ever
+  // see. See `narrowScopes` — branch isolation moved from the agent to the work.
+  const scopes = narrowScopes(agent.memory_scopes, options.branch);
 
-  const ctx: ToolContext = { agent, activityId, gated: [] };
+  // Note what is deliberately absent: no `status: "working"` write. With tasks
+  // running concurrently one agent can be in two runs at once, so a single
+  // status column on the agent flaps and then lies. "What is running" is read
+  // from the task rows instead; the agent keeps only durable states (blocked,
+  // needs_approval) and `paused`.
+  await db.update(agents).set({ lastRunAt: startedAt }).where(eq(agents.id, agentId));
+
+  const ctx: ToolContext = {
+    agent,
+    activityId,
+    gated: [],
+    scopes,
+    taskId: options.taskId ?? null,
+    branch: options.branch ?? null,
+    ownerChannel: options.ownerChannel === true,
+  };
   let outcome: Outcome = "success";
   let summary = "";
   let unsure: string | null = null;
@@ -85,7 +120,13 @@ export async function runAgent(agentId: string, options: RunOptions = {}): Promi
   let error: string | null = null;
   let memoriesWritten = 0;
 
-  const { system, user, memoriesUsed } = await assemblePrompt({ agent, task, trigger, mode: options.mode });
+  const { system, user, memoriesUsed } = await assemblePrompt({
+    agent,
+    task,
+    trigger,
+    mode: options.mode,
+    scopes,
+  });
   const simulated = !process.env.ANTHROPIC_API_KEY;
 
   try {

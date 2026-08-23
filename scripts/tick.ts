@@ -27,7 +27,7 @@ async function main() {
   console.log(`· tick at ${now.toISOString()} (${dueRuns(now).length} due)`);
   const result = await tick(now);
   console.log(
-    `· due=${result.due} ran=${result.ran} skipped=${result.skipped} failed=${result.failed}`,
+    `· due=${result.due} ran=${result.ran} skipped=${result.skipped} parked=${result.parked} failed=${result.failed}`,
   );
   for (const d of result.details) {
     console.log(`  ${d.agentId.padEnd(42)} ${d.outcome}${d.note ? ` — ${d.note}` : ""}`);

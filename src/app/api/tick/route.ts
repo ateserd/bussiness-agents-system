@@ -76,7 +76,7 @@ async function handle(req: Request) {
     : DEFAULT_WINDOW_MIN;
 
   const now = new Date();
-  const total: TickResult = { due: 0, ran: 0, skipped: 0, failed: 0, details: [] };
+  const total: TickResult = { due: 0, ran: 0, skipped: 0, failed: 0, parked: 0, details: [] };
 
   // Oldest minute first, so a run that was merely late still happens in order.
   for (let back = window - 1; back >= 0; back--) {
@@ -86,6 +86,7 @@ async function handle(req: Request) {
     total.ran += result.ran;
     total.skipped += result.skipped;
     total.failed += result.failed;
+    total.parked += result.parked;
     total.details.push(...result.details);
   }
 

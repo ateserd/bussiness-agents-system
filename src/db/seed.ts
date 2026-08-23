@@ -995,7 +995,7 @@ En büyük bilinmeyen: geçmiş sipariş e-postalarının biçim tutarlılığı
         id: randomUUID(),
         agentId: c.id,
         title: `Programlı çalışma — ${c.display_name}`,
-        status: i < 2 ? "running" : "queued",
+        status: i < 2 ? ("running" as const) : ("queued" as const),
         payload: { source: "schedule" },
         runKey: `${c.id}:${dayKey(now)}:${i}`,
         scheduledFor: new Date(now.getTime() + int(1, 20) * 3_600_000),

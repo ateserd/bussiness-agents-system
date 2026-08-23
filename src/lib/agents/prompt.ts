@@ -60,6 +60,11 @@ export type PromptContext = {
   /** "chat" is a live conversational exchange (e.g. free-form Telegram text) —
    *  everything else is a written report and keeps the existing house rules. */
   mode?: "report" | "chat";
+  /**
+   * Scopes for this run, already narrowed to the task's branch. Defaults to the
+   * agent's full list when the work is not branch-specific.
+   */
+  scopes?: string[];
 };
 
 export type AssembledPrompt = {
@@ -76,7 +81,7 @@ export async function assemblePrompt(ctx: PromptContext): Promise<AssembledPromp
   // Retrieval query is the agent's mission plus the task: mission alone returns
   // the same context every run, task alone loses the agent's standing concerns.
   const memories = await recall({
-    agent,
+    agent: { id: agent.id, memory_scopes: ctx.scopes ?? agent.memory_scopes },
     query: `${agent.mission}\n${task}`,
     limit: 14,
   });
@@ -106,7 +111,7 @@ export async function assemblePrompt(ctx: PromptContext): Promise<AssembledPromp
       ? "(Tanımlı eşik yok.)"
       : agent.escalate_to_human_when.map((e) => `- ${e}`).join("\n");
 
-  const system = [
+  const parts: string[] = [
     mode === "chat" ? CHAT_HOUSE_RULES : HOUSE_RULES,
     "",
     "---",
@@ -132,7 +137,18 @@ export async function assemblePrompt(ctx: PromptContext): Promise<AssembledPromp
     "# Sahibe taşıman gereken durumlar",
     "",
     escalateBlock,
-  ].join("\n");
+  ];
+
+  // Only the coordinating agent gets the system map, and it goes last on
+  // purpose: everything above is byte-stable between runs and therefore
+  // cacheable, while this block changes every time. Putting it first would
+  // invalidate the cached prefix on every single message.
+  if (agent.reports_to === null) {
+    const { buildSystemMap } = await import("@/lib/system-map");
+    parts.push("", "---", "", await buildSystemMap());
+  }
+
+  const system = parts.join("\n");
 
   const user =
     mode === "chat"

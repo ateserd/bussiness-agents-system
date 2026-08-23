@@ -20,11 +20,26 @@ import {
    "Adding a third branch".
 --------------------------------------------------------------------------- */
 
-export type Branch = "web" | "automation" | "shared";
-export type Department = "outreach" | "sales" | "delivery" | "build" | "content" | "shared";
-export type Tier = "cos" | "director" | "lead" | "worker";
-export type AgentStatus = "idle" | "working" | "blocked" | "needs_approval";
-export type Autonomy = "observe" | "propose" | "act_with_log" | "act_freely";
+/**
+ * The vocabularies, as const arrays rather than bare unions.
+ *
+ * `registry.ts` needs the same lists at run time for its Zod schema. When they
+ * were two hand-maintained copies they drifted — `Department` lost three values
+ * here while the Zod enum still accepted them, so a config the type system
+ * called impossible would still load. Exporting the arrays makes drift a
+ * compile error instead of a silent mismatch.
+ */
+export const BRANCHES = ["web", "automation", "shared"] as const;
+export const DEPARTMENTS = ["outreach", "sales", "shared"] as const;
+export const TIERS = ["cos", "director", "lead", "worker"] as const;
+export const AGENT_STATUSES = ["idle", "working", "blocked", "needs_approval"] as const;
+export const AUTONOMIES = ["observe", "propose", "act_with_log", "act_freely"] as const;
+
+export type Branch = (typeof BRANCHES)[number];
+export type Department = (typeof DEPARTMENTS)[number];
+export type Tier = (typeof TIERS)[number];
+export type AgentStatus = (typeof AGENT_STATUSES)[number];
+export type Autonomy = (typeof AUTONOMIES)[number];
 export type Outcome = "success" | "failure" | "blocked" | "needs_approval" | "running";
 export type MemoryKind =
   | "fact"
@@ -192,6 +207,22 @@ export const memoryLinks = pgTable(
    WORK QUEUE
 --------------------------------------------------------------------------- */
 
+/**
+ * `waiting_owner` is the state that makes "ask me and carry on" possible: an
+ * agent that is unsure parks *its own* task here and the queue keeps running
+ * everything else. Without a per-task parked state the only ways to ask are to
+ * block the whole queue or to guess — both of which the owner ruled out.
+ */
+export const TASK_STATUSES = [
+  "queued",
+  "running",
+  "waiting_owner",
+  "done",
+  "failed",
+  "blocked",
+] as const;
+export type TaskStatus = (typeof TASK_STATUSES)[number];
+
 export const tasks = pgTable(
   "tasks",
   {
@@ -203,8 +234,7 @@ export const tasks = pgTable(
      */
     agentId: text("agent_id").references(() => agents.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
-    /** "queued" | "running" | "done" | "failed" | "blocked" */
-    status: text("status").notNull().default("queued"),
+    status: text("status").$type<TaskStatus>().notNull().default("queued"),
     payload: jsonb("payload").$type<Record<string, unknown>>(),
     /** Idempotency key: one run per agent per scheduled slot. */
     runKey: text("run_key"),
@@ -212,9 +242,55 @@ export const tasks = pgTable(
     attempts: integer("attempts").notNull().default(0),
     lastError: text("last_error"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+
+    /**
+     * Which branch the work is for. Agents are branch-agnostic now; the *task*
+     * carries the branch, and it narrows the memory scopes the worker runs
+     * with, so a web task cannot read an automation client's context.
+     */
+    branch: text("branch").$type<Branch>(),
+    /** The task that spawned this one — the manager's, for delegated work. */
+    parentTaskId: text("parent_task_id"),
+    /** Set with status `waiting_owner`: what the agent needs to know. */
+    question: text("question"),
+    askedAt: timestamp("asked_at", { withTimezone: true }),
+    /** The owner's reply, fed back into the resumed run. */
+    answer: text("answer"),
+    answeredAt: timestamp("answered_at", { withTimezone: true }),
+    /** One line of what came of it, for the brief and the dashboard. */
+    result: text("result"),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
   },
-  (t) => [uniqueIndex("tasks_run_key_idx").on(t.runKey), index("tasks_status_idx").on(t.status)],
+  (t) => [
+    uniqueIndex("tasks_run_key_idx").on(t.runKey),
+    index("tasks_status_idx").on(t.status),
+    index("tasks_agent_idx").on(t.agentId),
+  ],
 );
+
+/* ---------------------------------------------------------------------------
+   SETTINGS — every business value that used to be frozen in a YAML or a prompt
+
+   The owner's rule is that he never edits a hardcoded value by hand: he says
+   "günlük mail sayısını 15 yap" on Telegram and it changes. This table is the
+   override layer for that. The catalogue of known keys, their defaults and
+   their valid ranges lives in `src/lib/settings.ts` — in code, so a database
+   with zero rows still boots with every default intact and no read can fail.
+--------------------------------------------------------------------------- */
+
+export const SETTING_TYPES = ["number", "string", "boolean", "enum"] as const;
+export type SettingType = (typeof SETTING_TYPES)[number];
+
+export const settings = pgTable("settings", {
+  key: text("key").primaryKey(),
+  /** Always stored as text; parsed back to `type` on read. */
+  value: text("value").notNull(),
+  type: text("type").$type<SettingType>().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  /** "owner" or an agent id — so an unexpected change can be traced. */
+  updatedBy: text("updated_by"),
+});
 
 /** §3 rule 6 — nothing leaves the building without the owner's tap. */
 export const approvals = pgTable(
@@ -394,13 +470,9 @@ export const expenses = pgTable(
 );
 
 export type Agent = typeof agents.$inferSelect;
-export type NewAgent = typeof agents.$inferInsert;
 export type Expense = typeof expenses.$inferSelect;
-export type NewExpense = typeof expenses.$inferInsert;
 export type Activity = typeof activity.$inferSelect;
-export type NewActivity = typeof activity.$inferInsert;
 export type Memory = typeof memories.$inferSelect;
-export type NewMemory = typeof memories.$inferInsert;
 export type Approval = typeof approvals.$inferSelect;
 export type Deal = typeof deals.$inferSelect;
 export type Lead = typeof leads.$inferSelect;
@@ -409,3 +481,4 @@ export type Project = typeof projects.$inferSelect;
 export type Invoice = typeof invoices.$inferSelect;
 export type KpiSnapshot = typeof kpiSnapshots.$inferSelect;
 export type Task = typeof tasks.$inferSelect;
+export type Setting = typeof settings.$inferSelect;

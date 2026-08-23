@@ -153,9 +153,9 @@ export type PruneResult = { deleted: number; kept: number; cutoff: Date };
  *
  * Safe to run repeatedly; it only ever removes rows that already qualify.
  */
-export async function pruneLeads(now = new Date()): Promise<PruneResult> {
+export async function pruneLeads(now = new Date(), retentionDays = RETENTION_DAYS): Promise<PruneResult> {
   const db = await getDb();
-  const cutoff = new Date(now.getTime() - RETENTION_DAYS * 86_400_000);
+  const cutoff = new Date(now.getTime() - retentionDays * 86_400_000);
 
   const linked = await db
     .select({ leadId: deals.leadId })

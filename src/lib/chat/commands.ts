@@ -1,10 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/db/client";
-import { activity, agents, approvals } from "@/db/schema";
+import { activity, agents, approvals, leads } from "@/db/schema";
 import { allAgents, getAgent } from "@/lib/agents/registry";
 import { buildBrief, renderBrief } from "@/lib/brief";
 import { writeMemory } from "@/lib/brain/write";
+import { markContacted } from "@/lib/integrations/places";
 import { fmt } from "@/lib/copy";
 
 /**
@@ -126,10 +127,27 @@ async function dispatchOutreach(row: typeof approvals.$inferSelect): Promise<str
     finishedAt: new Date(),
   });
 
+  // Mark the lead contacted, or retention deletes the evidence that we wrote
+  // to them. `pruneLeads()` drops any lead with a null `contactedAt` after 30
+  // days; without this the row we just emailed looks untouched and disappears,
+  // taking the "we already approached them" history with it — and inviting a
+  // second cold email to the same business.
+  if (result.ok) {
+    const [lead] = await db.select().from(leads).where(eq(leads.email, context.to));
+    if (lead) await markContacted(lead.id);
+  }
+
   return result.ok ? "✓ Gönderildi." : `⚠️ Gönderilemedi: ${result.reason}`;
 }
 
-export async function executeCommand(command: Command): Promise<string> {
+/**
+ * `ownerChannel` is proof the message came from the owner's own verified
+ * Telegram chat, not from a webhook, a schedule, or text an agent read
+ * somewhere. Only that path may reach the settings table.
+ */
+export type ExecuteOptions = { ownerChannel?: boolean };
+
+export async function executeCommand(command: Command, options: ExecuteOptions = {}): Promise<string> {
   const db = await getDb();
 
   switch (command.kind) {
@@ -233,6 +251,7 @@ export async function executeCommand(command: Command): Promise<string> {
       const result = await runAgent("shared.command.chief_of_staff", {
         trigger: "dispatch",
         mode: "chat",
+        ownerChannel: options.ownerChannel === true,
         task: `Sahip Telegram'dan yazdı: "${command.text}"\n\nBu bir sohbet mesajı, rapor değil — doğrudan ve doğal cevap ver. Soru gerçekten bir departmanın durumunu/rakamını gerektiriyorsa ilgili lideri adıyla an; gerektirmiyorsa yönlendirme icat etme, sadece cevapla.`,
       });
       return result.summary;

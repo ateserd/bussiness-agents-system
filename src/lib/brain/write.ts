@@ -127,19 +127,6 @@ export async function writeMemory(input: WriteMemoryInput): Promise<WriteResult>
   return { action: "inserted", memory: inserted };
 }
 
-/**
- * Records that `newer` contradicts `older` without deleting either — §5. The
- * Brain Keeper resolves it; until then both are visible and the conflict is
- * queryable.
- */
-export async function recordContradiction(newerId: string, olderId: string): Promise<void> {
-  const db = await getDb();
-  await db.update(memories).set({ supersedes: olderId }).where(eq(memories.id, newerId));
-  await db
-    .insert(memoryLinks)
-    .values({ id: randomUUID(), fromId: newerId, toId: olderId, kind: "contradicts" })
-    .onConflictDoNothing();
-}
 
 /**
  * Permanently removes one memory — the owner's own call, not the Brain

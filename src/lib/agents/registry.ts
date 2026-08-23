@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { parse } from "yaml";
 import { z } from "zod";
+import { AGENT_STATUSES, AUTONOMIES, BRANCHES, DEPARTMENTS, TIERS } from "@/db/schema";
 import { knownModels } from "./cost";
 
 /**
@@ -13,7 +14,6 @@ import { knownModels } from "./cost";
  */
 
 export const AGENTS_DIR = path.join(process.cwd(), "agents");
-export const PROMPTS_DIR = path.join(process.cwd(), "prompts");
 
 const kpiSchema = z.object({
   name: z.string().min(1),
@@ -26,13 +26,13 @@ const kpiSchema = z.object({
 export const agentConfigSchema = z.object({
   id: z.string().regex(/^[a-z_]+\.[a-z_]+\.[a-z_]+$/, "id must be branch.department.name"),
   display_name: z.string().min(1),
-  branch: z.enum(["web", "automation", "shared"]),
-  department: z.enum(["outreach", "sales", "delivery", "build", "content", "shared"]),
-  tier: z.enum(["cos", "director", "lead", "worker"]),
+  branch: z.enum(BRANCHES),
+  department: z.enum(DEPARTMENTS),
+  tier: z.enum(TIERS),
   reports_to: z.string().nullable(),
   accent: z.string().regex(/^#[0-9a-fA-F]{6}$/),
   avatar: z.string().nullable().optional(),
-  status: z.enum(["idle", "working", "blocked", "needs_approval"]).default("idle"),
+  status: z.enum(AGENT_STATUSES).default("idle"),
   model: z.string().min(1),
   effort: z.enum(["low", "medium", "high", "xhigh", "max"]).default("high"),
   mission: z.string().min(1),
@@ -40,14 +40,13 @@ export const agentConfigSchema = z.object({
   tools: z.array(z.string()).default([]),
   memory_scopes: z.array(z.string()).min(1),
   schedule: z.string().nullable(),
-  autonomy: z.enum(["observe", "propose", "act_with_log", "act_freely"]),
+  autonomy: z.enum(AUTONOMIES),
   approval_required_for: z.array(z.string()).default([]),
   escalate_to_human_when: z.array(z.string()).default([]),
   kpis: z.array(kpiSchema).default([]),
 });
 
 export type AgentConfig = z.infer<typeof agentConfigSchema>;
-export type AgentKpi = z.infer<typeof kpiSchema>;
 
 function walk(dir: string): string[] {
   if (!fs.existsSync(dir)) return [];
@@ -140,15 +139,8 @@ export function requireAgent(id: string): AgentConfig {
   return agent;
 }
 
-export function directReports(id: string): AgentConfig[] {
-  return allAgents().filter((a) => a.reports_to === id);
-}
 
 export function readSystemPrompt(agent: AgentConfig): string {
   return fs.readFileSync(path.join(process.cwd(), agent.system_prompt_file), "utf8");
 }
 
-/** Test hook — forces the next read to re-parse from disk. */
-export function invalidateRegistry(): void {
-  cache = null;
-}

@@ -67,25 +67,6 @@ export async function recall(options: {
   return scored;
 }
 
-/** Plain substring/lexical search, for the BRAIN view's search box. */
-export async function searchAll(query: string, limit = 400): Promise<Recalled[]> {
-  const db = await getDb();
-  const rows = (await db.select().from(memories)) as Memory[];
-  if (!query.trim()) return rows.slice(0, limit).map((r) => ({ ...r, score: 0 }));
-
-  const queryVector = await embed(query);
-  const needle = query.toLocaleLowerCase("tr-TR");
-
-  return rows
-    .map((row) => {
-      const lexical = row.content.toLocaleLowerCase("tr-TR").includes(needle) ? 0.5 : 0;
-      const semantic = row.embedding ? cosine(queryVector, row.embedding) : 0;
-      return { ...row, score: lexical + semantic };
-    })
-    .filter((row) => row.score > 0.08)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, limit);
-}
 
 async function markUsed(ids: string[]): Promise<void> {
   if (ids.length === 0) return;

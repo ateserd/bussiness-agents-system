@@ -4,12 +4,13 @@ import type { BetaRunnableTool } from "@anthropic-ai/sdk/lib/tools/BetaRunnableT
 import { z } from "zod";
 import { betaZodTool } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { getDb } from "@/db/client";
+import type { Branch } from "@/db/schema";
 import { agents, approvals, leads } from "@/db/schema";
 import { recall } from "@/lib/brain/search";
 import { writeMemory } from "@/lib/brain/write";
 import { clip, notifyOwner } from "@/lib/chat/notify";
 import { passesAutomationFloor, qualifiesForWeb, searchPlaces } from "@/lib/integrations/places";
-import type { AgentConfig } from "./registry";
+import { allAgents, getAgent, type AgentConfig } from "./registry";
 
 /**
  * The tool surface agents act through.
@@ -27,6 +28,24 @@ export type ToolContext = {
   activityId: string;
   /** Set when a gate tripped, so the runtime can mark the run needs_approval. */
   gated: { gate: string; title: string }[];
+  /**
+   * Memory scopes for *this run*, already narrowed to the task's branch. Read
+   * these rather than `agent.memory_scopes`: the agent's own list is the
+   * maximum it may ever see, this is what it may see right now.
+   */
+  scopes: string[];
+  /** The queue row this run belongs to, so `ask_owner` can park the right task. */
+  taskId?: string | null;
+  /** Which branch the work is for, when it is branch-specific. */
+  branch?: Branch | null;
+  /**
+   * True only when this run was started by a message on the owner's own
+   * verified Telegram chat. `settings_write` is mounted only then — inbound
+   * cold-mail replies land in the Brain and agents read the Brain, so a
+   * prospect can get text in front of an agent. That text must never be able
+   * to reach the settings table.
+   */
+  ownerChannel?: boolean;
 };
 
 async function requireApproval(
@@ -93,7 +112,11 @@ const brainRead = (ctx: ToolContext) =>
       limit: z.number().int().min(1).max(25).optional(),
     }),
     run: async ({ query, limit }) => {
-      const rows = await recall({ agent: ctx.agent, query, limit: limit ?? 10 });
+      const rows = await recall({
+        agent: { id: ctx.agent.id, memory_scopes: ctx.scopes },
+        query,
+        limit: limit ?? 10,
+      });
       if (rows.length === 0) return "Bu kapsamda eşleşen anı yok.";
       return rows
         .map((r) => `- [${r.kind}${r.permanent ? " · kalıcı" : ""} · güven ${r.confidence.toFixed(2)}] ${r.content}`)
@@ -115,7 +138,7 @@ const brainWrite = (ctx: ToolContext) =>
     run: async ({ content, kind, scopes, confidence }) => {
       const result = await writeMemory({
         kind,
-        scopes: scopes?.length ? scopes : ctx.agent.memory_scopes,
+        scopes: scopes?.length ? scopes : ctx.scopes,
         content,
         sourceAgentId: ctx.agent.id,
         sourceActivityId: ctx.activityId,
@@ -425,6 +448,129 @@ const spend = (ctx: ToolContext) =>
     },
   });
 
+/* --------------------------------------------------------- coordination --- */
+
+/**
+ * The delegation tool that `agent.dispatch` claimed to be for the whole life of
+ * v1 while being absent from `BUILDERS` — declared in eleven YAML files, silently
+ * dropped by `toolsFor`, so the Chief of Staff could never actually hand work to
+ * anyone. This is the real one.
+ *
+ * Fire-and-forget on purpose. A manager that blocked inside its own run waiting
+ * for a worker would burn tokens holding a conversation open and could hit
+ * `MAX_ITERATIONS` before the worker finished. Instead the task is queued, the
+ * manager says so, and the worker reports when it is done.
+ */
+const delegate = (ctx: ToolContext) =>
+  betaZodTool({
+    name: "delegate",
+    description:
+      "Bir işi başka bir ajana verir ve hemen döner — beklemez. Görev kuyruğa girer, " +
+      "sonucu bittiğinde bildirilir. Kendine görev veremezsin.",
+    inputSchema: z.object({
+      agent: z.string().describe("Ajan id'si, örn. shared.outreach.scout"),
+      title: z.string().describe("Kısa başlık, sahibin panelde göreceği metin."),
+      instruction: z.string().describe("Ajana ne yapacağını anlatan tam talimat."),
+      branch: z
+        .enum(["web", "automation"])
+        .optional()
+        .describe("İş bir şubeye aitse yaz — hafıza kapsamı buna göre daraltılır."),
+    }),
+    run: async ({ agent, title, instruction, branch }) => {
+      if (agent === ctx.agent.id) return "Kendine görev veremezsin.";
+      const target = getAgent(agent);
+      if (!target) {
+        return `"${agent}" diye bir ajan yok. Mevcutlar: ${allAgents().map((a) => a.id).join(", ")}`;
+      }
+      const { createTask, shortId } = await import("@/lib/tasks");
+      const row = await createTask({
+        agentId: target.id,
+        title,
+        instruction,
+        branch: branch ?? null,
+        parentTaskId: ctx.taskId ?? null,
+        source: "manager",
+      });
+      return `Görev kuyruğa alındı: #${shortId(row.id)} — ${target.display_name}. Beklemiyorum, bittiğinde haber verilecek.`;
+    },
+  });
+
+/**
+ * Ask the owner and stop — without stopping anything else.
+ *
+ * This parks *this* task only. The queue keeps running the others, which is the
+ * whole point: "emin olamadığın noktalarda o görevini bekletip diğer görevleri
+ * de aynı anda yapabilmeli". The return string is deliberately a hard stop, the
+ * same shape `requireApproval` uses, so the model finishes its turn instead of
+ * inventing an answer to its own question.
+ */
+const askOwner = (ctx: ToolContext) =>
+  betaZodTool({
+    name: "ask_owner",
+    description:
+      "Emin olmadığın bir şeyi sahibe sorar ve bu görevi beklemeye alır. " +
+      "Diğer görevler etkilenmez. Tahmin etmek yerine bunu kullan.",
+    inputSchema: z.object({
+      question: z.string().describe("Tek cümlelik, karar boyutunda bir soru."),
+    }),
+    run: async ({ question }) => {
+      const { parkTask, shortId } = await import("@/lib/tasks");
+      if (ctx.taskId) {
+        await parkTask(ctx.taskId, question);
+        await notifyOwner(`❓ ${ctx.agent.display_name} soruyor (#${shortId(ctx.taskId)})\n\n${clip(question, 600)}`);
+        return (
+          `SORULDU — bu görev beklemeye alındı (#${shortId(ctx.taskId)}).\n` +
+          "Cevap gelince kaldığın yerden devam edeceksin. Şimdi durur ve neyi sorduğunu raporlarsın; tahmin etme."
+        );
+      }
+      await notifyOwner(`❓ ${ctx.agent.display_name} soruyor\n\n${clip(question, 600)}`);
+      return "SORULDU — sahibe iletildi. Şimdi dur ve neyi sorduğunu raporla; tahmin etme.";
+    },
+  });
+
+/* -------------------------------------------------------------- settings --- */
+
+const settingsRead = () =>
+  betaZodTool({
+    name: "settings_read",
+    description: "Sistemdeki tüm ayarları ve güncel değerlerini listeler.",
+    inputSchema: z.object({}),
+    run: async () => {
+      const { allSettings } = await import("@/lib/settings");
+      const rows = await allSettings();
+      return rows
+        .map((r) => `- ${r.key} = ${r.value}${r.isDefault ? " (varsayılan)" : ""} — ${r.def.label}`)
+        .join("\n");
+    },
+  });
+
+const settingsWrite = (ctx: ToolContext) =>
+  betaZodTool({
+    name: "settings_write",
+    description:
+      "Bir ayarı değiştirir. Yalnızca sahip Telegram'dan istediğinde kullan. " +
+      "Geçersiz değer reddedilir; değişiklik sahibe bildirilir.",
+    inputSchema: z.object({
+      key: z.string().describe("Ayar anahtarı, settings_read çıktısındaki gibi."),
+      value: z.string().describe("Yeni değer, metin olarak."),
+    }),
+    run: async ({ key, value }) => {
+      const { setSetting, isSettingKey, needsOwnerConfirm } = await import("@/lib/settings");
+      if (isSettingKey(key) && needsOwnerConfirm(key)) {
+        // These weaken a guarantee rather than tune a number, so one sentence
+        // is not enough — the owner has to say yes to this specific change.
+        return (
+          `"${key}" bir güvenlik ayarı. Sahibe tam olarak neyi neyle değiştireceğini söyle ` +
+          "ve açık onayını al; onaylarsa tekrar çağır."
+        );
+      }
+      const result = await setSetting(key, value, ctx.ownerChannel ? "owner" : ctx.agent.id);
+      if (!result.ok) return `⚠️ ${result.reason}`;
+      await notifyOwner(`⚙️ ${result.label}: ${result.from} → ${result.to}`);
+      return `${result.label} ${result.from} → ${result.to} olarak güncellendi.`;
+    },
+  });
+
 /* ------------------------------------------------------------ assembly --- */
 
 /**
@@ -447,6 +593,9 @@ const BUILDERS: Record<string, (ctx: ToolContext) => AnyTool> = {
   "automation.deploy": deploy,
   "automation.build": deploy,
   "places.search": placesSearch,
+  "agent.delegate": delegate,
+  "owner.ask": askOwner,
+  "settings.read": () => settingsRead(),
 };
 
 /**
@@ -472,6 +621,11 @@ export function toolsFor(ctx: ToolContext): AnyTool[] {
   // brain.read is universal: an agent that cannot read the Brain would have to
   // invent business facts, which rule 2 forbids.
   if (!out.has("brain.read")) out.set("brain.read", brainRead(ctx));
+
+  // Deliberately not grantable from YAML. Writing settings is mounted by
+  // *channel*, so a tools: entry can never hand it to an agent that processes
+  // untrusted text — see ToolContext.ownerChannel.
+  if (ctx.ownerChannel) out.set("settings.write", settingsWrite(ctx));
 
   return [...out.values()];
 }

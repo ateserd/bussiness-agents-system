@@ -46,6 +46,10 @@ export async function POST(req: Request) {
     // Only the owner commands this system.
     return NextResponse.json({ ok: true, ignored: true });
   }
+  // Proof of identity, not merely of the shared secret. When TELEGRAM_CHAT_ID
+  // is unset the secret alone lets anyone in, so this stays false and the
+  // settings tools are not mounted — an unpinned bot can talk, not reconfigure.
+  const ownerChannel = Boolean(allowed) && chatId === allowed;
 
   let text = update.message?.text?.trim();
 
@@ -71,7 +75,7 @@ export async function POST(req: Request) {
   if (text === "/help" || text === "/start") return deliver(chatId, COMMAND_HELP);
 
   try {
-    const reply = await executeCommand(parseCommand(text));
+    const reply = await executeCommand(parseCommand(text), { ownerChannel });
     return deliver(chatId, reply);
   } catch (err) {
     return deliver(chatId, `Komut hata verdi: ${(err as Error).message}`);

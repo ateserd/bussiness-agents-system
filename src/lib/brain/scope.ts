@@ -24,6 +24,28 @@ export function allowedScopes(agent: Pick<AgentConfig, "memory_scopes">): string
   return agent.memory_scopes;
 }
 
+/**
+ * Narrow an agent's scopes to one branch, for the duration of one task.
+ *
+ * Agents are branch-agnostic now — four of them cover work that used to be
+ * split across two mirrored hierarchies — so isolation can no longer come from
+ * an agent's fixed YAML scopes. It comes from the task instead: work tagged
+ * `web` runs with the automation scopes stripped out, so a web task cannot
+ * recall an automation client's context even though the agent is allowed both
+ * at other times. Untagged work (a cross-branch question from the owner) keeps
+ * everything, which is the honest answer for a question that spans both.
+ */
+export function narrowScopes(scopes: readonly string[], branch?: string | null): string[] {
+  if (!branch || branch === "shared") return [...scopes];
+  const other = `branch.`;
+  return scopes.filter((s) => {
+    if (s === GLOBAL_SCOPE) return true;
+    if (s.startsWith(other)) return s === `branch.${branch}`;
+    if (s.startsWith("dept.")) return s.startsWith(`dept.${branch}.`);
+    return true; // client.* and anything else stays — it is already specific
+  });
+}
+
 export function scopeMatches(granted: readonly string[], memoryScopes: readonly string[]): boolean {
   for (const scope of memoryScopes) {
     if (scope === GLOBAL_SCOPE) return true;
@@ -102,9 +124,3 @@ export function assertWritableScopes(scopes: readonly string[]): void {
   }
 }
 
-/** True when this agent may see across both branches at once. */
-export function isCrossBranch(agent: Pick<AgentConfig, "memory_scopes">): boolean {
-  return (
-    agent.memory_scopes.includes("branch.web") && agent.memory_scopes.includes("branch.automation")
-  );
-}
