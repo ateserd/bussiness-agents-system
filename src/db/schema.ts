@@ -359,11 +359,26 @@ export const leads = pgTable(
      * the row is a record of our own business relationship and stays.
      */
     contactedAt: timestamp("contacted_at", { withTimezone: true }),
+    /**
+     * Rejected with no reason given — "iptal", and nothing else. The owner's
+     * rule: a bare no means this business never comes back to him, so the
+     * daily selection skips it forever. A reason instead of a rejection is the
+     * other half, below.
+     */
+    rejectedAt: timestamp("rejected_at", { withTimezone: true }),
+    /**
+     * Rejected *with* a reason ("fiyat yanlış"). The lead stays in the pool and
+     * the note is handed to the writer next time, so it comes back with a
+     * different draft rather than the same one. Nulled once that has happened,
+     * or the same correction would be applied forever.
+     */
+    rejectionNote: text("rejection_note"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     index("leads_branch_idx").on(t.branch),
     index("leads_retention_idx").on(t.contactedAt, t.createdAt),
+    index("leads_pool_idx").on(t.rejectedAt, t.fitScore),
   ],
 );
 
@@ -469,6 +484,39 @@ export const expenses = pgTable(
   (t) => [index("expenses_branch_spent_idx").on(t.branch, t.spentAt)],
 );
 
+/* ---------------------------------------------------------------------------
+   OUTREACH DAYS — a directive that belongs to one day and then expires
+
+   "Bugün atma" and "bugün 7 tane at" are neither settings nor tasks. A setting
+   is permanent, and treating a one-day instruction as one would quietly change
+   every following day too. A task is a unit of work, and this is not work — it
+   is how the day's work should differ from the standing rule.
+
+   So: one row per day, absent by default, and absent again tomorrow. Reading a
+   day with no row yields the settings values, which is what "no special
+   instruction" means. `source_text` keeps what the owner actually said, so the
+   batch can quote him back rather than paraphrase.
+--------------------------------------------------------------------------- */
+
+export const outreachDays = pgTable("outreach_days", {
+  /** `YYYY-MM-DD` in Europe/Istanbul — the owner's day, not UTC's. */
+  day: text("day").primaryKey(),
+  /** null = use `outreach.daily_cap_per_mailbox`. 0 is a real answer: send none. */
+  mailCount: integer("mail_count"),
+  /** null = use `outreach.daily_calls`. */
+  callCount: integer("call_count"),
+  /** "bugün atma" — nothing is prepared, and that is reported, not silent. */
+  skip: boolean("skip").notNull().default(false),
+  /** Set when he narrowed the day to one branch. */
+  branch: text("branch").$type<Branch>(),
+  /** "balıkçılara odaklan" — passed to the writer verbatim. */
+  focus: text("focus"),
+  saidBy: text("said_by").notNull().default("owner"),
+  saidAt: timestamp("said_at", { withTimezone: true }).notNull().defaultNow(),
+  /** His own words, for the report. Never paraphrased back at him. */
+  sourceText: text("source_text"),
+});
+
 export type Agent = typeof agents.$inferSelect;
 export type Expense = typeof expenses.$inferSelect;
 export type Activity = typeof activity.$inferSelect;
@@ -482,3 +530,4 @@ export type Invoice = typeof invoices.$inferSelect;
 export type KpiSnapshot = typeof kpiSnapshots.$inferSelect;
 export type Task = typeof tasks.$inferSelect;
 export type Setting = typeof settings.$inferSelect;
+export type OutreachDay = typeof outreachDays.$inferSelect;

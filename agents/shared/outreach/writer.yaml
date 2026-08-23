@@ -20,6 +20,7 @@ tools:
   - "crm.read"
   - "crm.write"
   - "outreach.send"
+  - "outreach.call_script"
   - "owner.ask"
 memory_scopes:
   - "global"

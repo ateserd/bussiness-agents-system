@@ -1,7 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { getDb } from "@/db/client";
-import { tasks, type Branch } from "@/db/schema";
+import { approvals, tasks, type Branch } from "@/db/schema";
+import { notifyOwner } from "@/lib/chat/notify";
+import { callRef, claimBatchTask, renderBatch, saveBatch, type CallItem, type MailItem } from "@/lib/outreach/batch";
+import { dayKey } from "@/lib/outreach/plan";
+import { briefLead, selectForDay } from "@/lib/outreach/select";
 import { runAgent } from "@/lib/agents/run";
 import { getSetting } from "@/lib/settings";
 import { claimQueued, type TaskPayload } from "@/lib/tasks";
@@ -164,6 +168,155 @@ async function runRetention(now: Date, result: TickResult): Promise<void> {
   }
 }
 
+
+/**
+ * The day's outreach, prepared and asked about once.
+ *
+ * Lives here rather than in the cadence table for the same reason retention
+ * does — and one more. Retention must not depend on an agent remembering it;
+ * this must not depend on a *static cron*, because the hour it runs at is a
+ * setting the owner changes by saying so, and `dueRuns()` reads cron strings
+ * frozen in YAML.
+ *
+ * The whole day happens inside one tick, deliberately. Splitting "write the
+ * drafts" and "ask about them" across two ticks would put an hour between the
+ * two halves of one morning, and leave a window where ten cards sit pending
+ * with nothing announcing them.
+ *
+ * Order matters and is enforced by code, not by prompt: the plan decides how
+ * many, `selectForDay` decides which leads, and only then does a model get
+ * involved — to write. A cap a model could exceed would not be a cap.
+ */
+async function runOutreachBatch(now: Date, result: TickResult): Promise<void> {
+  const db = await getDb();
+  const day = dayKey(now);
+
+  const batchTime = await getSetting("outreach.batch_time");
+  const [hh, mm] = batchTime.split(":").map(Number);
+  const nowMinutes = Number(
+    new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Istanbul", hour12: false, hour: "2-digit" }).format(now),
+  ) * 60 +
+    Number(
+      new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Istanbul", minute: "2-digit" }).format(now),
+    );
+  const dueMinutes = (Number.isFinite(hh) ? hh : 9) * 60 + (Number.isFinite(mm) ? mm : 0);
+  // At or after the hour, not exactly on it: a tick that runs every 15 minutes
+  // would otherwise miss 09:00 entirely if it happened to fire at 09:07. The
+  // run key is what keeps it to once a day.
+  if (nowMinutes < dueMinutes) return;
+
+  const taskId = await claimBatchTask(day, now);
+  if (!taskId) return; // already prepared today
+
+  try {
+    const selection = await selectForDay(day);
+    const { plan } = selection;
+
+    if (plan.skip) {
+      // Skipping is a thing that was done, so it is reported. A silent skip is
+      // indistinguishable from a broken scheduler.
+      const said = plan.sourceText ? ` Senin sözlerin: "${plan.sourceText}"` : "";
+      await notifyOwner(`📮 ${day} — bugün gönderim hazırlamadım, sen öyle dedin.${said}`);
+      await db
+        .update(tasks)
+        .set({ status: "done", result: "atlandı (sahibin isteği)", finishedAt: new Date() })
+        .where(eq(tasks.id, taskId));
+      result.details.push({ agentId: "—", outcome: "outreach", note: "bugün atlandı (sahibin isteği)" });
+      return;
+    }
+
+    const mail: MailItem[] = [];
+    const call: CallItem[] = [];
+    let shortfall: string | null = null;
+
+    if (selection.mail.length > 0 || selection.call.length > 0) {
+      const writer = "shared.outreach.writer";
+      const instruction = [
+        `Bugünün gönderim listesi hazırlanıyor (${day}).`,
+        plan.focus ? `Sahibin bugüne özel yönlendirmesi: ${plan.focus}` : "",
+        "",
+        selection.mail.length > 0
+          ? [
+              `MAİL YAZILACAK (${selection.mail.length} adet) — her biri için outreach_send çağır,`,
+              "leadId ve company alanlarını aşağıdaki değerlerle doldur:",
+              ...selection.mail.map((l) => `  - leadId: ${l.id} | ${briefLead(l)}`),
+            ].join("\n")
+          : "Bugün mail yazılmayacak.",
+        "",
+        selection.call.length > 0
+          ? [
+              `ARAMA METNİ YAZILACAK (${selection.call.length} adet) — her biri için call_script çağır:`,
+              ...selection.call.map((l) => `  - leadId: ${l.id} | ${briefLead(l)}`),
+            ].join("\n")
+          : "Bugün arama metni yazılmayacak.",
+        "",
+        "Listenin dışına çıkma, sayıyı aşma, kendi lead'ini ekleme. Hiçbiri gönderilmiyor —",
+        "hepsi sahibin tek onayını bekleyecek.",
+      ]
+        .filter(Boolean)
+        .join("\n");
+
+      const run = await withTimeout(
+        runAgent(writer, { trigger: "schedule", task: instruction, taskId, batchMode: true }),
+        TIMEOUT_MS * 2,
+      );
+
+      // What the writer actually produced, read from the rows rather than from
+      // its own account of itself.
+      const written = await db
+        .select()
+        .from(approvals)
+        .where(and(eq(approvals.activityId, run.activityId), eq(approvals.state, "pending")));
+      written.forEach((row, i) => {
+        const ctx = (row.context ?? {}) as { to?: string; leadId?: string; company?: string };
+        mail.push({
+          n: i + 1,
+          approvalId: row.id,
+          leadId: ctx.leadId ?? null,
+          company: ctx.company ?? ctx.to ?? row.title,
+          to: ctx.to ?? "—",
+        });
+      });
+      run.callScripts.forEach((c, i) => call.push({ ref: callRef(i), ...c }));
+
+      // Leads went in and nothing came out. Reporting that as "havuzda uygun
+      // lead yok" would blame the lead list for a writing failure — and in
+      // simulate mode it would do so every single morning.
+      if (selection.mail.length > 0 && mail.length === 0) {
+        shortfall = run.simulated
+          ? `⚠️ ${selection.mail.length} lead seçildi ama taslak yazılamadı: model çalışmıyor (ANTHROPIC_API_KEY yok).`
+          : `⚠️ ${selection.mail.length} lead seçildi ama taslak çıkmadı: ${run.summary.slice(0, 200)}`;
+      }
+    }
+
+    const payload = await saveBatch({ taskId, day, plan, mail, call });
+    const drafts = new Map(
+      mail.length > 0
+        ? (await db.select().from(approvals).where(inArray(approvals.id, mail.map((m) => m.approvalId)))).map(
+            (r) => [r.id, r.draft] as const,
+          )
+        : [],
+    );
+    await notifyOwner([renderBatch(payload, drafts), shortfall, `(${selection.note})`].filter(Boolean).join("\n\n"));
+
+    await db
+      .update(tasks)
+      .set({ status: "done", finishedAt: new Date() })
+      .where(eq(tasks.id, taskId));
+    result.details.push({
+      agentId: "—",
+      outcome: shortfall ? "outreach_partial" : "outreach",
+      note: shortfall ?? `${mail.length} mail · ${call.length} arama hazırlandı`,
+    });
+  } catch (err) {
+    await db
+      .update(tasks)
+      .set({ status: "blocked", lastError: (err as Error).message, finishedAt: new Date() })
+      .where(eq(tasks.id, taskId));
+    result.details.push({ agentId: "—", outcome: "blocked", note: `parti hazırlanamadı: ${(err as Error).message}` });
+  }
+}
+
 /** Run one unit, with retries, and settle its task row. */
 async function runUnit(unit: Unit, result: TickResult): Promise<void> {
   const db = await getDb();
@@ -238,6 +391,7 @@ export async function tick(now = new Date()): Promise<TickResult> {
   };
 
   await runRetention(now, result);
+  await runOutreachBatch(now, result);
 
   const units: Unit[] = [];
 

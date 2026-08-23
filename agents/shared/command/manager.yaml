@@ -26,6 +26,8 @@ tools:
   - "meeting.update"
   - "meeting.cancel"
   - "money"
+  - "outreach.decide"
+  - "outreach.batch"
   - "owner.ask"
   - "owner.answer"
   - "settings.read"

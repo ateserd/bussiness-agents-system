@@ -72,8 +72,13 @@ async function dispatchOutreach(row: typeof approvals.$inferSelect): Promise<str
   // old enough, which would take the "we already approached them" history with
   // it and invite a second cold email to the same business.
   if (result.ok) {
-    const [lead] = await db.select().from(leads).where(eq(leads.email, context.to));
-    if (lead) await markContacted(lead.id);
+    const leadId = (row.context as { leadId?: string } | null)?.leadId;
+    if (leadId) {
+      await markContacted(leadId);
+    } else {
+      const [lead] = await db.select().from(leads).where(eq(leads.email, context.to));
+      if (lead) await markContacted(lead.id);
+    }
   }
 
   return result.ok ? "✓ Gönderildi." : `⚠️ Gönderilemedi: ${result.reason}`;
@@ -201,7 +206,19 @@ export async function settleApproval(
   }
 
   const verdict = `${row.title} — ${decision === "approved" ? "onaylandı" : "reddedildi"}.`;
-  if (decision === "rejected") return { ok: true, message: verdict };
+
+  if (decision === "rejected") {
+    // A rejection is not just "don't send this one". The owner's rule: a bare
+    // no means the business never comes back to him, a no *with a reason* means
+    // it comes back tomorrow with the reason applied. That has to be written on
+    // the lead, because it must outlive the approval row it was decided on.
+    const leadId = ((row.context ?? {}) as { leadId?: string }).leadId;
+    if (leadId && row.gate === "sending_external_messages") {
+      const { recordRejection } = await import("@/lib/outreach/decide");
+      await recordRejection(leadId, reason);
+    }
+    return { ok: true, message: verdict };
+  }
 
   if (row.gate === "sending_external_messages") {
     return { ok: true, message: `${verdict}\n${await dispatchOutreach(row)}` };

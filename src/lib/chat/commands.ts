@@ -25,6 +25,7 @@ export type Command =
   | { kind: "remember"; fact: string; scope: string }
   | { kind: "blockers" }
   | { kind: "answer"; id: string; text: string }
+  | { kind: "batch"; action: "send_all" | "send_only" | "send_except" | "cancel"; numbers: number[]; reason: string }
   | { kind: "ask"; text: string };
 
 /**
@@ -85,6 +86,26 @@ export function parseCommand(input: string): Command {
       return parseRemember(arg);
     case "blockers":
       return { kind: "blockers" };
+    case "gonder":
+    case "gönder": {
+      // `/gonder` · `/gonder 1,2,5` · `/gonder haric 3`. The deterministic path
+      // through the day's batch, so a model being down never means a day's
+      // approved work cannot go out.
+      const except = /^(hari[çc]|except)\b/i.test(arg);
+      const numbers = arg
+        .split(/[^0-9]+/)
+        .map(Number)
+        .filter((n) => Number.isInteger(n) && n > 0);
+      if (numbers.length === 0) return { kind: "batch", action: "send_all", numbers: [], reason: "" };
+      return {
+        kind: "batch",
+        action: except ? "send_except" : "send_only",
+        numbers,
+        reason: "",
+      };
+    }
+    case "iptal":
+      return { kind: "batch", action: "cancel", numbers: [], reason: arg };
     case "cevap":
     case "answer": {
       // `/cevap <id> <metin>` and, when only one question is open, `/cevap <metin>`.
@@ -140,6 +161,20 @@ export async function executeCommand(command: Command, options: ExecuteOptions =
       }
       await answerTask(target.task.id, command.text.trim());
       return `#${shortId(target.task.id)} cevaplandı — görev kaldığı yerden devam edecek.`;
+    }
+
+    case "batch": {
+      const { openBatch } = await import("@/lib/outreach/batch");
+      const { applyBatchDecision } = await import("@/lib/outreach/decide");
+      const batch = await openBatch();
+      if (!batch) return "Açık bir gönderim partisi yok.";
+      return applyBatchDecision(
+        batch,
+        command.action,
+        command.numbers,
+        command.reason || undefined,
+        rootAgent().id,
+      );
     }
 
     case "blockers": {
@@ -241,7 +276,9 @@ Kısayollar:
 /branch web|ai    tek şubenin rakamları
 /cevap <metin>    sana takılı soruyu cevapla (tek soru varsa id gerekmez)
 /blockers         engellenen ajanlar
-/approve <id>     onay kartını onayla
+/gonder           günün partisini gönder — "/gonder 1,2,5" ya da "/gonder haric 3"
+/iptal <sebep>    günün partisini gönderme (sebep yazarsan yarın düzeltilmiş döner)
+/approve <id>     tek bir onay kartını onayla
 /reject <id> <s>  gerekçesiyle reddet
 /pause <agent>    ajanı duraklat / sürdür
 /run <agent>      ajanı şimdi çalıştır

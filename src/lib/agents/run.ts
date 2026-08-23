@@ -43,6 +43,12 @@ export type RunOptions = {
    * from the owner's own chat. Gates `settings_write`.
    */
   ownerChannel?: boolean;
+  /**
+   * Set by the daily outreach batch. Suppresses the per-card Telegram ping so
+   * the batch can send one message covering the whole day; the gate itself is
+   * unchanged.
+   */
+  batchMode?: boolean;
 };
 
 export type RunResult = {
@@ -55,6 +61,8 @@ export type RunResult = {
   simulated: boolean;
   memoriesWritten: number;
   gated: { gate: string; title: string }[];
+  /** Cold-call scripts this run wrote, for the batch that asked for them. */
+  callScripts: { leadId: string | null; company: string; phone: string; hook: string; script: string }[];
 };
 
 const MAX_ITERATIONS = 8;
@@ -80,6 +88,7 @@ export async function runAgent(agentId: string, options: RunOptions = {}): Promi
       simulated: true,
       memoriesWritten: 0,
       gated: [],
+      callScripts: [],
     };
   }
 
@@ -111,6 +120,8 @@ export async function runAgent(agentId: string, options: RunOptions = {}): Promi
     taskId: options.taskId ?? null,
     branch: options.branch ?? null,
     ownerChannel: options.ownerChannel === true,
+    batchMode: options.batchMode === true,
+    callScripts: [],
   };
   let outcome: Outcome = "success";
   let summary = "";
@@ -250,6 +261,7 @@ export async function runAgent(agentId: string, options: RunOptions = {}): Promi
     simulated,
     memoriesWritten,
     gated: ctx.gated,
+    callScripts: ctx.callScripts ?? [],
   };
 }
 

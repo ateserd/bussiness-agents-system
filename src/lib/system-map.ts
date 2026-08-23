@@ -102,7 +102,12 @@ export async function buildSystemMap(): Promise<string> {
     parked.length === 0
       ? "sana takılı soru yok"
       : parked.map((t) => `#${shortId(t.id)} "${(t.question ?? "").slice(0, 70)}"`).join(" · ");
-  lines.push(`GÖREVLER   ${running.length} çalışıyor · ${parkedText}`);
+  // The day's batch is also something waiting on him, and it is invisible in
+  // the task rows: it settles through approvals, not through an answer.
+  const { openBatch } = await import("@/lib/outreach/batch");
+  const batch = await openBatch().catch(() => null);
+  const batchText = batch ? ` · ${batch.pending.length} taslak onayını bekliyor` : "";
+  lines.push(`GÖREVLER   ${running.length} çalışıyor · ${parkedText}${batchText}`);
 
   lines.push(
     `KAYNAKLAR  ${[

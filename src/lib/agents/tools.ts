@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import type { BetaToolUnion } from "@anthropic-ai/sdk/resources/beta";
 import type { BetaRunnableTool } from "@anthropic-ai/sdk/lib/tools/BetaRunnableTool";
 import { z } from "zod";
@@ -30,6 +30,13 @@ export type ToolContext = {
   /** Set when a gate tripped, so the runtime can mark the run needs_approval. */
   gated: { gate: string; title: string }[];
   /**
+   * Cold-call scripts written during this run, collected the same way `gated`
+   * is. A call needs no approval — the owner makes it himself — so there is no
+   * approval row to hang the text on, and the batch that started the run wants
+   * the scripts back to put in its message.
+   */
+  callScripts?: { leadId: string | null; company: string; phone: string; hook: string; script: string }[];
+  /**
    * Memory scopes for *this run*, already narrowed to the task's branch. Read
    * these rather than `agent.memory_scopes`: the agent's own list is the
    * maximum it may ever see, this is what it may see right now.
@@ -47,6 +54,12 @@ export type ToolContext = {
    * to reach the settings table.
    */
   ownerChannel?: boolean;
+  /**
+   * True while the daily batch is assembling the day's drafts. It suppresses
+   * the per-card Telegram ping so the batch can send one message instead of
+   * ten; nothing else about the gate changes.
+   */
+  batchMode?: boolean;
 };
 
 async function requireApproval(
@@ -55,6 +68,13 @@ async function requireApproval(
   title: string,
   draft: string,
   context: Record<string, unknown> = {},
+  /**
+   * Set false only by the daily batch, which renders one message for the whole
+   * day instead of one per card. It changes how the owner is *asked*, never
+   * whether he is: every item here is still pending, and still only leaves
+   * through `settleApproval`.
+   */
+  notify = true,
 ): Promise<string> {
   const db = await getDb();
   const approvalId = randomUUID();
@@ -76,17 +96,23 @@ async function requireApproval(
   // Ask, rather than wait to be checked on. Deliberately not awaited into the
   // control flow beyond this point: the card is already written, so a failed
   // ping must not fail the run.
-  await notifyOwner(
-    [
-      `⏸ ONAY GEREKİYOR — ${ctx.agent.display_name}`,
-      title,
-      "",
-      clip(draft),
-      "",
-      `/approve ${approvalId}`,
-      `/reject ${approvalId} <sebep>`,
-    ].join("\n"),
-  );
+  //
+  // The daily outreach batch suppresses this and sends one message covering
+  // every card it just wrote — ten drafts should not be ten notifications. The
+  // gate is unchanged; only its granularity is.
+  if (notify) {
+    await notifyOwner(
+      [
+        `⏸ ONAY GEREKİYOR — ${ctx.agent.display_name}`,
+        title,
+        "",
+        clip(draft),
+        "",
+        `/approve ${approvalId}`,
+        `/reject ${approvalId} <sebep>`,
+      ].join("\n"),
+    );
+  }
 
   return [
     `DURDURULDU — bu aksiyon "${gate}" onay kapısının arkasında.`,
@@ -375,18 +401,23 @@ const outreachSend = (ctx: ToolContext) =>
       channel: z.string(),
       subject: z.string().describe("E-posta konusu (email dışı kanallarda kısa bir etiket)."),
       body: z.string(),
+      leadId: z.string().optional().describe("Bu mesaj bir lead'e gidiyorsa onun id'si — listede verildi."),
+      company: z.string().optional().describe("İşletme adı, sahibin listede göreceği isim."),
     }),
-    run: async ({ to, channel, subject, body }) => {
+    run: async ({ to, channel, subject, body, leadId, company }) => {
       // Unconditional, unlike the other gates: no `gatedBy` check, so removing
       // the gate from an agent's YAML or raising it to act_freely cannot open a
       // path to a stranger's inbox. The owner's standing instruction is that
       // nothing reaches a prospect without being asked first, and a rule that
       // depends on config being right is not that rule.
-      return requireApproval(ctx, "sending_external_messages", `${to} — ${channel} gönderimi`, body, {
-        to,
-        channel,
-        subject,
-      });
+      return requireApproval(
+        ctx,
+        "sending_external_messages",
+        `${company ?? to} — ${channel} gönderimi`,
+        body,
+        { to, channel, subject, leadId, company },
+        !ctx.batchMode,
+      );
     },
   });
 
@@ -830,6 +861,177 @@ const money = () =>
 const webSearch = (): AnyTool => ({ type: "web_search_20260209", name: "web_search", max_uses: 6 });
 const webFetch = (): AnyTool => ({ type: "web_fetch_20260209", name: "web_fetch", max_uses: 6 });
 
+/* -------------------------------------------------------------- outreach --- */
+
+/**
+ * A cold-call script, which is the web branch's entire outreach.
+ *
+ * `qualifiesForWeb` means no website, and a business with no website has no
+ * discoverable email — so for that branch "mail varsa mail, yoksa arama" is not
+ * a fallback, it is the path. These need no approval: the owner dials the phone
+ * himself, so there is no gate to pass and nothing to settle. The script is
+ * collected on the context and handed back to the batch that asked for it.
+ */
+const callScript = (ctx: ToolContext) =>
+  betaZodTool({
+    name: "call_script",
+    description:
+      "Sitesi olmayan (yani maille ulaşılamayan) bir lead için arama metni yazar. Onay gerekmez — " +
+      "sahip kendisi arıyor. Listede verilen her arama lead'i için bir kez çağır.",
+    inputSchema: z.object({
+      leadId: z.string().describe("Lead id'si, listede verildi."),
+      company: z.string(),
+      phone: z.string(),
+      hook: z.string().describe("Tek cümlelik açılış — sahip listede bunu görecek."),
+      script: z.string().describe("Tam arama metni: açılış, iki soru, kapanış."),
+    }),
+    run: async ({ leadId, company, phone, hook, script }) => {
+      if (!ctx.callScripts) ctx.callScripts = [];
+      ctx.callScripts.push({ leadId, company, phone, hook, script });
+      return `"${company}" için arama metni kaydedildi. Sahibin listesine girecek.`;
+    },
+  });
+
+/**
+ * A directive for one day: "bugün atma", "yarın 7 tane at", "bugün sadece web".
+ *
+ * Mounted only from the owner's own channel, for the same reason
+ * `settings_write` is: inbound cold-mail replies are written into the Brain and
+ * agents read the Brain, so a prospect can put text in front of an agent. That
+ * text must not be able to say "bugün 500 at". The counts are range-checked
+ * against the same catalogue bounds as the standing settings, so an absurd
+ * number is refused by range rather than by ceremony.
+ *
+ * No gate: this changes *how many* messages the day prepares, not whether any
+ * of them reaches a stranger. Each one still stops at the unconditional
+ * `sending_external_messages` gate.
+ */
+const outreachPlan = (ctx: ToolContext) =>
+  betaZodTool({
+    name: "outreach_plan",
+    description:
+      "Bir günün gönderim planını değiştirir — 'bugün atma', 'yarın 7 mail at', 'bugün sadece web'. " +
+      "Kalıcı DEĞİL: yalnızca o gün için geçerli, ertesi gün normal ayarlara döner. Kalıcı bir " +
+      "değişiklik isteniyorsa settings_write kullan.",
+    inputSchema: z.object({
+      day: z
+        .string()
+        .optional()
+        .describe("'bugun', 'yarin' ya da 2026-08-25. Boşsa bugün."),
+      mailCount: z.number().int().min(0).max(50).optional().describe("O gün gönderilecek mail sayısı."),
+      callCount: z.number().int().min(0).max(30).optional().describe("O gün verilecek arama lead'i sayısı."),
+      skip: z.boolean().optional().describe("true = o gün hiç gönderim hazırlanmasın."),
+      branch: z.enum(["web", "automation"]).optional().describe("Gün tek şubeye daraltıldıysa."),
+      focus: z.string().optional().describe("'balıkçılara odaklan' gibi bir yönlendirme."),
+      sourceText: z.string().describe("Sahibin tam olarak ne dediği — rapora birebir girecek."),
+    }),
+    run: async ({ day, mailCount, callCount, skip, branch, focus, sourceText }) => {
+      if (!ctx.ownerChannel) {
+        return "Bu aracı yalnızca sahibin kendi mesajı üzerine kullanabilirsin.";
+      }
+      const { dayKey, setPlan, describePlan } = await import("@/lib/outreach/plan");
+      const target =
+        !day || /^bug[üu]n$/i.test(day)
+          ? dayKey()
+          : /^yar[ıi]n$/i.test(day)
+            ? dayKey(new Date(Date.now() + 86_400_000))
+            : day;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(target)) {
+        return `Tarihi anlamadım: "${day}". 'bugun', 'yarin' ya da 2026-08-25 biçiminde yaz.`;
+      }
+
+      const plan = await setPlan(target, {
+        mailCount: mailCount ?? undefined,
+        callCount: callCount ?? undefined,
+        skip,
+        branch,
+        focus,
+        sourceText,
+        saidBy: "owner",
+      });
+      const when = target === dayKey() ? "Bugün" : target;
+      return `${when}: ${describePlan(plan)} — kaydedildi. Yalnızca o gün için; ertesi gün normale döner.`;
+    },
+  });
+
+/** Numbers out of "1,2,5" or "3 hariç", tolerant of how a phone types them. */
+function parseRefs(input: string | number[] | undefined): number[] {
+  if (Array.isArray(input)) return input;
+  if (!input) return [];
+  return String(input)
+    .split(/[^0-9]+/)
+    .map(Number)
+    .filter((n) => Number.isInteger(n) && n > 0);
+}
+
+/**
+ * Applies the owner's one answer to the whole batch.
+ *
+ * Every item goes out through `settleApproval`, the same function a single
+ * `/approve` calls — so batching changes the question, never the path. What
+ * comes back is a report of what actually happened, item by item, because a
+ * send that failed at the provider is not an approval that failed and the
+ * difference matters.
+ */
+const outreachDecide = (ctx: ToolContext) =>
+  betaZodTool({
+    name: "outreach_decide",
+    description:
+      "Günün gönderim partisine verilen cevabı uygular. 'gönder' → send_all, '3 hariç' → send_except, " +
+      "'1,2,5' → send_only, 'iptal' → cancel. Ne olduğunu döner; sahibe onu raporla.",
+    inputSchema: z.object({
+      action: z.enum(["send_all", "send_only", "send_except", "cancel"]),
+      numbers: z.array(z.number().int()).optional().describe("send_only / send_except için mail numaraları."),
+      reason: z
+        .string()
+        .optional()
+        .describe(
+          "Reddedilenler için gerekçe. Gerekçe yazarsan o işletme yarın düzeltilmiş bir taslakla " +
+            "döner; yazmazsan bir daha listeye girmez. Sahip sebep söylediyse mutlaka geçir.",
+        ),
+    }),
+    run: async ({ action, numbers, reason }) => {
+      const { openBatch } = await import("@/lib/outreach/batch");
+      const { applyBatchDecision } = await import("@/lib/outreach/decide");
+      const batch = await openBatch();
+      if (!batch) return "Açık bir gönderim partisi yok. Onay bekleyen bir şey kalmamış.";
+
+      const picked = parseRefs(numbers);
+      if ((action === "send_only" || action === "send_except") && picked.length === 0) {
+        return "Hangi numaralar? 'send_only' ve 'send_except' için numara vermen gerekiyor.";
+      }
+      return applyBatchDecision(batch, action, picked, reason, ctx.agent.id);
+    },
+  });
+
+/** Reading the day's list, and the full text behind one line of it. */
+const outreachBatchRead = () =>
+  betaZodTool({
+    name: "outreach_batch",
+    description:
+      "Bugünün gönderim partisini okur. ref verirsen o maddenin tam metnini döner — mail için '2', " +
+      "arama için 'A'. Metni sahibe göstermeden önce buradan al, hatırladığını yazma.",
+    inputSchema: z.object({
+      ref: z.string().optional().describe("Tek bir maddenin tam metni için: '2' ya da 'A'."),
+    }),
+    run: async ({ ref }) => {
+      const { openBatch, itemDetail, renderBatch } = await import("@/lib/outreach/batch");
+      const batch = await openBatch();
+      if (!batch) return "Açık bir gönderim partisi yok.";
+      if (ref) {
+        const detail = await itemDetail(batch, ref);
+        return detail ?? `"${ref}" diye bir madde yok bu partide.`;
+      }
+      const db = await getDb();
+      const rows = await db
+        .select()
+        .from(approvals)
+        .where(inArray(approvals.id, batch.payload.mail.map((m) => m.approvalId)));
+      const drafts = new Map(rows.map((r) => [r.id, r.draft]));
+      return renderBatch(batch.payload, drafts);
+    },
+  });
+
 /* ------------------------------------------------------------ assembly --- */
 
 /**
@@ -868,6 +1070,10 @@ const BUILDERS: Record<string, (ctx: ToolContext) => AnyTool> = {
   money: () => money(),
   "web.search": () => webSearch(),
   "web.fetch": () => webFetch(),
+  "outreach.call_script": callScript,
+  "outreach.plan": outreachPlan,
+  "outreach.decide": outreachDecide,
+  "outreach.batch": () => outreachBatchRead(),
 };
 
 /**
@@ -913,6 +1119,7 @@ export function toolsFor(ctx: ToolContext): AnyTool[] {
   // *channel*, so a tools: entry can never hand it to an agent that processes
   // untrusted text — see ToolContext.ownerChannel.
   if (ctx.ownerChannel) add(settingsWrite(ctx));
+  if (ctx.ownerChannel) add(outreachPlan(ctx));
 
   return [...out.values()];
 }

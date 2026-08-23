@@ -45,6 +45,13 @@ export const CATALOGUE = {
     max: 50,
     label: "Gönderen kutu başına günlük mail",
   },
+  "outreach.daily_calls": {
+    type: "number",
+    value: 5,
+    min: 0,
+    max: 30,
+    label: "Günlük arama lead'i sayısı",
+  },
   "outreach.approval_mode": {
     type: "enum",
     value: "batch",

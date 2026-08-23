@@ -13,7 +13,7 @@
 | 2 — Runtime temeli | ✅ bitti (`cfc82bb`) |
 | 3 — Dört ajan | ✅ bitti (`465bb32`) |
 | 4 — Entegrasyonlar (kur, Takvim/Meet, web araştırma) | ✅ bitti — kur yalnızca VPS'te doğrulanabilir, aşağıya bak |
-| 5 — Outreach (toplu onay) | ⬜ başlanmadı |
+| 5 — Outreach (toplu onay + günlük serbest talimat) | ✅ bitti |
 | 6 — Brifing | ⬜ başlanmadı |
 | 7 — UI (önce design canvas) | ⬜ başlanmadı |
 | 8 — Deploy + doğrulama | ⬜ başlanmadı |
@@ -24,11 +24,33 @@ var. Geçmiş hareket kayıtları silinmez — `activity.agent_id` artık `SET N
 
 ## Devam ederken ilk yapılacaklar
 
-1. **Faz 5 — Outreach.** Toplu onay (günün taslakları tek Telegram mesajı,
-   tek "gönder", `3 hariç` / `1,2,5` anlaşılır), şube bazlı ayrım (web = cold
-   call metni + telefon, automation = cold mail), kota `outreach.daily_cap_per_mailbox`
-   ayarından.
-2. Sonra Faz 6 (brifing), Faz 7 (UI — önce design canvas), Faz 8 (deploy).
+1. **Faz 6 — Brifing.** Aktif / geçmiş / potansiyel projeler, günün toplantıları,
+   günün gönderim partisi, sana takılı sorular. Rakamlar `brief.ts`'te
+   deterministik kalır; çevresindeki cümleleri Yönetici yazar.
+2. Sonra Faz 7 (UI — önce design canvas), Faz 8 (deploy).
+
+## Faz 5 nasıl çalışıyor (günlük ritim)
+
+Her sabah `outreach.batch_time`'da (varsayılan 09:00) `tick()` içinde
+`runOutreachBatch()` çalışır:
+
+- O güne ait bir talimat varsa okur (`outreach_days`), yoksa ayarları kullanır.
+- Lead'leri **kodda** seçer — sayı bir `LIMIT`'tir, modelin uyacağı bir öneri
+  değil. Mail/arama ayrımı ulaşılabilirliğe göre: e-postası olan mail alır,
+  olmayan ama telefonu olan arama listesine girer.
+- Outreach ajanı taslakları yazar; her biri onay kartı olur ama **tek tek
+  bildirim düşmez**.
+- Tek mesaj gider: mail 1,2,3 (onay bekler) · arama A,B,C (senin, onay gerekmez).
+- Sen tek cümleyle cevaplarsın: `gönder` · `3 hariç` · `1,2,5` · `iptal`.
+  Model yoksa `/gonder`, `/gonder haric 3`, `/iptal` aynı işi yapar.
+
+**Günlük talimat kalıcı değildir.** "bugün 7 tane at" yalnızca o günü değiştirir;
+ertesi gün ayarlara döner. Kalıcı değişiklik için "günlük mail sayısını 7 yap"
+denir ve o `settings_write`'a gider. Zaman kelimesi olmayan çıplak bir sayıyı
+Yönetici **bugün** diye okur ve hangi okumayı yaptığını söyler.
+
+**Reddettiğin taslak:** gerekçe yazarsan o işletme yarın düzeltilmiş bir taslakla
+döner, yazmazsan bir daha listeye girmez.
 
 ## Senden gereken tek kurulum: Google Takvim
 
