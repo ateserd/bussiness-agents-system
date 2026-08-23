@@ -342,7 +342,7 @@ Panelde dört sekme olmalı — **Bugün · Hat · Para · Hafıza** — ve hiç
 çalıştıran/duraklatan düğme bulunmamalı. `/activity` artık yok; içeriği Bugün'ün
 "Son hareketler" bölümünde.
 
-### Burada doğrulanamayan üç şey
+### Burada doğrulanamayan dört şey
 
 Geliştirme ortamının çıkış proxy'si TCMB'yi ve döviz API'lerini engelliyor,
 `ANTHROPIC_API_KEY` de orada yok. Bunlar ilk kez VPS'te çalışacak:
@@ -363,6 +363,17 @@ npm run brief -- --raw > /dev/null   # ısıtma değil, yalnızca çalıştığ�
 Üçüncüsü için gerçek ölçüm Anthropic konsolunda: iki ardışık Yönetici mesajından
 sonra `cache_read_input_tokens` sıfırdan büyük olmalı. Sıfır kalıyorsa sessiz bir
 geçersizleştirici var demektir.
+
+**4. Haiku işçiler.** Yukarıdaki 1 ve 2 numaralı komutlar bunu da sınıyor, çünkü
+ikisi de artık Haiku 4.5'te çalışan ajanlar: Ops ve Scout. Haiku yalnızca extended
+thinking destekliyor (`adaptive` 400 döner, `effort` desteklenmez), ve `run.ts` bu
+ayrımı `cost.ts`'teki model tablosundan okuyor. Tablo dokümana göre yazıldı, canlı
+bir çağrıyla doğrulanmadı — yani o iki komut hatasız dönüyorsa tablo doğru.
+`400` görürsen `reasoningParams()` içindeki dala bak.
+
+Kadro ve maliyet: **Yönetici Sonnet 5**, diğer üçü **Haiku 4.5**. Gerçek dağılımı
+bir hafta sonra **Para** ekranındaki ajan maliyeti kolonundan gör; tahminle değil
+o rakamla karar ver.
 
 ## Updating
 

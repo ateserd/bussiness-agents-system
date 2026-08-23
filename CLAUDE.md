@@ -197,8 +197,8 @@ Yalnızca VPS'te doğrulanabilecek dört şey — bu sandbox'ın çıkış proxy
    gerçek bir çağrı yapılmadı
 3. **Önbellek isabeti** — iki ardışık Telegram mesajından sonra
    `usage.cache_read_input_tokens > 0` olmalı
-4. **Haiku işçiler** — Scout/Outreach/Ops'un gerçek bir çağrıda 400 almadığı
-   (`npm run agent:run -- shared.ops.assistant`). Model yeteneği tablosu
-   dokümana göre yazıldı, canlı çağrıyla doğrulanmadı.
+4. **Haiku işçiler** — Ops ve Scout'un gerçek bir çağrıda 400 almadığı.
+   Yukarıdaki 1 ve 2 bunu zaten sınıyor: ikisi de artık Haiku'da. Model
+   yeteneği tablosu dokümana göre yazıldı, canlı çağrıyla doğrulanmadı.
 
 Geri kalan açık işler `SETUP_TODO.md`'de.
