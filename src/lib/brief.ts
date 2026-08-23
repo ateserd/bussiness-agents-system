@@ -376,6 +376,35 @@ export async function narrateBrief(brief: Brief, kind: "morning" | "evening" = "
 }
 
 /** Framing on top, figures below — the lock screen shows the first lines. */
+/**
+ * The narration today's morning push already wrote, or null.
+ *
+ * This exists because the panel used to call `narrateBrief()` on every render,
+ * which was a live money leak: the narration writes an `activity` row, that row
+ * changes what `/api/state` reports, the five-second poll sees the change and
+ * calls `router.refresh()`, the page re-renders and narrates again. A browser
+ * tab left open drove roughly a model call every five seconds, for good.
+ *
+ * The framing is produced once, by the scheduled morning brief, and stored on
+ * that task. Reading it here keeps the panel a mirror — which is what it is
+ * supposed to be — and a page render can no longer cost anything.
+ */
+export async function todaysNarration(now = new Date()): Promise<string | null> {
+  try {
+    const { getDb } = await import("@/db/client");
+    const { tasks } = await import("@/db/schema");
+    const { eq } = await import("drizzle-orm");
+    const { dayKey } = await import("@/lib/outreach/plan");
+    const db = await getDb();
+    const [row] = await db.select().from(tasks).where(eq(tasks.runKey, `brief:${dayKey(now)}`));
+    const text = (row?.payload as { narration?: unknown } | null)?.narration;
+    return typeof text === "string" && text.trim() ? text : null;
+  } catch {
+    // A missing framing must never take the board down with it.
+    return null;
+  }
+}
+
 export async function composeBrief(
   brief: Brief,
   kind: "morning" | "evening" = "morning",

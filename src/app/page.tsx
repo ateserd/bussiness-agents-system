@@ -1,7 +1,7 @@
 import { TopBar } from "@/components/shell/top-bar";
 import { LiveDot } from "@/components/shell/live";
 import { TodayBoard } from "@/components/today/board";
-import { buildBrief, narrateBrief } from "@/lib/brief";
+import { buildBrief, todaysNarration } from "@/lib/brief";
 import { getActivity, getDayActivity, getMemoryCount, getPendingApprovals } from "@/lib/data";
 import { openQuestions, runningTasks } from "@/lib/tasks";
 import { openBatch } from "@/lib/outreach/batch";
@@ -25,9 +25,13 @@ export default async function TodayPage() {
     openBatch().catch(() => null),
   ]);
 
-  // The manager's framing is worth a model call on the morning push, not on
-  // every page load — the figures below it are the same either way.
-  const narration = await narrateBrief(brief, "morning").catch(() => null);
+  // Read, never generate. This line used to call `narrateBrief()`, and the
+  // comment above it already said it should not: the framing is worth a model
+  // call on the morning push, not on every render. Generating it here fed a
+  // loop — narration writes an activity row, `/api/state` reports a new last
+  // id, the five-second poll calls `router.refresh()`, the page narrates again
+  // — so an open tab spent a model call every five seconds indefinitely.
+  const narration = await todaysNarration(now);
 
   return (
     <main className="relative z-10 min-h-screen">

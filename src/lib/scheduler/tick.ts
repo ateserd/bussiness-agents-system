@@ -3,7 +3,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { approvals, tasks, type Branch } from "@/db/schema";
 import { notifyOwner, sendLong } from "@/lib/chat/notify";
-import { buildBrief, composeBrief } from "@/lib/brief";
+import { buildBrief, composeBrief, narrateBrief, renderBrief } from "@/lib/brief";
 import { getDayActivity } from "@/lib/data";
 import { callRef, claimBatchTask, renderBatch, saveBatch, type CallItem, type MailItem } from "@/lib/outreach/batch";
 import { dayKey } from "@/lib/outreach/plan";
@@ -235,9 +235,20 @@ async function reapStaleRuns(now: Date, result: TickResult): Promise<void> {
 async function runMorningBrief(now: Date, result: TickResult): Promise<void> {
   if (!isPast(now, await getSetting("brief.time"), 7 * 60 + 30)) return;
 
-  await onceToday(`brief:${dayKey(now)}`, "Sabah brifingi", now, result, async () => {
+  await onceToday(`brief:${dayKey(now)}`, "Sabah brifingi", now, result, async (taskId) => {
     const brief = await buildBrief(now);
-    await sendLong(await composeBrief(brief, "morning"));
+    const narration = await narrateBrief(brief, "morning").catch(() => null);
+    await sendLong(narration ? `${narration}\n\n${renderBrief(brief)}` : renderBrief(brief));
+
+    // Stored so the panel can show the framing without paying for it again —
+    // see `todaysNarration`. Produced here, once a day, and nowhere else.
+    if (narration) {
+      const db = await getDb();
+      await db
+        .update(tasks)
+        .set({ payload: { kind: "brief", source: "system", narration } })
+        .where(eq(tasks.id, taskId));
+    }
     return {
       outcome: "brief",
       note: `${brief.active.length} aktif · ${brief.potential.length} fırsat · ${brief.quiet.length} sessiz · ${brief.needsYou.length} sana düşen`,

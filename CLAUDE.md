@@ -143,6 +143,17 @@ src/db/                         schema · client · migrate · seed
   ~2.6k sabit metin ≈ **5.9k**, yani Haiku eşiğinin ~1.8k üstünde. Rol promptunu
   kırpmak ya da araç çıkarmak bu marjı yer ve önbellek Haiku'da sessizce durur.
   İkisinden birini yapmadan önce yeniden ölç.
+- **Hiçbir render yolu model çağırmaz.** Sayfa `narrateBrief()` çağırıyordu ve
+  bu kendi kendini besleyen bir döngüydü: anlatım bir `activity` satırı yazar →
+  `/api/state`'in `lastActivity`'si değişir → 5 saniyelik yoklama
+  `router.refresh()` çağırır → sayfa yeniden render olur → yine anlatır. Açık
+  bir tarayıcı sekmesi ~12 saniyede bir model çağırıyordu, sonsuza kadar —
+  ölçüldü: **saatte ~$0.60**, hedeflenen aylık bütçenin iki katı, günde.
+  İşin kötüsü kodun kendi yorumu doğru olanı zaten söylüyordu; kod tersini
+  yapıyordu. Anlatım artık günde bir kez sabah brifinginde üretilip görev
+  satırına yazılıyor, panel `todaysNarration()` ile **okuyor**. Kural: panel
+  ayna, ve aynaya bakmak para tutmaz.
+
 - **Sunucu-taraflı web araçları `allowed_callers: ["direct"]` istiyor.**
   `web_search_20260209` ve sonrası varsayılan olarak `code_execution` içinden
   çalışıyor (dinamik filtreleme). Programatik araç çağrısı olmayan modeller —
