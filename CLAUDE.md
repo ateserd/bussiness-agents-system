@@ -143,6 +143,14 @@ src/db/                         schema · client · migrate · seed
   ~2.6k sabit metin ≈ **5.9k**, yani Haiku eşiğinin ~1.8k üstünde. Rol promptunu
   kırpmak ya da araç çıkarmak bu marjı yer ve önbellek Haiku'da sessizce durur.
   İkisinden birini yapmadan önce yeniden ölç.
+- **Sunucu-taraflı web araçları `allowed_callers: ["direct"]` istiyor.**
+  `web_search_20260209` ve sonrası varsayılan olarak `code_execution` içinden
+  çalışıyor (dinamik filtreleme). Programatik araç çağrısı olmayan modeller —
+  Haiku 4.5 dahil — bunu yapamıyor ve **400** dönüyor. Belirti aldatıcıydı:
+  hata mesajı *modeli* suçluyor, oysa sorun aracın çağrılma biçimi. Web aracı
+  olan tek ajan Scout olduğu için tek başına patlıyordu, Yönetici ve Ops aynı
+  modelde sorunsuz çalışıyordu.
+
 - **Thinking ve effort her modelde yok — ve yanlışı runu tümden düşürüyor.**
   Haiku 4.5 yalnızca extended thinking destekliyor: `thinking:{type:"adaptive"}`
   400 dönüyor, `output_config.effort` de desteklenen parametreleri arasında

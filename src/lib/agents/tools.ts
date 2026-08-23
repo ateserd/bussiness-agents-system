@@ -814,8 +814,32 @@ const money = () =>
  * tools run their own sandbox, and declaring both puts two sandboxes in one
  * request.
  */
-const webSearch = (): AnyTool => ({ type: "web_search_20260209", name: "web_search", max_uses: 6 });
-const webFetch = (): AnyTool => ({ type: "web_fetch_20260209", name: "web_fetch", max_uses: 6 });
+/*
+ * `allowed_callers: ["direct"]` is load-bearing, not a tuning knob.
+ *
+ * From `web_search_20260209` on, these tools default to
+ * `allowed_callers: ["code_execution_20260120"]` — the search runs *inside*
+ * code execution so the model can filter results before they hit the context
+ * window. Only models with programmatic tool calling can do that. Haiku 4.5
+ * cannot, so the default made every Scout run fail with a 400 naming the
+ * model, while the manager and Ops (same model, no web tools) were fine.
+ *
+ * "direct" turns dynamic filtering off and calls the tool the plain way, which
+ * every model supporting web search can do. The cost is more search text
+ * reaching the context — acceptable, and `max_uses` still caps it.
+ */
+const webSearch = (): AnyTool => ({
+  type: "web_search_20260209",
+  name: "web_search",
+  max_uses: 6,
+  allowed_callers: ["direct"],
+});
+const webFetch = (): AnyTool => ({
+  type: "web_fetch_20260209",
+  name: "web_fetch",
+  max_uses: 6,
+  allowed_callers: ["direct"],
+});
 
 /* -------------------------------------------------------------- outreach --- */
 
