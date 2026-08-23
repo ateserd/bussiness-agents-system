@@ -1,0 +1,103 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+    :root{
+      --bg:#0a0f1e; --surface:#0e1526; --surface-2:#131c30;
+      --line:#1e293f; --line-hi:#2c3a58;
+      --ink:#e9eef6; --ink-2:#97a6bd; --ink-3:#5f6f88;
+      --accent:#f5c451; --accent-soft:rgba(245,196,81,.12);
+      --ok:#3ddc84; --warn:#e8833a; --crit:#ff5b73;
+      --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px;
+      --r1:6px; --r2:10px; --r3:999px;
+      --shadow:0 1px 2px rgba(0,0,0,.45), 0 12px 28px -18px rgba(0,0,0,.85);
+      --sans:'Archivo',system-ui,-apple-system,'Segoe UI',sans-serif;
+      --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+         font-size:14px;line-height:1.55;-webkit-font-smoothing:antialiased}
+    a{color:var(--accent);text-decoration:none} a:hover{color:#ffd97a}
+    /* mono is for numbers, ids and timestamps only */
+    .n{font-family:var(--mono);font-variant-numeric:tabular-nums;letter-spacing:-0.01em}
+    /* section labels: Archivo, sentence case, no 0.2em uppercase tracking */
+    .label{font-size:11px;font-weight:600;letter-spacing:.04em;color:var(--ink-3);margin:0}
+    .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r2);
+          box-shadow:var(--shadow)}
+    .chip{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:var(--r3);
+          font-size:11px;font-weight:500;border:1px solid var(--line-hi);color:var(--ink-2)}
+    .dot{width:6px;height:6px;border-radius:50%;flex:none}
+    .rule{height:1px;background:var(--line);border:0;margin:0}
+    /* the only motion in the whole panel: a task that is actually running */
+    @keyframes live{0%,100%{opacity:1}50%{opacity:.35}}
+    .running{animation:live 1.8s ease-in-out infinite}
+    @media (prefers-reduced-motion:reduce){.running{animation:none}}
+</style>
+</helmet>
+<div style="padding:0 56px"><div style="max-width:1328px;margin:0 auto"><header style="display:flex;align-items:flex-start;justify-content:space-between;gap:var(--s6);
+     padding:var(--s6) 0 var(--s5)">
+  <div>
+    <h1 style="margin:0;font-size:19px;font-weight:700;letter-spacing:.02em">Mission
+      <span style="color:var(--accent)">Control</span></h1>
+    <p style="margin:6px 0 0;font-size:13px;color:var(--ink-3)">İki şubenin P&amp;L tablosu · <span class="n">Ağustos</span></p>
+  </div>
+  <nav style="display:flex;gap:var(--s2)"><span style="padding:5px 14px;border:1px solid;border-radius:var(--r3);font-size:12.5px;color:var(--ink-3);border-color:var(--line)">Bugün</span><span style="padding:5px 14px;border:1px solid;border-radius:var(--r3);font-size:12.5px;color:var(--ink-3);border-color:var(--line)">Hat</span><span style="padding:5px 14px;border:1px solid;border-radius:var(--r3);font-size:12.5px;background:var(--accent);color:#0a0f1e;border-color:var(--accent);font-weight:600">Para</span><span style="padding:5px 14px;border:1px solid;border-radius:var(--r3);font-size:12.5px;color:var(--ink-3);border-color:var(--line)">Hafıza</span></nav>
+</header></div></div><div style="max-width:1440px;margin:0 auto"><div style="padding:0 56px 56px"><div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s5)"><div class="card">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:var(--s4) var(--s5) var(--s3)">
+    <div><p style="margin:0;font-size:15px;font-weight:600">Ateş Design Agency</p>
+      <p class="label" style="margin-top:2px">web şubesi</p></div>
+  </div>
+  <hr class="rule"><div style="display:flex;justify-content:space-between;align-items:baseline;padding:10px var(--s5);"><span style="font-size:13.5px;color:var(--ink-2)">Bu ay gelir</span><span class="n" style="font-size:14.5px;font-weight:400;color:var(--ink)">$4.200</span></div><div style="display:flex;justify-content:space-between;align-items:baseline;padding:10px var(--s5);border-top:1px solid var(--line);"><span style="font-size:13.5px;color:var(--ink-2)">Tahsil edilen</span><span class="n" style="font-size:14.5px;font-weight:400;color:var(--ok)">$2.800</span></div><div style="display:flex;justify-content:space-between;align-items:baseline;padding:10px var(--s5);border-top:1px solid var(--line);"><span style="font-size:13.5px;color:var(--ink-2)">Ödenmemiş</span><span class="n" style="font-size:14.5px;font-weight:400;color:var(--warn)">$1.400 · 2 fatura</span></div><div style="display:flex;justify-content:space-between;align-items:baseline;padding:10px var(--s5);border-top:1px solid var(--line);"><span style="font-size:13.5px;color:var(--ink-2)">Gider</span><span class="n" style="font-size:14.5px;font-weight:400;color:var(--ink)">$310</span></div><div style="display:flex;justify-content:space-between;align-items:baseline;padding:10px var(--s5);border-top:1px solid var(--line);"><span style="font-size:13.5px;color:var(--ink-2)">Ajan maliyeti</span><span class="n" style="font-size:14.5px;font-weight:400;color:var(--ink)">$0,68</span></div>
+  <div style="display:flex;justify-content:space-between;align-items:baseline;padding:var(--s4) var(--s5);
+       border-top:1px solid var(--line-hi);background:var(--surface-2);
+       border-radius:0 0 var(--r2) var(--r2)">
+    <span style="font-size:13.5px;font-weight:600">Net</span>
+    <span class="n" style="font-size:20px;font-weight:600;color:var(--ok)">$3.222</span>
+  </div>
+</div><div class="card">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:var(--s4) var(--s5) var(--s3)">
+    <div><p style="margin:0;font-size:15px;font-weight:600">Ateş Flow Agency</p>
+      <p class="label" style="margin-top:2px">otomasyon şubesi</p></div>
+  </div>
+  <hr class="rule"><div style="display:flex;justify-content:space-between;align-items:baseline;padding:10px var(--s5);"><span style="font-size:13.5px;color:var(--ink-2)">Bu ay gelir</span><span class="n" style="font-size:14.5px;font-weight:400;color:var(--ink)">$6.600</span></div><div style="display:flex;justify-content:space-between;align-items:baseline;padding:10px var(--s5);border-top:1px solid var(--line);"><span style="font-size:13.5px;color:var(--ink-2)">Tahsil edilen</span><span class="n" style="font-size:14.5px;font-weight:400;color:var(--ok)">$6.600</span></div><div style="display:flex;justify-content:space-between;align-items:baseline;padding:10px var(--s5);border-top:1px solid var(--line);"><span style="font-size:13.5px;color:var(--ink-2)">Ödenmemiş</span><span class="n" style="font-size:14.5px;font-weight:400;color:var(--ink)">$0</span></div><div style="display:flex;justify-content:space-between;align-items:baseline;padding:10px var(--s5);border-top:1px solid var(--line);"><span style="font-size:13.5px;color:var(--ink-2)">Gider</span><span class="n" style="font-size:14.5px;font-weight:400;color:var(--ink)">$540</span></div><div style="display:flex;justify-content:space-between;align-items:baseline;padding:10px var(--s5);border-top:1px solid var(--line);"><span style="font-size:13.5px;color:var(--ink-2)">Ajan maliyeti</span><span class="n" style="font-size:14.5px;font-weight:400;color:var(--ink)">$0,67</span></div>
+  <div style="display:flex;justify-content:space-between;align-items:baseline;padding:var(--s4) var(--s5);
+       border-top:1px solid var(--line-hi);background:var(--surface-2);
+       border-radius:0 0 var(--r2) var(--r2)">
+    <span style="font-size:13.5px;font-weight:600">Net</span>
+    <span class="n" style="font-size:20px;font-weight:600;color:var(--ok)">$6.059</span>
+  </div>
+</div></div><div class="card" style="margin-top:var(--s5)"><div style="display:flex;align-items:center;justify-content:space-between;padding:var(--s4) var(--s5) var(--s3)"><p class="label">12 haftalık tahsilat</p><div style="display:flex;gap:var(--s4);align-items:center"><span class="chip" style="border-color:#f5c45133;color:var(--accent)"><span class="dot" style="background:var(--accent)"></span>web</span><span class="chip" style="border-color:#7fb8d833;color:#7fb8d8"><span class="dot" style="background:#7fb8d8"></span>flow</span></div></div><hr class="rule"><div style="padding:var(--s4) var(--s3) var(--s2)"><svg viewBox="0 0 1256 168" width="100%" height="168" style="display:block"><line x1="26" y1="26" x2="1230" y2="26" stroke="#1e293f" stroke-width="1"/><line x1="26" y1="84" x2="1230" y2="84" stroke="#1e293f" stroke-width="1"/><line x1="26" y1="142" x2="1230" y2="142" stroke="#1e293f" stroke-width="1"/><rect x="50" y="109" width="52" height="33" rx="2" fill="#f5c451"/><rect x="150" y="76" width="52" height="66" rx="2" fill="#7fb8d8"/><rect x="251" y="120" width="52" height="22" rx="2" fill="#f5c451"/><rect x="451" y="84" width="52" height="58" rx="2" fill="#f5c451"/><rect x="451" y="59" width="52" height="25" rx="2" fill="#7fb8d8"/><rect x="552" y="76" width="52" height="66" rx="2" fill="#7fb8d8"/><rect x="652" y="101" width="52" height="41" rx="2" fill="#f5c451"/><rect x="752" y="125" width="52" height="17" rx="2" fill="#f5c451"/><rect x="752" y="101" width="52" height="25" rx="2" fill="#7fb8d8"/><rect x="853" y="76" width="52" height="66" rx="2" fill="#7fb8d8"/><rect x="953" y="73" width="52" height="69" rx="2" fill="#f5c451"/><rect x="1053" y="117" width="52" height="25" rx="2" fill="#7fb8d8"/><rect x="1154" y="92" width="52" height="50" rx="2" fill="#f5c451"/><rect x="1154" y="26" width="52" height="66" rx="2" fill="#7fb8d8"/><text x="76" y="160" fill="#5f6f88" font-size="10" font-family="IBM Plex Mono, monospace" text-anchor="middle">28.6</text><text x="176" y="160" fill="#5f6f88" font-size="10" font-family="IBM Plex Mono, monospace" text-anchor="middle">5.7</text><text x="277" y="160" fill="#5f6f88" font-size="10" font-family="IBM Plex Mono, monospace" text-anchor="middle">12.7</text><text x="377" y="160" fill="#5f6f88" font-size="10" font-family="IBM Plex Mono, monospace" text-anchor="middle">19.7</text><text x="477" y="160" fill="#5f6f88" font-size="10" font-family="IBM Plex Mono, monospace" text-anchor="middle">26.7</text><text x="578" y="160" fill="#5f6f88" font-size="10" font-family="IBM Plex Mono, monospace" text-anchor="middle">2.8</text><text x="678" y="160" fill="#5f6f88" font-size="10" font-family="IBM Plex Mono, monospace" text-anchor="middle">9.8</text><text x="778" y="160" fill="#5f6f88" font-size="10" font-family="IBM Plex Mono, monospace" text-anchor="middle">16.8</text><text x="879" y="160" fill="#5f6f88" font-size="10" font-family="IBM Plex Mono, monospace" text-anchor="middle">23.8</text><text x="979" y="160" fill="#5f6f88" font-size="10" font-family="IBM Plex Mono, monospace" text-anchor="middle">30.8</text><text x="1079" y="160" fill="#5f6f88" font-size="10" font-family="IBM Plex Mono, monospace" text-anchor="middle">6.9</text><text x="1180" y="160" fill="#5f6f88" font-size="10" font-family="IBM Plex Mono, monospace" text-anchor="middle">13.9</text></svg></div></div><div class="card" style="margin-top:var(--s5)"><div style="display:flex;align-items:center;justify-content:space-between;padding:var(--s4) var(--s5) var(--s3)"><p class="label">Ajan maliyeti — bu ay</p><span class="n" style="font-size:13.5px">$1,35</span></div><hr class="rule"><div style="display:flex;align-items:center;gap:var(--s4);padding:10px var(--s5);">
+  <span style="font-size:13.5px;width:96px;flex:none">Yönetici</span>
+  <span class="n" style="font-size:11.5px;color:var(--ink-3);width:150px;flex:none">claude-sonnet-5</span>
+  <span style="flex:1;height:5px;border-radius:3px;background:var(--surface-2);overflow:hidden">
+    <span style="display:block;height:100%;width:62%;background:var(--accent);opacity:.8"></span></span>
+  <span class="n" style="font-size:13.5px;width:56px;text-align:right;flex:none">$0,84</span>
+</div><div style="display:flex;align-items:center;gap:var(--s4);padding:10px var(--s5);border-top:1px solid var(--line);">
+  <span style="font-size:13.5px;width:96px;flex:none">Scout</span>
+  <span class="n" style="font-size:11.5px;color:var(--ink-3);width:150px;flex:none">claude-sonnet-5</span>
+  <span style="flex:1;height:5px;border-radius:3px;background:var(--surface-2);overflow:hidden">
+    <span style="display:block;height:100%;width:23%;background:var(--accent);opacity:.8"></span></span>
+  <span class="n" style="font-size:13.5px;width:56px;text-align:right;flex:none">$0,31</span>
+</div><div style="display:flex;align-items:center;gap:var(--s4);padding:10px var(--s5);border-top:1px solid var(--line);">
+  <span style="font-size:13.5px;width:96px;flex:none">Outreach</span>
+  <span class="n" style="font-size:11.5px;color:var(--ink-3);width:150px;flex:none">claude-sonnet-5</span>
+  <span style="flex:1;height:5px;border-radius:3px;background:var(--surface-2);overflow:hidden">
+    <span style="display:block;height:100%;width:11%;background:var(--accent);opacity:.8"></span></span>
+  <span class="n" style="font-size:13.5px;width:56px;text-align:right;flex:none">$0,15</span>
+</div><div style="display:flex;align-items:center;gap:var(--s4);padding:10px var(--s5);border-top:1px solid var(--line);">
+  <span style="font-size:13.5px;width:96px;flex:none">Ops</span>
+  <span class="n" style="font-size:11.5px;color:var(--ink-3);width:150px;flex:none">claude-haiku-4-5</span>
+  <span style="flex:1;height:5px;border-radius:3px;background:var(--surface-2);overflow:hidden">
+    <span style="display:block;height:100%;width:4%;background:var(--accent);opacity:.8"></span></span>
+  <span class="n" style="font-size:13.5px;width:56px;text-align:right;flex:none">$0,05</span>
+</div></div></div></div>
+</x-dc>
+</body>
+</html>

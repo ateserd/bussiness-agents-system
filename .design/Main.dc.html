@@ -1,0 +1,147 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+    :root{
+      --bg:#0a0f1e; --surface:#0e1526; --surface-2:#131c30;
+      --line:#1e293f; --line-hi:#2c3a58;
+      --ink:#e9eef6; --ink-2:#97a6bd; --ink-3:#5f6f88;
+      --accent:#f5c451; --accent-soft:rgba(245,196,81,.12);
+      --ok:#3ddc84; --warn:#e8833a; --crit:#ff5b73;
+      --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px;
+      --r1:6px; --r2:10px; --r3:999px;
+      --shadow:0 1px 2px rgba(0,0,0,.45), 0 12px 28px -18px rgba(0,0,0,.85);
+      --sans:'Archivo',system-ui,-apple-system,'Segoe UI',sans-serif;
+      --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+         font-size:14px;line-height:1.55;-webkit-font-smoothing:antialiased}
+    a{color:var(--accent);text-decoration:none} a:hover{color:#ffd97a}
+    /* mono is for numbers, ids and timestamps only */
+    .n{font-family:var(--mono);font-variant-numeric:tabular-nums;letter-spacing:-0.01em}
+    /* section labels: Archivo, sentence case, no 0.2em uppercase tracking */
+    .label{font-size:11px;font-weight:600;letter-spacing:.04em;color:var(--ink-3);margin:0}
+    .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r2);
+          box-shadow:var(--shadow)}
+    .chip{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:var(--r3);
+          font-size:11px;font-weight:500;border:1px solid var(--line-hi);color:var(--ink-2)}
+    .dot{width:6px;height:6px;border-radius:50%;flex:none}
+    .rule{height:1px;background:var(--line);border:0;margin:0}
+    /* the only motion in the whole panel: a task that is actually running */
+    @keyframes live{0%,100%{opacity:1}50%{opacity:.35}}
+    .running{animation:live 1.8s ease-in-out infinite}
+    @media (prefers-reduced-motion:reduce){.running{animation:none}}
+</style>
+</helmet>
+<div style="padding:0 56px"><div style="max-width:1328px;margin:0 auto"><header style="display:flex;align-items:flex-start;justify-content:space-between;gap:var(--s6);
+     padding:var(--s6) 0 var(--s5)">
+  <div>
+    <h1 style="margin:0;font-size:19px;font-weight:700;letter-spacing:.02em">Mission
+      <span style="color:var(--accent)">Control</span></h1>
+    <p style="margin:6px 0 0;font-size:13px;color:var(--ink-3)">Ateş Erdem Akköse · <span class="n">23 Ağustos</span> Pazar</p>
+  </div>
+  <nav style="display:flex;gap:var(--s2)"><span style="padding:5px 14px;border:1px solid;border-radius:var(--r3);font-size:12.5px;background:var(--accent);color:#0a0f1e;border-color:var(--accent);font-weight:600">Bugün</span><span style="padding:5px 14px;border:1px solid;border-radius:var(--r3);font-size:12.5px;color:var(--ink-3);border-color:var(--line)">Hat</span><span style="padding:5px 14px;border:1px solid;border-radius:var(--r3);font-size:12.5px;color:var(--ink-3);border-color:var(--line)">Para</span><span style="padding:5px 14px;border:1px solid;border-radius:var(--r3);font-size:12.5px;color:var(--ink-3);border-color:var(--line)">Hafıza</span></nav>
+</header></div></div><div style="max-width:1440px;margin:0 auto"><div style="padding:0 56px 56px"><div style="display:flex;gap:var(--s4);padding:var(--s5);border-left:2px solid var(--accent);
+     background:var(--accent-soft);border-radius:0 var(--r2) var(--r2) 0;margin-bottom:var(--s5)">
+  <div>
+    <p class="label" style="color:var(--accent)">Yönetici</p>
+    <p style="margin:6px 0 0;font-size:14.5px;line-height:1.6;max-width:74ch">
+      Bugün tek gerçek iş Marina Cafe: fiyat sorusu 14 saattir bekliyor ve teklif
+      22 gündür kıpırdamadı — cevap verirsen taslak bugün çıkar.
+      Kumsal'ın teslimi 2 gün geçmiş, müşteriye bir haber gitmesi lazım.
+      Diğer her şey yolunda.</p>
+  </div>
+</div><div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--s4);margin-bottom:var(--s5)"><div class="card" style="padding:var(--s4) var(--s5)">
+  <p class="label">Çalışan görev</p>
+  <p class="n" style="margin:6px 0 2px;font-size:30px;font-weight:500;line-height:1;color:var(--ink)">2</p>
+  <p style="margin:0;font-size:12.5px;color:var(--ink-3)">Scout · Outreach</p>
+</div><div class="card" style="padding:var(--s4) var(--s5)">
+  <p class="label">Sana takılı</p>
+  <p class="n" style="margin:6px 0 2px;font-size:30px;font-weight:500;line-height:1;color:var(--crit)">1</p>
+  <p style="margin:0;font-size:12.5px;color:var(--ink-3)">en eskisi 14 sa</p>
+</div><div class="card" style="padding:var(--s4) var(--s5)">
+  <p class="label">Onay bekleyen</p>
+  <p class="n" style="margin:6px 0 2px;font-size:30px;font-weight:500;line-height:1;color:var(--warn)">3</p>
+  <p style="margin:0;font-size:12.5px;color:var(--ink-3)">günün listesi</p>
+</div><div class="card" style="padding:var(--s4) var(--s5)">
+  <p class="label">Bugün giden</p>
+  <p class="n" style="margin:6px 0 2px;font-size:30px;font-weight:500;line-height:1;color:var(--ink)">7</p>
+  <p style="margin:0;font-size:12.5px;color:var(--ink-3)">10 kotadan</p>
+</div></div><div style="display:grid;grid-template-columns:minmax(0,1.62fr) minmax(0,1fr);gap:var(--s5)"><div style="display:flex;flex-direction:column;gap:var(--s5)"><div class="card"><div style="display:flex;align-items:center;justify-content:space-between;padding:var(--s4) var(--s5) var(--s3)"><p class="label">Sana düşenler</p></div><hr class="rule"><div style="display:flex;gap:var(--s3);padding:var(--s4) var(--s5);">
+  <span style="width:2px;border-radius:2px;background:var(--crit);flex:none;align-self:stretch"></span>
+  <span style="color:var(--crit);margin-top:2px"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--crit)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.2 2.4c-.6.2-.7.7-.7 1.3M12 16.5h.01"/></svg></span>
+  <div style="min-width:0">
+    <p style="margin:0;font-size:13.5px;font-weight:600">Sana soruldu</p>
+    <p style="margin:2px 0 0;font-size:13.5px;color:var(--ink-2)">Marina Cafe'ye hangi fiyatı yazayım? Sitesi yok, 40 yorumu var.</p>
+    <p style="margin:5px 0 0;font-size:11.5px;color:var(--ink-3)">Outreach · <span class="n">#a4f2c1</span> · <span class="n">14 sa</span> önce</p>
+  </div>
+</div><div style="display:flex;gap:var(--s3);padding:var(--s4) var(--s5);border-top:1px solid var(--line);">
+  <span style="width:2px;border-radius:2px;background:var(--accent);flex:none;align-self:stretch"></span>
+  <span style="color:var(--accent);margin-top:2px"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></span>
+  <div style="min-width:0">
+    <p style="margin:0;font-size:13.5px;font-weight:600">Günün listesi bekliyor</p>
+    <p style="margin:2px 0 0;font-size:13.5px;color:var(--ink-2)">3 taslak onayını bekliyor — “gönder”, “2 hariç” ya da “iptal”.</p>
+    <p style="margin:5px 0 0;font-size:11.5px;color:var(--ink-3)">Telegram'da · <span class="n">09:00</span></p>
+  </div>
+</div><div style="display:flex;gap:var(--s3);padding:var(--s4) var(--s5);border-top:1px solid var(--line);">
+  <span style="width:2px;border-radius:2px;background:var(--warn);flex:none;align-self:stretch"></span>
+  <span style="color:var(--warn);margin-top:2px"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--warn)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M12 4 3 19h18L12 4Z"/><path d="M12 10v4M12 17h.01"/></svg></span>
+  <div style="min-width:0">
+    <p style="margin:0;font-size:13.5px;font-weight:600">Teslim tarihi geçti</p>
+    <p style="margin:2px 0 0;font-size:13.5px;color:var(--ink-2)">Kumsal site yenileme · 2 gün geçti, risk işaretli.</p>
+    <p style="margin:5px 0 0;font-size:11.5px;color:var(--ink-3)">web · build</p>
+  </div>
+</div></div><div class="card"><div style="display:flex;align-items:center;justify-content:space-between;padding:var(--s4) var(--s5) var(--s3)"><p class="label">Bugün</p></div><hr class="rule"><div style="display:flex;align-items:center;justify-content:space-between;gap:var(--s4);padding:var(--s3) var(--s5);border-top:1px solid var(--line);"><div style="display:flex;gap:var(--s3);align-items:center;min-width:0"><span class="n" style="font-size:13.5px;color:var(--accent)">14:00</span><div style="min-width:0"><p style="margin:0;font-size:13.5px">Kumsal Balık — tanışma</p><p style="margin:1px 0 0;font-size:11.5px;color:var(--ink-3)" class="n">meet.google.com/xrt-kfqd-abc</p></div></div><span style="color:var(--ink-3)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--ink-3)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 11h18"/></svg></span></div><div style="display:flex;align-items:center;justify-content:space-between;gap:var(--s4);padding:var(--s3) var(--s5);border-top:1px solid var(--line);"><div style="display:flex;gap:var(--s3);align-items:center;min-width:0"><span class="n" style="font-size:13.5px;color:var(--accent)">17:30</span><div style="min-width:0"><p style="margin:0;font-size:13.5px">Deniz Lojistik — akış devir</p><p style="margin:1px 0 0;font-size:11.5px;color:var(--ink-3)" class="n">meet.google.com/vpm-doaz-xyz</p></div></div><span style="color:var(--ink-3)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--ink-3)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 11h18"/></svg></span></div><div style="display:flex;align-items:center;justify-content:space-between;gap:var(--s4);padding:var(--s3) var(--s5);border-top:1px solid var(--line);"><div style="display:flex;gap:var(--s3);align-items:center"><span style="color:var(--ink-3)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--ink-3)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></span><div><p style="margin:0;font-size:13.5px">Günün listesi — <span class="n">7</span> mail · <span class="n">5</span> arama</p><p style="margin:1px 0 0;font-size:11.5px;color:var(--ink-3)">Telegram'a <span class="n">09:00</span>'da gitti · <span class="n">3</span> hâlâ açık</p></div></div><span class="chip" style="border-color:rgba(232,131,58,.4);color:var(--warn)">bekliyor</span></div></div><div class="card"><div style="display:flex;align-items:center;justify-content:space-between;padding:var(--s4) var(--s5) var(--s3)"><p class="label">Şu an çalışıyor</p><span class="chip" style="border-color:rgba(61,220,132,.35);color:var(--ok)"><span class="dot running" style="background:var(--ok)"></span>canlı</span></div><hr class="rule"><div style="display:flex;align-items:center;justify-content:space-between;gap:var(--s4);padding:var(--s3) var(--s5);"><div style="display:flex;gap:var(--s3);align-items:center"><span class="dot running" style="background:var(--ok)"></span><div><p style="margin:0;font-size:13.5px">Sektör araştırması — kuaför, İzmir</p><p style="margin:1px 0 0;font-size:11.5px;color:var(--ink-3)">Scout · <span class="n">#7f21c0</span></p></div></div><span class="n" style="font-size:11.5px;color:var(--ink-3)">1dk 12sn</span></div><div style="display:flex;align-items:center;justify-content:space-between;gap:var(--s4);padding:var(--s3) var(--s5);border-top:1px solid var(--line);"><div style="display:flex;gap:var(--s3);align-items:center"><span class="dot running" style="background:var(--ok)"></span><div><p style="margin:0;font-size:13.5px">Cold mail taslakları — 4 lead</p><p style="margin:1px 0 0;font-size:11.5px;color:var(--ink-3)">Outreach · <span class="n">#c40e9a</span></p></div></div><span class="n" style="font-size:11.5px;color:var(--ink-3)">38sn</span></div></div></div><div><div class="card"><div style="display:flex;align-items:center;justify-content:space-between;padding:var(--s4) var(--s5) var(--s3)"><p class="label">Son hareketler</p></div><hr class="rule"><div style="display:flex;gap:var(--s3);align-items:flex-start;padding:11px var(--s5);">
+  <span class="dot" style="background:var(--ok);margin-top:7px"></span>
+  <div style="flex:1;min-width:0">
+    <p style="margin:0;font-size:13px;color:var(--ink)">Taslak onaya gönderildi — Marina Cafe</p>
+    <p style="margin:2px 0 0;font-size:11.5px;color:var(--ink-3)">Outreach</p>
+  </div>
+  <span class="n" style="font-size:11.5px;color:var(--ink-3);white-space:nowrap">4 dk</span>
+</div><div style="display:flex;gap:var(--s3);align-items:flex-start;padding:11px var(--s5);border-top:1px solid var(--line);">
+  <span class="dot" style="background:var(--ok);margin-top:7px"></span>
+  <div style="flex:1;min-width:0">
+    <p style="margin:0;font-size:13px;color:var(--ink)">Toplantı oluşturuldu — Kumsal Balık 14:00</p>
+    <p style="margin:2px 0 0;font-size:11.5px;color:var(--ink-3)">Ops</p>
+  </div>
+  <span class="n" style="font-size:11.5px;color:var(--ink-3);white-space:nowrap">22 dk</span>
+</div><div style="display:flex;gap:var(--s3);align-items:flex-start;padding:11px var(--s5);border-top:1px solid var(--line);">
+  <span class="dot" style="background:var(--ok);margin-top:7px"></span>
+  <div style="flex:1;min-width:0">
+    <p style="margin:0;font-size:13px;color:var(--ink)">İzmir · kuaför — 12 lead eklendi, 31 elendi</p>
+    <p style="margin:2px 0 0;font-size:11.5px;color:var(--ink-3)">Scout</p>
+  </div>
+  <span class="n" style="font-size:11.5px;color:var(--ink-3);white-space:nowrap">1 sa</span>
+</div><div style="display:flex;gap:var(--s3);align-items:flex-start;padding:11px var(--s5);border-top:1px solid var(--line);">
+  <span class="dot" style="background:var(--ok);margin-top:7px"></span>
+  <div style="flex:1;min-width:0">
+    <p style="margin:0;font-size:13px;color:var(--ink)">Gönderildi — Ege Yapı Market</p>
+    <p style="margin:2px 0 0;font-size:11.5px;color:var(--ink-3)">Outreach</p>
+  </div>
+  <span class="n" style="font-size:11.5px;color:var(--ink-3);white-space:nowrap">2 sa</span>
+</div><div style="display:flex;gap:var(--s3);align-items:flex-start;padding:11px var(--s5);border-top:1px solid var(--line);">
+  <span class="dot" style="background:var(--ok);margin-top:7px"></span>
+  <div style="flex:1;min-width:0">
+    <p style="margin:0;font-size:13px;color:var(--ink)">Günlük mail sayısı 10 → 7 (bugüne özel)</p>
+    <p style="margin:2px 0 0;font-size:11.5px;color:var(--ink-3)">Yönetici</p>
+  </div>
+  <span class="n" style="font-size:11.5px;color:var(--ink-3);white-space:nowrap">3 sa</span>
+</div><div style="display:flex;gap:var(--s3);align-items:flex-start;padding:11px var(--s5);border-top:1px solid var(--line);">
+  <span class="dot" style="background:var(--warn);margin-top:7px"></span>
+  <div style="flex:1;min-width:0">
+    <p style="margin:0;font-size:13px;color:var(--ink)">Kur okunamadı — TCMB yanıt vermedi</p>
+    <p style="margin:2px 0 0;font-size:11.5px;color:var(--ink-3)">Ops</p>
+  </div>
+  <span class="n" style="font-size:11.5px;color:var(--ink-3);white-space:nowrap">5 sa</span>
+</div></div></div></div></div></div>
+</x-dc>
+</body>
+</html>

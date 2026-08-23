@@ -1,0 +1,99 @@
+{
+ "artboards": [
+  {
+   "file": "Main.dc.html",
+   "x": 0,
+   "y": 0,
+   "w": 1440,
+   "h": 1140,
+   "title": "Bugün"
+  },
+  {
+   "file": "Hat.dc.html",
+   "x": 1560,
+   "y": 0,
+   "w": 1440,
+   "h": 960,
+   "title": "Hat"
+  },
+  {
+   "file": "BugunMobil.dc.html",
+   "x": 3120,
+   "y": 0,
+   "w": 390,
+   "h": 1180,
+   "title": "Bugün · mobil"
+  },
+  {
+   "file": "HatMobil.dc.html",
+   "x": 3630,
+   "y": 0,
+   "w": 390,
+   "h": 1180,
+   "title": "Hat · mobil"
+  },
+  {
+   "file": "Para.dc.html",
+   "x": 0,
+   "y": 1320,
+   "w": 1440,
+   "h": 900,
+   "title": "Para"
+  },
+  {
+   "file": "Hafiza.dc.html",
+   "x": 1560,
+   "y": 1320,
+   "w": 1440,
+   "h": 880,
+   "title": "Hafıza"
+  }
+ ],
+ "annotations": [
+  {
+   "id": "n-kes",
+   "x": 0,
+   "y": -190,
+   "w": 420,
+   "text": "KESİLENLER\nYıldız alanı · altın radyal parlama · üç ölü animasyon\n(mc-breathe, mc-breathe-red, mc-ring-gold) · altı neon\naksandan beşi. \"Üretilmiş\" hissi veren işaretler bunlardı."
+  },
+  {
+   "id": "n-tut",
+   "x": 460,
+   "y": -190,
+   "w": 420,
+   "text": "TUTULANLAR\nKoyu zemin + altın: kimlik, slop değil.\nArchivo + IBM Plex Mono.\nTek aksan altın; ok/uyarı/kritik ondan ayrı."
+  },
+  {
+   "id": "n-tip",
+   "x": 920,
+   "y": -190,
+   "w": 460,
+   "text": "TİPOGRAFİ DÜZELTİLDİ\nEskiden .mc-eyebrow (10.5px mono, BÜYÜK HARF, 0.2em\naralık) 32 yerde, çoğu düz etiketti. Artık mono yalnızca\nsayı, id ve zaman damgasında. Etiketler Archivo, normal düzen."
+  },
+  {
+   "id": "n-hareket",
+   "x": 1560,
+   "y": -190,
+   "w": 420,
+   "text": "HAREKET\nTek animasyon: gerçekten çalışan bir görevin noktası.\nBaşka hiçbir şey kıpırdamıyor.\nprefers-reduced-motion'da o da duruyor."
+  },
+  {
+   "id": "n-ayna",
+   "x": 2040,
+   "y": -190,
+   "w": 440,
+   "text": "AKSİYON DÜĞMESİ YOK\nÇalıştır · Duraklat · Onayla/Reddet kalktı — panel ayna,\nkumanda Telegram'dan. Tek istisna Hafıza'daki not ekleme\nve silme: onlar hafıza düzenlemek, ajana komut değil."
+  },
+  {
+   "id": "n-veri",
+   "x": 3120,
+   "y": -190,
+   "w": 420,
+   "text": "VERİ\nYapı ve alanlar gerçek (brief.ts, getLedger, getBrain\nçıktılarından). Rakamlar örnek — düzeni değerlendirebil\ndiye dolduruldu, canlı sistemden değil."
+  }
+ ],
+ "launch": {
+  "view": "canvas"
+ }
+}

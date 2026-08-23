@@ -1,0 +1,139 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+    :root{
+      --bg:#0a0f1e; --surface:#0e1526; --surface-2:#131c30;
+      --line:#1e293f; --line-hi:#2c3a58;
+      --ink:#e9eef6; --ink-2:#97a6bd; --ink-3:#5f6f88;
+      --accent:#f5c451; --accent-soft:rgba(245,196,81,.12);
+      --ok:#3ddc84; --warn:#e8833a; --crit:#ff5b73;
+      --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:24px; --s6:32px;
+      --r1:6px; --r2:10px; --r3:999px;
+      --shadow:0 1px 2px rgba(0,0,0,.45), 0 12px 28px -18px rgba(0,0,0,.85);
+      --sans:'Archivo',system-ui,-apple-system,'Segoe UI',sans-serif;
+      --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+         font-size:14px;line-height:1.55;-webkit-font-smoothing:antialiased}
+    a{color:var(--accent);text-decoration:none} a:hover{color:#ffd97a}
+    /* mono is for numbers, ids and timestamps only */
+    .n{font-family:var(--mono);font-variant-numeric:tabular-nums;letter-spacing:-0.01em}
+    /* section labels: Archivo, sentence case, no 0.2em uppercase tracking */
+    .label{font-size:11px;font-weight:600;letter-spacing:.04em;color:var(--ink-3);margin:0}
+    .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r2);
+          box-shadow:var(--shadow)}
+    .chip{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:var(--r3);
+          font-size:11px;font-weight:500;border:1px solid var(--line-hi);color:var(--ink-2)}
+    .dot{width:6px;height:6px;border-radius:50%;flex:none}
+    .rule{height:1px;background:var(--line);border:0;margin:0}
+    /* the only motion in the whole panel: a task that is actually running */
+    @keyframes live{0%,100%{opacity:1}50%{opacity:.35}}
+    .running{animation:live 1.8s ease-in-out infinite}
+    @media (prefers-reduced-motion:reduce){.running{animation:none}}
+</style>
+</helmet>
+<header style="padding:var(--s5) var(--s4) var(--s4)">
+  <h1 style="margin:0;font-size:17px;font-weight:700">Mission <span style="color:var(--accent)">Control</span></h1>
+  <p style="margin:5px 0 var(--s4);font-size:12.5px;color:var(--ink-3)">Lead → fırsat → proje → müşteri</p>
+  <div style="display:flex;gap:6px;overflow:hidden"><span style="padding:5px 14px;border:1px solid;border-radius:var(--r3);font-size:12.5px;color:var(--ink-3);border-color:var(--line)">Bugün</span><span style="padding:5px 14px;border:1px solid;border-radius:var(--r3);font-size:12.5px;background:var(--accent);color:#0a0f1e;border-color:var(--accent);font-weight:600">Hat</span><span style="padding:5px 14px;border:1px solid;border-radius:var(--r3);font-size:12.5px;color:var(--ink-3);border-color:var(--line)">Para</span><span style="padding:5px 14px;border:1px solid;border-radius:var(--r3);font-size:12.5px;color:var(--ink-3);border-color:var(--line)">Hafıza</span></div>
+</header><div style="padding:0 var(--s4) 56px"><div style="display:flex;flex-direction:column;gap:var(--s3);align-items:stretch;margin-bottom:var(--s5)"><div class="card" style="padding:var(--s4) var(--s5);flex:1;min-width:0">
+  <p class="label">Lead</p>
+  <p class="n" style="margin:6px 0 2px;font-size:32px;font-weight:500;line-height:1">24</p>
+  <p style="margin:0;font-size:12.5px;color:var(--ink-3)">havuzda</p>
+</div><div style="display:flex;align-items:center;color:var(--ink-3);flex:none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--line-hi)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div><div class="card" style="padding:var(--s4) var(--s5);flex:1;min-width:0">
+  <p class="label">Fırsat</p>
+  <p class="n" style="margin:6px 0 2px;font-size:32px;font-weight:500;line-height:1">2</p>
+  <p style="margin:0;font-size:12.5px;color:var(--ink-3)">$11.500</p>
+</div><div style="display:flex;align-items:center;color:var(--ink-3);flex:none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--line-hi)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div><div class="card" style="padding:var(--s4) var(--s5);flex:1;min-width:0">
+  <p class="label">Proje</p>
+  <p class="n" style="margin:6px 0 2px;font-size:32px;font-weight:500;line-height:1">3</p>
+  <p style="margin:0;font-size:12.5px;color:var(--ink-3)">1 riskte</p>
+</div><div style="display:flex;align-items:center;color:var(--ink-3);flex:none"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--line-hi)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div><div class="card" style="padding:var(--s4) var(--s5);flex:1;min-width:0">
+  <p class="label">Müşteri</p>
+  <p class="n" style="margin:6px 0 2px;font-size:32px;font-weight:500;line-height:1">3</p>
+  <p style="margin:0;font-size:12.5px;color:var(--ink-3)">$1.300/ay</p>
+</div></div><div style="display:grid;grid-template-columns:repeat(1,minmax(0,1fr));gap:var(--s4)"><div class="card"><div style="display:flex;align-items:center;justify-content:space-between;padding:var(--s4) var(--s5) var(--s3)"><p class="label">Lead</p></div><hr class="rule"><div style="padding:var(--s3) var(--s5);">
+  <div style="display:flex;align-items:center;gap:var(--s2);justify-content:space-between">
+    <p style="margin:0;font-size:13.5px;font-weight:500;min-width:0;overflow:hidden;
+       text-overflow:ellipsis;white-space:nowrap">Ege Yapı Market</p><span class="chip" style="border-color:var(--accent)33;color:var(--accent);padding:1px 7px;font-size:10.5px">web</span>
+  </div>
+  <p style="margin:2px 0 0;font-size:11.5px;color:var(--ink-3)" class="n">sitesi yok · 62 yorum</p>
+</div><div style="padding:var(--s3) var(--s5);border-top:1px solid var(--line);">
+  <div style="display:flex;align-items:center;gap:var(--s2);justify-content:space-between">
+    <p style="margin:0;font-size:13.5px;font-weight:500;min-width:0;overflow:hidden;
+       text-overflow:ellipsis;white-space:nowrap">Bornova Kuaför</p><span class="chip" style="border-color:var(--accent)33;color:var(--accent);padding:1px 7px;font-size:10.5px">web</span>
+  </div>
+  <p style="margin:2px 0 0;font-size:11.5px;color:var(--ink-3)" class="n">sitesi yok · 41 yorum</p>
+</div><div style="padding:var(--s3) var(--s5);border-top:1px solid var(--line);">
+  <div style="display:flex;align-items:center;gap:var(--s2);justify-content:space-between">
+    <p style="margin:0;font-size:13.5px;font-weight:500;min-width:0;overflow:hidden;
+       text-overflow:ellipsis;white-space:nowrap">Uçar Nakliyat</p><span class="chip" style="border-color:#7fb8d833;color:#7fb8d8;padding:1px 7px;font-size:10.5px">flow</span>
+  </div>
+  <p style="margin:2px 0 0;font-size:11.5px;color:var(--ink-3)" class="n">site var · 88 yorum</p>
+</div><div style="padding:var(--s3) var(--s5);border-top:1px solid var(--line);">
+  <div style="display:flex;align-items:center;gap:var(--s2);justify-content:space-between">
+    <p style="margin:0;font-size:13.5px;font-weight:500;min-width:0;overflow:hidden;
+       text-overflow:ellipsis;white-space:nowrap">Kahve Durağı</p><span class="chip" style="border-color:var(--accent)33;color:var(--accent);padding:1px 7px;font-size:10.5px">web</span>
+  </div>
+  <p style="margin:2px 0 0;font-size:11.5px;color:var(--ink-3)" class="n">sitesi yok · 30 yorum</p>
+</div><div style="padding:var(--s3) var(--s5);border-top:1px solid var(--line);font-size:12px;color:var(--ink-3)">+20 tane daha</div></div><div class="card"><div style="display:flex;align-items:center;justify-content:space-between;padding:var(--s4) var(--s5) var(--s3)"><p class="label">Fırsat</p></div><hr class="rule"><div style="padding:var(--s3) var(--s5);">
+  <div style="display:flex;align-items:center;gap:var(--s2);justify-content:space-between">
+    <p style="margin:0;font-size:13.5px;font-weight:500;min-width:0;overflow:hidden;
+       text-overflow:ellipsis;white-space:nowrap">Marina Cafe sitesi</p><span class="chip" style="border-color:var(--accent)33;color:var(--accent);padding:1px 7px;font-size:10.5px">web</span>
+  </div>
+  <p style="margin:2px 0 0;font-size:11.5px;color:var(--ink-3)" class="n">proposal · $2.500 · 22 gün</p>
+</div><div style="padding:var(--s3) var(--s5);border-top:1px solid var(--line);">
+  <div style="display:flex;align-items:center;gap:var(--s2);justify-content:space-between">
+    <p style="margin:0;font-size:13.5px;font-weight:500;min-width:0;overflow:hidden;
+       text-overflow:ellipsis;white-space:nowrap">Toptancı entegrasyonu</p><span class="chip" style="border-color:#7fb8d833;color:#7fb8d8;padding:1px 7px;font-size:10.5px">flow</span>
+  </div>
+  <p style="margin:2px 0 0;font-size:11.5px;color:var(--ink-3)" class="n">discovery · $9.000 · 2 gün</p>
+</div></div><div class="card"><div style="display:flex;align-items:center;justify-content:space-between;padding:var(--s4) var(--s5) var(--s3)"><p class="label">Proje</p></div><hr class="rule"><div style="padding:var(--s3) var(--s5);">
+  <div style="display:flex;align-items:center;gap:var(--s2);justify-content:space-between">
+    <p style="margin:0;font-size:13.5px;font-weight:500;min-width:0;overflow:hidden;
+       text-overflow:ellipsis;white-space:nowrap">Kumsal site yenileme</p><span class="chip" style="border-color:var(--accent)33;color:var(--accent);padding:1px 7px;font-size:10.5px">web</span>
+  </div>
+  <p style="margin:2px 0 0;font-size:11.5px;color:var(--ink-3)" class="n">build · 2 gün geçti</p>
+</div><div style="padding:var(--s3) var(--s5);border-top:1px solid var(--line);">
+  <div style="display:flex;align-items:center;gap:var(--s2);justify-content:space-between">
+    <p style="margin:0;font-size:13.5px;font-weight:500;min-width:0;overflow:hidden;
+       text-overflow:ellipsis;white-space:nowrap">Deniz landing</p><span class="chip" style="border-color:var(--accent)33;color:var(--accent);padding:1px 7px;font-size:10.5px">web</span>
+  </div>
+  <p style="margin:2px 0 0;font-size:11.5px;color:var(--ink-3)" class="n">design · 5 gün kaldı</p>
+</div><div style="padding:var(--s3) var(--s5);border-top:1px solid var(--line);">
+  <div style="display:flex;align-items:center;gap:var(--s2);justify-content:space-between">
+    <p style="margin:0;font-size:13.5px;font-weight:500;min-width:0;overflow:hidden;
+       text-overflow:ellipsis;white-space:nowrap">Sipariş akışı</p><span class="chip" style="border-color:#7fb8d833;color:#7fb8d8;padding:1px 7px;font-size:10.5px">flow</span>
+  </div>
+  <p style="margin:2px 0 0;font-size:11.5px;color:var(--ink-3)" class="n">live · akış hatalı</p>
+</div></div><div class="card"><div style="display:flex;align-items:center;justify-content:space-between;padding:var(--s4) var(--s5) var(--s3)"><p class="label">Müşteri</p></div><hr class="rule"><div style="padding:var(--s3) var(--s5);">
+  <div style="display:flex;align-items:center;gap:var(--s2);justify-content:space-between">
+    <p style="margin:0;font-size:13.5px;font-weight:500;min-width:0;overflow:hidden;
+       text-overflow:ellipsis;white-space:nowrap">Deniz Lojistik</p><span class="chip" style="border-color:#7fb8d833;color:#7fb8d8;padding:1px 7px;font-size:10.5px">flow</span>
+  </div>
+  <p style="margin:2px 0 0;font-size:11.5px;color:var(--ink-3)" class="n">$900/ay · 3 gün önce</p>
+</div><div style="padding:var(--s3) var(--s5);border-top:1px solid var(--line);">
+  <div style="display:flex;align-items:center;gap:var(--s2);justify-content:space-between">
+    <p style="margin:0;font-size:13.5px;font-weight:500;min-width:0;overflow:hidden;
+       text-overflow:ellipsis;white-space:nowrap">Kumsal Balık</p><span class="chip" style="border-color:var(--accent)33;color:var(--accent);padding:1px 7px;font-size:10.5px">web</span>
+  </div>
+  <p style="margin:2px 0 0;font-size:11.5px;color:var(--ink-3)" class="n">$400/ay · 41 gün sessiz</p>
+</div><div style="padding:var(--s3) var(--s5);border-top:1px solid var(--line);">
+  <div style="display:flex;align-items:center;gap:var(--s2);justify-content:space-between">
+    <p style="margin:0;font-size:13.5px;font-weight:500;min-width:0;overflow:hidden;
+       text-overflow:ellipsis;white-space:nowrap">Ege Kuaför</p><span class="chip" style="border-color:var(--accent)33;color:var(--accent);padding:1px 7px;font-size:10.5px">web</span>
+  </div>
+  <p style="margin:2px 0 0;font-size:11.5px;color:var(--ink-3)" class="n">$0/ay · hiç temas yok</p>
+</div></div></div><p style="margin:var(--s5) 0 0;font-size:12.5px;color:var(--ink-3)">Dokunulmamış lead 30 gün sonra siliniyor · temas kurulan kalıyor</p></div>
+</x-dc>
+</body>
+</html>
