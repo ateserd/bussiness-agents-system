@@ -187,6 +187,42 @@ async function onceToday(
 }
 
 /**
+ * Rows a dead process left behind.
+ *
+ * `runUnit` settles a run that throws. It cannot settle one whose process
+ * vanished — systemd restart, OOM, a reclaimed container — and that row stays
+ * `running` for good: the system map keeps counting it, the dashboard keeps
+ * showing an agent that stopped days ago. Nothing else in the system ever looks
+ * at those rows again, so this is the only thing that can put the record back
+ * in touch with reality.
+ *
+ * It runs no agent and makes no judgement, which is why it lives here rather
+ * than in a cadence — the same reasoning as lead retention.
+ */
+const STALE_RUN_MS = TIMEOUT_MS * 6;
+
+async function reapStaleRuns(now: Date, result: TickResult): Promise<void> {
+  await onceToday(`reap:${dayKey(now)}`, "Yarım kalmış çalışma taraması", now, result, async () => {
+    const { staleRunning } = await import("@/lib/tasks");
+    const db = await getDb();
+    const stale = await staleRunning(now, STALE_RUN_MS);
+    if (stale.length === 0) return { outcome: "reap" };
+
+    for (const task of stale) {
+      await db
+        .update(tasks)
+        .set({
+          status: "blocked",
+          lastError: "Süreç çalışma sırasında sonlandı — sonucu bilinmiyor.",
+          finishedAt: now,
+        })
+        .where(eq(tasks.id, task.id));
+    }
+    return { outcome: "reap", note: `${stale.length} yarım kalmış çalışma kapatıldı` };
+  });
+}
+
+/**
  * The morning brief, pushed rather than waited for.
  *
  * It used to exist only as `/brief` — something the owner had to remember to
@@ -475,6 +511,7 @@ export async function tick(now = new Date()): Promise<TickResult> {
   };
 
   await runRetention(now, result);
+  await reapStaleRuns(now, result);
   await runOutreachBatch(now, result);
   await runMorningBrief(now, result);
   await runEveningWrap(now, result);

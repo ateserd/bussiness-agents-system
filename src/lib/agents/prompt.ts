@@ -1,3 +1,4 @@
+import type { BetaTextBlockParam } from "@anthropic-ai/sdk/resources/beta";
 import { readSystemPrompt, type AgentConfig } from "./registry";
 import { recall } from "@/lib/brain/search";
 import { copy } from "@/lib/copy";
@@ -67,8 +68,13 @@ export type PromptContext = {
   scopes?: string[];
 };
 
+/**
+ * `system` is a block array rather than a string so a cache breakpoint can sit
+ * between the stable half and the volatile one. See `assemblePrompt` for why
+ * only the coordinating agent gets the breakpoint.
+ */
 export type AssembledPrompt = {
-  system: string;
+  system: BetaTextBlockParam[];
   user: string;
   memoriesUsed: number;
 };
@@ -111,7 +117,18 @@ export async function assemblePrompt(ctx: PromptContext): Promise<AssembledPromp
       ? "(Tanımlı eşik yok.)"
       : agent.escalate_to_human_when.map((e) => `- ${e}`).join("\n");
 
-  const parts: string[] = [
+  /*
+   * Two halves, split by what changes between runs.
+   *
+   * Stable: the house rules, the role prompt, and the three blocks derived from
+   * the agent's own YAML. Byte-identical from one message to the next.
+   *
+   * Volatile: the recalled memories and the system map. `recall()` embeds
+   * `mission + task` and ranks by cosine, so the memory block moves with every
+   * message — it used to sit *above* the map on the "stable" side, which broke
+   * the prefix exactly where the comment claimed it was protecting it.
+   */
+  const stable: string[] = [
     mode === "chat" ? CHAT_HOUSE_RULES : HOUSE_RULES,
     "",
     "---",
@@ -119,12 +136,6 @@ export async function assemblePrompt(ctx: PromptContext): Promise<AssembledPromp
     role,
     "",
     "---",
-    "",
-    "# Neyi biliyorsun (paylaşılan hafızadan)",
-    "",
-    "Bunlar kurumun hafızasından geldi. Kod içine gömülü değiller — çelişki görürsen bunu söyle.",
-    "",
-    memoryBlock,
     "",
     "# Hedeflerin",
     "",
@@ -139,16 +150,53 @@ export async function assemblePrompt(ctx: PromptContext): Promise<AssembledPromp
     escalateBlock,
   ];
 
-  // Only the coordinating agent gets the system map, and it goes last on
-  // purpose: everything above is byte-stable between runs and therefore
-  // cacheable, while this block changes every time. Putting it first would
-  // invalidate the cached prefix on every single message.
+  const volatile: string[] = [
+    "# Neyi biliyorsun (paylaşılan hafızadan)",
+    "",
+    "Bunlar kurumun hafızasından geldi. Kod içine gömülü değiller — çelişki görürsen bunu söyle.",
+    "",
+    memoryBlock,
+  ];
+
+  // Only the coordinating agent gets the system map.
+  //
+  // Wrapped, because the map is context and not capability: it reads five
+  // tables to tell the manager what the system looks like, and a database
+  // hiccup in any of them must not cost the owner his answer. Losing the map
+  // costs the manager its picture of the system for one turn; losing the run
+  // costs him the reply, the brief, or the whole Telegram exchange.
   if (agent.reports_to === null) {
-    const { buildSystemMap } = await import("@/lib/system-map");
-    parts.push("", "---", "", await buildSystemMap());
+    try {
+      const { buildSystemMap } = await import("@/lib/system-map");
+      volatile.push("", "---", "", await buildSystemMap());
+    } catch (err) {
+      volatile.push("", "---", "", `# Sistem haritası ⚠️ üretilemedi (${(err as Error).message})`);
+    }
   }
 
-  const system = parts.join("\n");
+  /*
+   * The cache breakpoint, and why only the root agent gets one.
+   *
+   * Writing to the cache costs more than reading from it (~1.25x), so a
+   * breakpoint only pays where the same prefix comes back inside the five
+   * minute window. The manager runs in bursts — a Telegram message, a reply
+   * thirty seconds later, another — and clears that easily. Scout runs every
+   * four hours and the writer once a day: a breakpoint there would pay the
+   * write premium and never read it back.
+   *
+   * The prefix is `tools` → `system` → `messages`, so the agent's tools count
+   * toward the ~1024-token floor along with the house rules and the role
+   * prompt — comfortably over. `ctx.ownerChannel` changes the tool set, so
+   * chat and scheduled runs land in two cache entries; that is expected, not a
+   * miss.
+   */
+  const system: BetaTextBlockParam[] =
+    agent.reports_to === null
+      ? [
+          { type: "text", text: stable.join("\n"), cache_control: { type: "ephemeral" } },
+          { type: "text", text: volatile.join("\n") },
+        ]
+      : [{ type: "text", text: [...stable, "", ...volatile].join("\n") }];
 
   const user =
     mode === "chat"

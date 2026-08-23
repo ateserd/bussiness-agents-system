@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { approvals, tasks } from "@/db/schema";
 import { clip } from "@/lib/chat/notify";
@@ -19,6 +19,9 @@ import { describePlan, type Plan } from "./plan";
  * that table is for. The payload holds the numbering, and the numbering is the
  * whole trick: the owner answers "3 hariç", not a uuid.
  */
+
+/** How far back `openBatch` looks. A week of batches is more than enough. */
+const BATCH_LOOKBACK = 7;
 
 /** The batch task's title, which is also how it is found again. */
 export const BATCH_TITLE = "Günün gönderim partisi";
@@ -87,28 +90,37 @@ export type OpenBatch = { taskId: string; payload: BatchPayload; pending: MailIt
  * the owner can also settle an item the old way with `/approve <id>`, and a
  * flag would then disagree with reality. A batch whose mail items are all
  * decided is closed even though nothing marked it so.
+ *
+ * Two queries, fixed — the pending outreach approvals once, the recent batches
+ * once, matched in memory. It used to walk batches and fire a fresh approvals
+ * query per batch, up to eight round trips; on Supabase that is eight, on every
+ * manager message, to produce one clause of one line in the system map.
  */
 export async function openBatch(): Promise<OpenBatch | null> {
   const db = await getDb();
-  const recent = await db
-    .select()
-    .from(tasks)
-    .where(eq(tasks.title, BATCH_TITLE))
-    .orderBy(desc(tasks.createdAt))
-    .limit(7);
+
+  const [pending, recent] = await Promise.all([
+    db
+      .select({ id: approvals.id })
+      .from(approvals)
+      .where(and(eq(approvals.state, "pending"), eq(approvals.gate, "sending_external_messages"))),
+    db
+      .select()
+      .from(tasks)
+      .where(eq(tasks.title, BATCH_TITLE))
+      .orderBy(desc(tasks.createdAt))
+      .limit(BATCH_LOOKBACK),
+  ]);
+
+  if (pending.length === 0) return null;
+  const openIds = new Set(pending.map((a) => a.id));
 
   for (const row of recent) {
     const payload = row.payload as BatchPayload | null;
     if (!payload || payload.kind !== "outreach_batch") continue;
-    const ids = payload.mail.map((m) => m.approvalId);
-    if (ids.length === 0) continue;
-    const open = await db
-      .select()
-      .from(approvals)
-      .where(and(inArray(approvals.id, ids), eq(approvals.state, "pending")));
+    const open = payload.mail.filter((m) => openIds.has(m.approvalId));
     if (open.length === 0) continue;
-    const openIds = new Set(open.map((a) => a.id));
-    return { taskId: row.id, payload, pending: payload.mail.filter((m) => openIds.has(m.approvalId)) };
+    return { taskId: row.id, payload, pending: open };
   }
   return null;
 }

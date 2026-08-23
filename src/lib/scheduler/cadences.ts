@@ -1,4 +1,4 @@
-import { allAgents, rootAgent } from "@/lib/agents/registry";
+import { allAgents } from "@/lib/agents/registry";
 
 /**
  * The §7 cadence table, as data.

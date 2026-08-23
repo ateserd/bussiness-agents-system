@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, lt, sql } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { tasks, type Branch, type Task } from "@/db/schema";
 
@@ -147,6 +147,27 @@ export async function openQuestions(): Promise<Task[]> {
 export async function runningTasks(): Promise<Task[]> {
   const db = await getDb();
   return db.select().from(tasks).where(eq(tasks.status, "running")).orderBy(desc(tasks.startedAt));
+}
+
+/**
+ * Rows still marked `running` long after any real run could still be going.
+ *
+ * `runUnit` catches a *thrown* error and settles the row. It cannot catch the
+ * process disappearing — a systemd restart, an OOM kill, a reclaimed container
+ * — and that leaves the row `running` forever. Nothing else ever looks at it
+ * again, so the system map keeps reporting work that stopped days ago, and the
+ * dashboard shows an agent that is not there.
+ *
+ * The cutoff has to be well past the run timeout, or a slow-but-live run gets
+ * declared dead underneath itself.
+ */
+export async function staleRunning(now: Date, olderThanMs: number): Promise<Task[]> {
+  const db = await getDb();
+  const cutoff = new Date(now.getTime() - olderThanMs);
+  return db
+    .select()
+    .from(tasks)
+    .where(and(eq(tasks.status, "running"), lt(tasks.startedAt, cutoff)));
 }
 
 export async function recentTasks(limit = 20): Promise<Task[]> {
