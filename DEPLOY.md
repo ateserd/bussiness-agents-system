@@ -139,7 +139,7 @@ Use `db:seed:fresh`, not `db:seed`, on a real database. The default seed is
 demo texture for a local checkout — a believable month of fabricated leads,
 deals and activity so the dashboard looks alive on `npm run dev`. On the
 database the LEDGER actually reads from, that texture would show up as real
-revenue. `--fresh` writes only the 49 agents and the standing decisions
+revenue. `--fresh` writes only the agents and the standing decisions
 (ICP A/B, the control rules, the 14-day stale threshold) that agents' prompts
 depend on at run time — everything else starts empty and fills in from what
 actually happens.
@@ -190,7 +190,7 @@ URIs are untouched.
 
 Visit `https://mission.atesflowagency.com` — the browser should now ask for
 a username and password before showing anything. After that, the dashboard
-loads as before: 49 agents and none of the demo fixtures (no leads, no
+loads as before: every agent and none of the demo fixtures (no leads, no
 deals, no activity yet — that's correct for a system that hasn't run
 anything real).
 

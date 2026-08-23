@@ -269,7 +269,7 @@ const ACTIONS: Record<string, { action: string; lines: string[] }> = {
   finance: {
     action: "reconcile",
     lines: [
-      "⚠️ Stripe bağlı değil — ciro satırı raporlanamadı, tahmin edilmedi.",
+      "⚠️ Bu ay gider kaydı yok — net rakam gider tarafı olmadan raporlandı.",
       "Ödenmemiş fatura taraması: {n} açık, en eskisi {d} gün.",
     ],
   },
@@ -631,7 +631,6 @@ async function main() {
         "web.outreach.auditor",
         "web.sales.pipeline_watch",
         "automation.outreach.prospector",
-        "automation.build.tester",
         "shared.services.client_success",
       ]);
   const NEEDS_APPROVAL = FRESH
@@ -641,12 +640,8 @@ async function main() {
     ? new Map<string, string>()
     : new Map([
         [
-          "automation.build.monitor",
-          "Poyraz İK aday eleme akışı 14 Ağustos'tan beri hata veriyor — tedarikçi API anahtarı süresi doldu, yenisi gerekiyor.",
-        ],
-        [
           "shared.services.finance",
-          "Stripe bağlı değil — ciro ve tahsilat satırları raporlanamıyor. STRIPE_SECRET_KEY gerekiyor.",
+          "Bu ay hiç gider kaydı girilmemiş — P&L'in gider tarafı boş, net rakam eksik çıkıyor.",
         ],
       ]);
 
@@ -986,20 +981,6 @@ En büyük bilinmeyen: geçmiş sipariş e-postalarının biçim tutarlılığı
       estimatedCostUsd: "4800.00",
       state: "pending",
       createdAt: daysAgo(1, 6),
-    },
-    {
-      id: randomUUID(),
-      agentId: "web.delivery.handoff_agent",
-      branch: "web",
-      gate: "client_facing_publish",
-      title: "Zeytin Kafe & Fırın — devir dokümanı ve Loom metni",
-      draft: `Zeytin Kafe paneline giriş, menü güncelleme ve fotoğraf değiştirme adımları anlatılıyor.
-Loom metni 2 dakikalık, üç işlemi kapsıyor: menü kalemi ekleme, fiyat değiştirme, kapanış saati güncelleme.`,
-      context: { checklist_complete: true, qa_passed: true },
-      estimatedCostUsd: "0.00",
-      state: "approved",
-      decidedAt: daysAgo(2, 5),
-      createdAt: daysAgo(3, 2),
     },
   ];
   await db.insert(approvals).values(approvalRows);

@@ -1,5 +1,6 @@
 import { and, desc, eq, gte, sql } from "drizzle-orm";
 import { getDb } from "@/db/client";
+import { copy } from "@/lib/copy";
 import {
   activity,
   agents,
@@ -19,8 +20,6 @@ import {
   type KpiSnapshot,
   type Memory,
 } from "@/db/schema";
-import { fmt } from "@/lib/copy";
-import { fetchRevenueMtd, stripeConfigured } from "@/lib/integrations/stripe";
 
 /**
  * Every read the views make. Server Components call these directly; nothing in
@@ -53,7 +52,9 @@ export async function getCrew(): Promise<AgentNode[]> {
 
   const lastByAgent = new Map<string, Activity>();
   for (const a of recent) {
-    if (!lastByAgent.has(a.agentId)) lastByAgent.set(a.agentId, a);
+    // agentId is nullable now: a row whose agent was deleted is still real
+    // history, but it is nobody's "last activity".
+    if (a.agentId && !lastByAgent.has(a.agentId)) lastByAgent.set(a.agentId, a);
   }
 
   return rows.map((agent) => {
@@ -112,13 +113,20 @@ export type ActivityRow = Activity & { agentName: string; accent: string };
 
 export async function getActivity(limit = 200): Promise<ActivityRow[]> {
   const db = await getDb();
+  // leftJoin, not innerJoin: `activity.agent_id` is nullable so that history
+  // survives the agent that made it. An innerJoin here would hide precisely
+  // those rows and quietly undo the point of keeping them.
   const rows = await db
     .select({ a: activity, agentName: agents.displayName, accent: agents.accent })
     .from(activity)
-    .innerJoin(agents, eq(agents.id, activity.agentId))
+    .leftJoin(agents, eq(agents.id, activity.agentId))
     .orderBy(desc(activity.startedAt))
     .limit(limit);
-  return rows.map((r) => ({ ...r.a, agentName: r.agentName, accent: r.accent }));
+  return rows.map((r) => ({
+    ...r.a,
+    agentName: r.agentName ?? copy.activity.deletedAgent,
+    accent: r.accent ?? "#5b6d85",
+  }));
 }
 
 /* ---------------------------------------------------------------------------
@@ -188,11 +196,9 @@ export async function getLedger(): Promise<{
   }
 
   // Money arrives as cash or a bank transfer and is entered by hand, so the
-  // recorded payments *are* the source of truth — not a stand-in for one. Stripe
-  // is consulted only if a key exists, for whoever wires a processor later; when
-  // it is configured but cannot answer, that is reported rather than papered
-  // over with the manual figure, which would silently mean something else.
-  const stripe = stripeConfigured() ? await fetchRevenueMtd(monthStart) : null;
+  // recorded payments *are* the source of truth — not a stand-in for one. That
+  // is the whole model now: the payment-processor path was removed rather than
+  // left dangling, because one is never going to be wired here.
 
   const branches: BranchLedger[] = (["web", "automation"] as const).map((branch) => {
     const inv = invoiceRows.filter((i) => i.branch === branch);
@@ -204,31 +210,25 @@ export async function getLedger(): Promise<{
       (d) => d.branch === branch && !["won", "lost"].includes(d.stage),
     );
 
+    // Currently always empty: the only source that ever filled it is gone.
+    // Kept because it is the §3-rule-3 carrier — a field is reported as
+    // unavailable-with-a-reason rather than shown as a confident zero — and
+    // the FX and Calendar sources land in it next.
     const unavailable: { field: string; reason: string }[] = [];
-    if (stripe && !stripe.ok) {
-      unavailable.push({ field: "revenueMtd", reason: stripe.reason });
-    } else if (stripe?.ok && stripe.untagged > 0) {
-      // Two branches, two P&Ls: an untagged charge belongs to neither until
-      // someone tags it. Saying so beats splitting it by guess.
-      unavailable.push({
-        field: "revenueMtd",
-        reason: `${fmt.money(stripe.untagged, stripe.currency)} tahsilatta branch etiketi yok`,
-      });
-    }
 
     const expensesMtd = expenseByBranch.get(branch) ?? 0;
-    const revenueMtd = stripe?.ok ? stripe.byBranch[branch] : collected;
+    const revenueMtd = collected;
     const agentCostMtd = (costByBranch.get(branch) ?? 0) + sharedAgentCost / 2;
 
     return {
       branch,
-      revenueMtd: stripe && !stripe.ok ? 0 : revenueMtd,
+      revenueMtd,
       cashCollected: collected,
       expensesMtd,
       // Revenue less what it cost to earn: hand-entered expenses plus the token
       // spend already recorded per run. Without the expense side this was
       // revenue wearing a profit label.
-      netMtd: (stripe && !stripe.ok ? 0 : revenueMtd) - expensesMtd - agentCostMtd,
+      netMtd: revenueMtd - expensesMtd - agentCostMtd,
       pipelineValue: open.reduce((n, d) => n + Number(d.valueUsd), 0),
       liveProjects: projectRows.filter((p) => p.branch === branch).length,
       unpaidInvoices: unpaid.reduce((n, i) => n + Number(i.amountUsd), 0),

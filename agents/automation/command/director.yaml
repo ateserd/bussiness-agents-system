@@ -17,8 +17,6 @@ tools:
   - "brain.read"
   - "brain.write"
   - "crm.read"
-  - "ledger.read"
-  - "agent.dispatch"
 memory_scopes:
   - "global"
   - "branch.automation"

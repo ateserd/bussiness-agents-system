@@ -16,7 +16,6 @@ system_prompt_file: prompts/shared.services.brain_keeper.md
 tools:
   - "brain.read"
   - "brain.write"
-  - "brain.admin"
 memory_scopes:
   - "global"
   - "branch.web"

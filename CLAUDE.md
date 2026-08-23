@@ -9,7 +9,10 @@ gerekenleri** aktarmak: mimari değişmezler ve pahalıya mal olmuş tuzaklar.
 Tek kişilik, **iki şubeli** bir ajans işletim sistemi. Ateş Design Agency (web
 tasarım) ve Ateş Flow Agency (yapay zekâ otomasyonu) yapısal olarak ayrı iki
 şube; yalnızca tepede (sahip + Chief of Staff) ve ortak servis katmanında
-birleşiyorlar. 49 ajan, tek hafıza, tek gösterge paneli.
+birleşiyorlar. Tek hafıza, tek gösterge paneli.
+
+**v2 yeniden yazımı sürüyor — bkz. `V2_PLAN.md`.** Kadro 4 ajana
+iniyor; aşağıdaki 49-ajanlı yapı tasfiye ediliyor.
 
 **Stack:** Next.js 15.5.22 (App Router) · TypeScript · Tailwind v4 · Drizzle
 (Postgres lehçesi) · PGlite (yerel) · @xyflow/react · d3-force · Anthropic SDK
@@ -17,7 +20,7 @@ birleşiyorlar. 49 ajan, tek hafıza, tek gösterge paneli.
 ## Ne nerede
 
 ```
-agents/<branch>/<dept>/*.yaml   49 ajan konfigürasyonu — tek gerçek kaynak
+agents/<branch>/<dept>/*.yaml   ajan konfigürasyonu — tek gerçek kaynak
 prompts/<agent.id>.md           ajan başına sistem promptu (iş gerçeği İÇERMEZ)
 src/app/                        4 görünüm: / · /brain · /activity · /ledger
 src/components/command/         org ağacı: layout · nodes · cable · drawer
@@ -106,6 +109,6 @@ src/db/                         schema · client · migrate · seed
 ## Bilinen açık işler
 
 Hepsi `SETUP_TODO.md`'de, neyi açtığına göre gruplanmış durumda. Özet: entegrasyon
-yok (Stripe, takvim, CRM, gönderim, Lighthouse), Telegram taşıma katmanı bağlı
+yok (takvim, CRM, gönderim, Lighthouse), Telegram taşıma katmanı bağlı
 değil. Zamanlayıcı `/api/tick` + `vercel.json` ile saate bağlandı; yalnızca
 `CRON_SECRET` bekliyor. `npm run tick` çalışıyor ve idempotent.

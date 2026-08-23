@@ -17,7 +17,6 @@ tools:
   - "brain.read"
   - "brain.write"
   - "browser"
-  - "calendar.read"
   - "crm.read"
 memory_scopes:
   - "global"

@@ -16,8 +16,6 @@ system_prompt_file: prompts/shared.services.finance.md
 tools:
   - "brain.read"
   - "brain.write"
-  - "ledger.read"
-  - "ledger.write"
 memory_scopes:
   - "global"
   - "branch.web"

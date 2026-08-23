@@ -17,7 +17,6 @@ tools:
   - "brain.read"
   - "brain.write"
   - "crm.read"
-  - "agent.dispatch"
 memory_scopes:
   - "global"
   - "branch.web"

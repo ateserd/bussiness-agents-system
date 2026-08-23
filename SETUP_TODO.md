@@ -161,7 +161,10 @@ platform-agnostic on purpose, so no prompt needs touching.
 
 ## 5. The Ledger — unblocks Finance and the cash lines in every brief
 
-The LEDGER now shows a real per-branch P&L: revenue less hand-entered expenses
+Payment processing was removed outright rather than left as a dangling
+optional key — cash and IBAN by permanent decision, entered by hand.
+
+The LEDGER shows a real per-branch P&L: revenue less hand-entered expenses
 less the token spend already recorded per run. Expenses with no branch — the
 accountant, bank fees — are split evenly rather than landing on whichever
 branch is listed first.
@@ -175,7 +178,6 @@ npm run money -- list --days 30
 | Blank | Where | Notes |
 |---|---|---|
 | Income + expenses | `npm run money` | **Chosen: manual.** Money arrives as cash or bank transfer, so the recorded payments *are* the source of truth. `money in` records a collection, `money out` an expense, `money list` shows both. The LEDGER now reports a real net, not revenue wearing a profit label |
-| `STRIPE_SECRET_KEY` | `.env` | Optional, unused. If a key is ever set, revenue switches to what Stripe settled and expects `metadata.branch = web \| automation` on each charge |
 | `CALENDAR_URL` | `.env` | **Wired.** A secret-address `.ics` feed (Google Calendar → "Secret address in iCal format") — no OAuth. Feeds `callsToday` in the brief |
 | `[[ ACCOUNTING TOOL ]]` | integration | Optional now. `npm run money out` covers the expense side; an integration would only save typing |
 | `[[ CRM ]]` | integration | Currently the built-in `leads` / `deals` tables, which work. Only worth replacing if you already live in another CRM |

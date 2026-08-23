@@ -9,6 +9,16 @@ import { allAgents } from "@/lib/agents/registry";
  * once. Everything the scheduler fires comes from `dueRuns()` below.
  *
  * Times are Europe/Istanbul. Cron is evaluated in that zone by `tick.ts`.
+ *
+ * Only one entry survives, and the reason is worth knowing before adding
+ * another: `dueRuns()` dedupes per agent, and YAML-derived runs are pushed
+ * first, so any cadence here whose cron equals its agent's own `schedule:`
+ * loses the tie and never delivers its task text. Five entries sat here doing
+ * exactly that — the agent ran, but on the generic YAML task, so the bespoke
+ * wording was dead code pretending to be configuration. `cos.evening_wrap`
+ * works only because 19:00 differs from the Chief of Staff's own 07:30.
+ *
+ * So: an entry here MUST have a cron its target agent does not already carry.
  */
 
 export type Cadence = {
@@ -27,41 +37,6 @@ export const EXTRA_CADENCES: Cadence[] = [
     agents: ["shared.command.chief_of_staff"],
     label: "Gün sonu özeti",
     task: "Gün sonu özetini yaz: bugün ne çıktı, ne kaydı, yarının ilk üç işi ne. Sayılarla başla.",
-  },
-  {
-    id: "leads.end_of_day",
-    cron: "15 15 * * 1-5",
-    agents: (ids) => ids.filter((id) => id.endsWith(".lead")),
-    label: "Bölüm liderleri gün sonu rakamları",
-    task: "Bugünün rakamlarını direktörüne dosyala. Huniyi sırayla kontrol et ve en dar adımı adlandır.",
-  },
-  {
-    id: "directors.weekly_review",
-    cron: "0 7 * * 1",
-    agents: ["web.command.director", "automation.command.director"],
-    label: "Haftalık şube incelemesi",
-    task: "Haftalık şube incelemesini dosyala: rakamlar, ne ilerledi, ne takıldı, ne değiştiriyorsun.",
-  },
-  {
-    id: "finance.weekly_pl",
-    cron: "0 9 * * 1",
-    agents: ["shared.services.finance"],
-    label: "Haftalık P&L",
-    task: "Şube başına P&L çıkar. Bağlı olmayan kaynağı uyarı ile geç, sayı tahmin etme.",
-  },
-  {
-    id: "brainkeeper.weekly_digest",
-    cron: "0 16 * * 5",
-    agents: ["shared.services.brain_keeper"],
-    label: "Hafıza bakımı + haftalık özet",
-    task: "Tekilleştirme turunu yap, çelişkileri işaretle ve 'bu hafta ne öğrendik' özetini yaz.",
-  },
-  {
-    id: "recruiter.monthly",
-    cron: "0 9 1 * *",
-    agents: ["shared.services.recruiter"],
-    label: "Yeni ajan önerileri",
-    task: "Tekrarlayan elle işi tespit et, yeni ajan konfigürasyonu öner, çıktı üretmeyen ajanları emekliliğe öner.",
   },
 ];
 

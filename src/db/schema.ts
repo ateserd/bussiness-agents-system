@@ -100,9 +100,16 @@ export const activity = pgTable(
   "activity",
   {
     id: text("id").primaryKey(),
-    agentId: text("agent_id")
-      .notNull()
-      .references(() => agents.id, { onDelete: "cascade" }),
+    /**
+     * Nullable, and SET NULL rather than CASCADE, because this table is the
+     * audit trail: what an agent actually did — including money it spent and
+     * mail it sent — has to outlive the config file that defined the agent.
+     * Deleting a YAML used to delete the evidence with it. `memories
+     * .source_agent_id` already behaved this way, so this also makes the
+     * schema consistent with itself. `branch`/`department` are denormalised
+     * here precisely so a row still means something once the agent is gone.
+     */
+    agentId: text("agent_id").references(() => agents.id, { onDelete: "set null" }),
     branch: text("branch").$type<Branch>().notNull(),
     department: text("department").$type<Department>().notNull(),
     /** Machine-ish verb, e.g. "audit_site". */

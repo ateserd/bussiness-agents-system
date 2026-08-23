@@ -16,14 +16,29 @@ const RATES: Record<string, Rate> = {
   "claude-haiku-4-5": { input: 1, output: 5 },
 };
 
-/** Unknown models cost nothing rather than guessing — and say so upstream. */
+/** Null for a model this table cannot price. Callers must not treat that as free. */
 export function rateFor(model: string): Rate | null {
   return RATES[model] ?? null;
 }
 
+/**
+ * Throws on an unknown model rather than returning 0.
+ *
+ * Returning 0 was a silent failure with real teeth: `run.ts` enforces the
+ * spend ceiling with `costOf(...) > maxCost`, so a typo'd model id priced
+ * every run at nothing and the ceiling never tripped — the one guard against
+ * a runaway loop, disabled by a misspelling. `assertModelsPriced()` in the
+ * registry makes this unreachable at runtime by rejecting the config at load;
+ * this throw is the backstop for any path that skips the registry.
+ */
 export function costOf(model: string, inputTokens: number, outputTokens: number): number {
   const rate = rateFor(model);
-  if (!rate) return 0;
+  if (!rate) {
+    throw new Error(
+      `costOf: no price for model "${model}". Add it to RATES in src/lib/agents/cost.ts. ` +
+        `Known: ${knownModels().join(", ")}`,
+    );
+  }
   return (inputTokens * rate.input + outputTokens * rate.output) / 1_000_000;
 }
 

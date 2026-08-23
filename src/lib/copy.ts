@@ -124,6 +124,7 @@ export const copy = {
     unsure: "Emin olmadığı nokta",
     expand: "Ayrıntı",
     simulated: "Simüle",
+    deletedAgent: "silinmiş ajan",
   },
 
   ledger: {

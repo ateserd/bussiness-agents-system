@@ -214,8 +214,8 @@ npm run lint
 
 npm run db:generate      # schema.ts → drizzle/*.sql
 npm run db:push          # apply migrations   (-- --reset drops the local db)
-npm run db:seed          # 49 agents, ~140 memories, 30 days of activity
-npm run db:seed:fresh    # 49 agents + standing decisions only — no demo data (real deployments)
+npm run db:seed          # every agent, ~140 memories, 30 days of activity
+npm run db:seed:fresh    # every agent + standing decisions only — no demo data (real deployments)
 
 npm run agent:list       # the whole crew
 npm run agent:run -- <agent.id> [--task "..."]

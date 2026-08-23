@@ -190,21 +190,6 @@ body {
   }
 }
 
-@keyframes mc-spark {
-  0% {
-    opacity: 0;
-    transform: translateY(4px) scale(0.6);
-  }
-  30% {
-    opacity: 1;
-    transform: translateY(0) scale(1.15);
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(-10px) scale(0.7);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

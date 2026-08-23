@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { parse } from "yaml";
 import { z } from "zod";
+import { knownModels } from "./cost";
 
 /**
  * Loads every agents/**\/*.yaml, validates it, and caches the result.
@@ -100,6 +101,17 @@ function load(): AgentConfig[] {
   const roots = configs.filter((c) => c.reports_to === null);
   if (roots.length !== 1) {
     problems.push(`expected exactly one root agent (reports_to: null), found ${roots.length}`);
+  }
+  // An agent whose model has no price cannot have its spend ceiling enforced,
+  // so a typo here is a safety hole, not a cosmetic one. Fail at load, where
+  // the offending file is named, rather than mid-run.
+  const priced = new Set(knownModels());
+  for (const c of configs) {
+    if (!priced.has(c.model)) {
+      problems.push(
+        `${c.id}: model "${c.model}" has no price in cost.ts (known: ${[...priced].join(", ")})`,
+      );
+    }
   }
 
   if (problems.length) {
