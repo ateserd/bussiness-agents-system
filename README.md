@@ -2,10 +2,14 @@
 
 A one-human, two-branch AI agency operating system.
 
-**Ateş Design Agency** (websites) and **Ateş Flow Agency** (AI automation) run as
-two structurally separate branches — own departments, own agents, own pipelines,
-own P&L — joined only at the top (the owner and a Chief of Staff) and at a shared
-services layer. Forty-nine agents, one shared memory, one dashboard.
+**Ateş Design Agency** (websites) and **Ateş Flow Agency** (AI automation) are two
+businesses, not two hierarchies. **Four agents cover both**; the branch is a
+property of the *work* — a lead, a deal, a project, a memory — not of the agent.
+
+The owner talks to exactly one of them, the **Yönetici**, over Telegram. It reads
+free text, delegates, changes settings, and asks when it is unsure. The dashboard
+is not a cockpit: it is a live mirror of what the agents are doing, and it has no
+buttons that command anything.
 
 ```bash
 npm install
@@ -27,25 +31,42 @@ Putting this on a server that stays up — `DEPLOY.md`.
 
 | Route | What it is |
 |---|---|
-| `/` | **COMMAND** — the org tree. Who exists, who reports to whom, who is working, blocked or waiting on you |
+| `/` | **Bugün** — what needs you, today's meetings and send batch, what is running, what just happened |
 | `/pipeline` | **Hat** — lead → fırsat → proje → müşteri, both branches on one line |
 | `/ledger` | **Para** — per-branch P&L plus a combined column and a 12-week trend |
 | `/brain` | **Hafıza** — every memory as a constellation, clustered by branch and department |
 
-`WALKTHROUGH.md` walks through each one.
+`WALKTHROUGH.md` walks through each one, with screenshots.
 
 ---
 
 ## The three layers
 
 ```
-COMMAND   src/app/, src/components/     the surface
-CREW      agents/*.yaml, prompts/*.md   the org
-BRAIN     src/lib/brain/, memories      shared memory
+SURFACE   src/app/, src/components/     four views, read-only
+CREW      agents/shared/**.yaml          four agents, one file each
+BRAIN     src/lib/brain/, memories       shared memory, scope-isolated
 ```
 
-Plus a runtime (`src/lib/agents/`), a scheduler (`src/lib/scheduler/`), and a
-chat command set (`src/lib/chat/`).
+Plus a runtime (`src/lib/agents/`), a scheduler (`src/lib/scheduler/`), a chat
+command set (`src/lib/chat/`), a settings catalogue (`src/lib/settings.ts`), a
+task queue (`src/lib/tasks.ts`) and the outreach machinery
+(`src/lib/outreach/`).
+
+### The crew
+
+| id | Ad | What it does |
+|---|---|---|
+| `shared.command.manager` | **Yönetici** | The only agent the owner talks to. Reads intent, delegates, changes settings, writes the brief, asks rather than guesses |
+| `shared.outreach.scout` | **Scout** | Finds and qualifies leads from Google Places; researches a sector with real, linkable examples |
+| `shared.outreach.writer` | **Outreach** | Writes cold mail and cold-call scripts. Never sends — that needs the owner |
+| `shared.ops.assistant` | **Ops** | Meetings and calendar, TL→USD, invoices, pipeline hygiene |
+
+**Branch isolation moved from the agent to the task.** All four are
+`branch: shared`; a delegated task carries a branch and the worker runs with
+memory scopes narrowed to it for that task only (`narrowScopes` in
+`src/lib/brain/scope.ts`). Forgetting to tag a task with its branch is what a
+leak looks like now.
 
 ---
 
@@ -53,24 +74,21 @@ chat command set (`src/lib/chat/`).
 
 Add one file. Nothing enumerates the crew, so nothing else needs to change.
 
-```bash
-# agents/web/outreach/researcher.yaml
-```
-
 ```yaml
-id: web.outreach.researcher
+# agents/shared/outreach/researcher.yaml
+id: shared.outreach.researcher
 display_name: "Researcher"
-branch: web
+branch: shared
 department: outreach
 tier: worker
-reports_to: web.outreach.lead
-accent: "#ff4d6d"          # department colour
+reports_to: shared.command.manager
+accent: "#ff4d6d"
 status: idle
-model: claude-haiku-4-5
-effort: low
+model: claude-sonnet-5
+effort: medium
 mission: >
   One paragraph: what this agent owns and what "done" looks like.
-system_prompt_file: prompts/web.outreach.researcher.md
+system_prompt_file: prompts/shared.outreach.researcher.md
 tools:
   - "brain.read"
   - "brain.write"
@@ -78,71 +96,52 @@ tools:
 memory_scopes:
   - "global"
   - "branch.web"
+  - "branch.automation"
   - "dept.web.outreach"
 schedule: "0 8 * * 1-5"     # or null
 autonomy: propose
 approval_required_for: []
 escalate_to_human_when: []
-kpis:
-  - name: items_found
-    label: "Bulgu"
-    target: "[[ N ]]"
-    window: weekly
+kpis: []
 ```
 
-Then write `prompts/web.outreach.researcher.md` — role, method, what done looks
-like, what it must never do. Keep business facts **out** of it; those live in the
-Brain and get injected at run time.
+Then write `prompts/shared.outreach.researcher.md` — role, method, what done
+looks like, what it must never do. Keep business facts **out** of it; those live
+in the Brain and get injected at run time.
 
-The registry validates every file at boot and refuses to start on a bad one:
-a duplicate id, a `reports_to` that does not exist, a missing prompt file, or
-more than one root all fail loudly rather than silently.
+**Every name in `tools:` must exist in `BUILDERS`** (`src/lib/agents/tools.ts`).
+`toolsFor()` drops an unknown name silently — in v1 `agent.dispatch` was declared
+in eleven files and implemented in none, so the Chief of Staff could never
+actually delegate.
+
+The registry validates every file at boot and refuses to start on a bad one: a
+duplicate id, a `reports_to` that does not exist, a missing prompt file, more
+than one root, or a model with no price in `cost.ts` all fail loudly.
 
 ```bash
-npm run agent:list                        # see the whole crew
-npm run agent:run -- web.outreach.researcher
+npm run agent:list                            # see the whole crew
+npm run agent:run -- shared.outreach.scout
 ```
 
 ---
 
-## Adding a department
+## Departments and branches
 
-1. Create `agents/<branch>/<newdept>/lead.yaml` with `tier: lead` and
-   `reports_to: <branch>.command.director`, plus its workers.
-2. Give it a colour: add the accent to `:root` in `src/app/globals.css` and to
-   `DEPT_COLOR` in `src/components/brain/constellation.tsx`.
-3. Add its name to `copy.department` in `src/lib/copy.ts`.
-4. Add it to `DEPT_ORDER` in `src/components/command/layout.ts` so it gets a
-   column position.
+`DEPARTMENTS` and `BRANCHES` are const arrays in `src/db/schema.ts`, consumed by
+the Zod schema in `src/lib/agents/registry.ts`. Adding either is adding a string
+there plus a name in `copy.department` / `copy.branch` — the database needs no
+migration, because `branch` and `department` are text columns and deliberately
+not pg enums.
 
 Memory scopes are branch-qualified — `dept.web.outreach`, not `dept.outreach`.
 That is load-bearing: both branches have a department called *outreach*, and an
-unqualified scope would let a web agent read automation memories.
+unqualified scope let a web agent read automation memories. It was a real leak,
+caught in the seed.
 
----
-
-## Adding a third branch
-
-The system was built so this is additive rather than a refactor.
-
-1. **Agents.** Create `agents/<branch>/command/director.yaml` (`tier: director`,
-   `reports_to: shared.command.chief_of_staff`) and its departments underneath.
-2. **Layout.** In `src/components/command/layout.ts`, add the branch to `sideOf`.
-   Two branches mirror around the centre; a third needs a position — either
-   `sideOf.<branch> = 0` with a row offset, or switch the fan to
-   `(i - (n-1)/2)` across all directors.
-3. **Colour.** Add a cable tint in `TINT` (`src/components/command/org-tree.tsx`)
-   and a cluster column in the constellation's `anchor()`.
-4. **Copy.** Add its names to `copy.branch`.
-5. **Ledger.** `getLedger()` in `src/lib/data.ts` maps over
-   `["web", "automation"]` — add the third id there.
-6. **Chief of Staff scope.** Add `branch.<new>` to its `memory_scopes`, and to
-   each shared-services agent, so they can see it.
-
-The database needs no migration: `branch` is a text column, deliberately not a
-pg enum, exactly so a new branch is config rather than DDL.
-
----
+A memory is either `global` **or** branch-scoped, never both:
+`["global", "branch.web"]` makes `global` win and opens everything to everyone.
+`assertWritableScopes()` rejects that inside `writeMemory()` — but *choosing* the
+wrong scope is still on you, which is why `npm run remember` has no default.
 
 ## Storage: PGlite now, Supabase later
 
@@ -196,6 +195,11 @@ drift:
 | **Branch isolation** — an agent reads only its own scopes | `src/lib/brain/scope.ts` (`scopeMatches`) |
 | **Approval gates** — nothing leaves without your tap | inside each gated tool's `run()`, `src/lib/agents/tools.ts` |
 | **Contacting a stranger always asks** — not per-agent config, so no YAML edit or autonomy change can open it | `outreach_send` and `send_contract` call `requireApproval` with no `gatedBy` check |
+| **The calendar never changes without asking** — create, move and cancel alike | `meeting_schedule` / `meeting_update` / `meeting_cancel`, gated the same unconditional way |
+| **No business number is hardcoded** — daily cap, thresholds, brief times, cost ceiling | the catalogue in `src/lib/settings.ts`; the table is only an override layer |
+| **A day's instruction expires** — "bugün 7 at" is not "always 7" | `outreach_days`, read by `planFor()` in `src/lib/outreach/plan.ts` |
+| **Settings and daily plans are owner-channel only** — inbound mail lands in the Brain, and agents read the Brain | `settings_write` and `outreach_plan` mount only when `ctx.ownerChannel` is true |
+| **Approval settles in one place** — dashboard and Telegram cannot diverge | `settleApproval()` in `src/lib/approvals.ts` |
 | **Report reality** — a missing source is named, never faked | `getLedger()`, `buildBrief()`, and the `lighthouse` tool |
 | **Everything is logged** | `runAgent()` writes one `activity` row per run |
 | **Lead retention** — untouched leads are deleted after 30 days, contacted ones kept | `pruneLeads()`, run daily from `tick()` |
@@ -214,8 +218,8 @@ npm run lint
 
 npm run db:generate      # schema.ts → drizzle/*.sql
 npm run db:push          # apply migrations   (-- --reset drops the local db)
-npm run db:seed          # every agent, ~140 memories, 30 days of activity
-npm run db:seed:fresh    # every agent + standing decisions only — no demo data (real deployments)
+npm run db:seed          # the crew, demo memories, 30 days of activity
+npm run db:seed:fresh    # the crew + standing decisions only — no demo data (real deployments)
 
 npm run agent:list       # the whole crew
 npm run agent:run -- <agent.id> [--task "..."]
@@ -225,9 +229,16 @@ npm run remember -- --list branch.web        # read back what a scope holds
 npm run money -- in --amount N --branch web --client "…"   # a collection
 npm run money -- out --amount N --category kira "…"        # an expense
 npm run money -- list                                       # both, last 30 days
-npm run tick             # run whatever the cadence table says is due
+npm run tick             # run whatever is due: cadences, the queue, and the daily system steps
 npm run tick -- --plan   # show the cadence table without running
+npm run google:auth      # one-shot: mint the Google Calendar refresh token
 ```
+
+`tick()` also carries four things that are **not** agent runs, deliberately —
+they must happen whether or not a model is reachable and whether or not an agent
+remembers them: lead retention, the stale-run reaper, the daily outreach batch,
+and the morning brief / evening wrap. Their hours come from settings, which is
+why they cannot live in the cron-string cadence table.
 
 On a deployment the same thing happens on its own every 15 minutes. Two
 paths exist:
@@ -255,10 +266,22 @@ one that is:
 
 - **No model is called** without `ANTHROPIC_API_KEY`. Simulate mode writes real
   activity and memory rows so the loop is verifiable, and labels itself `SİMÜLE`.
-- **Some integrations need keys.** Lighthouse (PageSpeed) and the calendar feed
-  are wired but inert until their keys exist; each reports itself unavailable
-  rather than guessing. Money in and out is entered by hand with `npm run
-  money` — there is no processor to read it from.
+- **Some integrations need keys.** Lighthouse (PageSpeed), Google Places and the
+  calendar are wired but inert until their keys exist; each reports itself
+  unavailable rather than guessing. Money in and out is entered by hand with
+  `npm run money` — there is no processor to read it from.
+- **Booking a meeting needs Google OAuth.** The read-only `.ics` feed can list a
+  day; creating, moving or cancelling an event and minting a Meet link needs a
+  real OAuth client. `npm run google:auth` prints the refresh token;
+  `DEPLOY.md` § 8 walks the console work. Without it the meeting tools answer
+  `⚠️ Takvim kullanılamıyor` and the brief falls back to the feed.
+- **TL→USD needs no key.** Rates come from TCMB's daily XML, with `fx.source`
+  switchable to `erapi`. An unreachable source converts nothing and says so —
+  it never falls back to a guessed rate.
+- **Cold mail goes out in one batch, once a day.** Drafts still become approval
+  rows, but the owner is asked once, in one Telegram message, and answers once
+  (`gönder` · `3 hariç` · `1,2,5` · `iptal`). The gate is unchanged; only its
+  granularity is.
 - **Cold email dispatches for real on approval.** `RESEND_API_KEY` plus a
   `RESEND_FROM_WEB` / `RESEND_FROM_AUTOMATION` address per branch, and
   `/approve` on an email-channel card calls Resend directly — no separate

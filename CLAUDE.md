@@ -14,7 +14,8 @@ bir özelliği, ajanın değil.
 Sahip yalnızca **Yönetici** ile konuşuyor, o da Telegram üzerinden. Panel bir
 kumanda değil, canlı bir ayna.
 
-**v2 yeniden yazımı sürüyor — sıradaki fazlar `V2_PLAN.md`'de.**
+**v2 yeniden yazımı bitti** (Fazlar 1–7). Geçmişi ve alınan kararlar
+`V2_PLAN.md`'de; kalan tek iş VPS'e deploy.
 
 **Stack:** Next.js 15.5.22 (App Router) · TypeScript · Tailwind v4 · Drizzle
 (Postgres lehçesi) · PGlite (yerel) · d3-force · Anthropic SDK
@@ -24,8 +25,11 @@ kumanda değil, canlı bir ayna.
 ```
 agents/shared/<dept>/*.yaml     4 ajan — tek gerçek kaynak
 prompts/<agent.id>.md           ajan başına sistem promptu (iş gerçeği İÇERMEZ)
-src/app/                        4 görünüm: / · /brain · /activity · /ledger
-src/components/command/         ajan kartları · onay tepsisi · çekmece
+src/app/                        4 görünüm: / (Bugün) · /pipeline · /ledger · /brain
+src/app/api/state/              5 sn'de bir yoklanan canlı durum
+src/components/today/           Bugün panosu
+src/components/pipeline/        lead → fırsat → proje → müşteri hunisi
+src/components/shell/           üst çubuk + canlı yenileyici
 src/components/brain/           d3-force takımyıldızı (canvas)
 src/lib/settings.ts             ayar kataloğu — hardcoded iş değeri BURAYA
 src/lib/tasks.ts                görev kuyruğu · park etme · cevaplama
@@ -33,6 +37,7 @@ src/lib/system-map.ts           Yönetici'nin promptuna eklenen canlı sistem ö
 src/lib/approvals.ts            settleApproval — onayın TEK yolu
 src/lib/agents/                 registry · prompt · run · tools · cost
 src/lib/brain/                  embed · scope · search · write
+src/lib/outreach/               günlük plan · lead seçimi · parti · karar
 src/lib/scheduler/              cadences · tick (sınırlı eşzamanlı havuz)
 src/lib/chat/                   komut ayrıştırma, Telegram ile paylaşılıyor
 src/db/                         schema · client · migrate · seed
@@ -50,8 +55,19 @@ src/db/                         schema · client · migrate · seed
   gelen kutusuna yol açamaz. Sahibin duran talimatı bu; config'e bağlı bir kural
   bu talimat değildir. `publish`/`deploy`/`spend` ajan bazında kalmaya devam
   ediyor, onlar meşru biçimde role bağlı.
-- **Her onay kartı oluşturulduğunda Telegram'a düşer** (`notifyOwner`). Sahip
-  panele bakmak zorunda değil; bildirim başarısız olursa çalışma bozulmaz.
+- **Her onay kartı oluşturulduğunda Telegram'a düşer** (`notifyOwner`) — tek
+  istisna günün gönderim partisi: on kart on bildirim düşürmesin diye
+  `requireApproval(..., notify=false)` ile susturulur ve hepsini kapsayan **tek**
+  mesaj gider. Kapı değişmedi, sorulma biçimi değişti.
+- **Takvim de koşulsuz kapılı.** Oluşturma, değiştirme, iptal — üçü de. Sahibin
+  duran talimatı: "telegramdan bana sormadan yapmasın". Araçlar Google'a hiç
+  dokunmuyor; kartı yazıp duruyorlar, işi onaydan sonra `settleApproval` yapıyor.
+- **Panel kumanda değil, ayna.** Ajan çalıştıran/duraklatan/onaylayan düğme
+  yok — kontrol Telegram'da. Beyin'deki not ekleme ve silme istisna: onlar
+  hafıza düzenlemek, ajana komut vermek değil.
+- **Günlük talimat kalıcı değildir.** "bugün 7 at" `outreach_days`'e yazılır ve
+  ertesi gün kendiliğinden söner; "günlük mail sayısını 7 yap" ise `settings`.
+  İkisini karıştırmak haftalarca fark edilmez.
 - **Kapsam yalıtımı tek bir yerde:** `src/lib/brain/scope.ts` → `scopeMatches`.
   Başka hiçbir yerde kapsam kontrolü yazma.
 - **Şube yalıtımı ajandan işe taşındı.** Dört ajan da iki şubeyi birden
@@ -102,6 +118,23 @@ src/db/                         schema · client · migrate · seed
 - **`getBrain()` departmanı kapsamın SON parçasından okur** (`.at(-1)`), ikinci
   parçasından değil — yukarıdaki nitelendirme yüzünden.
 
+- **`assemblePrompt` `runAgent`'ın try bloğunun DIŞINDA.** Orada patlayan bir şey
+  ajanın cevap vermesini tümden engeller. `buildSystemMap()` bu yüzden kendi
+  içinde try/catch'li ve her bölümü `⚠️` satırına düşebiliyor — harita konfor,
+  yetenek değil.
+- **Önbellek breakpoint'i yalnızca kök ajanda.** Yazmak okumaktan pahalı; kazanç
+  aynı önek 5 dk içinde tekrar gelirse doğuyor. Yönetici Telegram'da art arda
+  çalışıyor, işçiler günde bir — onlara koymak primi ödeyip hiç okumamak olurdu.
+  Anıların değişken tarafta olması şart: `recall()` sorguyu `mission + task` ile
+  gömüyor, yani her mesajda değişiyor.
+- **`tick()` içindeki sistem adımlarının saati AYARDAN gelir**, cadence
+  tablosundan değil. `dueRuns()` statik cron okur; `brief.time` ve
+  `outreach.batch_time` birer ayar. Bu yüzden brifing ve parti `tick.ts` içinde,
+  `onceToday()` kalıbıyla.
+- **Süreç ölürse görev sonsuza kadar `running` kalır.** `runUnit` fırlatılan
+  hatayı yakalar, sürecin kaybolmasını yakalayamaz. Günlük toplayıcı
+  (`reapStaleRuns`) bunun tek çaresi.
+
 - **PGlite üst dizini kendi oluşturmuyor.** `client.ts` `data/` dizinini
   `mkdirSync(recursive)` ile açıyor, yoksa ENOENT.
 - **tsx ile çalışan `.ts` script'lerinde top-level await yok** —
@@ -132,7 +165,17 @@ src/db/                         schema · client · migrate · seed
 
 ## Bilinen açık işler
 
-Hepsi `SETUP_TODO.md`'de, neyi açtığına göre gruplanmış durumda. Özet: entegrasyon
-yok (takvim, CRM, gönderim, Lighthouse), Telegram taşıma katmanı bağlı
-değil. Zamanlayıcı `/api/tick` + `vercel.json` ile saate bağlandı; yalnızca
-`CRON_SECRET` bekliyor. `npm run tick` çalışıyor ve idempotent.
+Sahipten bekleyen tek kurulum: **Google Takvim OAuth** (~20 dk, `DEPLOY.md` § 8).
+Kurulmadan takvim yazma çalışmaz, okuma `.ics`'ten devam eder.
+
+Yalnızca VPS'te doğrulanabilecek üç şey — bu sandbox'ın çıkış proxy'si
+`tcmb.gov.tr`'yi ve döviz API'lerini engelliyor, `ANTHROPIC_API_KEY` de yok:
+
+1. **Kur** — ilk gerçek TL çevrimi (`npm run agent:run -- shared.ops.assistant
+   --task "45 bin TL kaç dolar?"`)
+2. **`web_search` / `web_fetch`** — sunucu tarafı araçlar, tanımları doğru ama
+   gerçek bir çağrı yapılmadı
+3. **Önbellek isabeti** — iki ardışık Telegram mesajından sonra
+   `usage.cache_read_input_tokens > 0` olmalı
+
+Geri kalan açık işler `SETUP_TODO.md`'de.

@@ -15,19 +15,19 @@
 | 4 — Entegrasyonlar (kur, Takvim/Meet, web araştırma) | ✅ bitti — kur yalnızca VPS'te doğrulanabilir, aşağıya bak |
 | 5 — Outreach (toplu onay + günlük serbest talimat) | ✅ bitti |
 | 6 — Brifing | ✅ bitti |
-| 7 — UI (önce design canvas) | ⬜ başlanmadı |
-| 8 — Deploy + doğrulama | ⬜ başlanmadı |
+| 7 — UI (tasarım tuvali + dört görünüm) | ✅ bitti |
+| 8 — Deploy + doğrulama | 🟡 kod hazır, VPS’te çalıştırılmayı bekliyor |
 
-VPS hâlâ **v1** çalıştırıyor. Faz 8'e kadar öyle kalıyor; oraya geldiğinde
-`npm run db:seed:fresh` gerekecek, çünkü veritabanında hâlâ 49 eski ajan satırı
-var. Geçmiş hareket kayıtları silinmez — `activity.agent_id` artık `SET NULL`.
+**Kod tarafı bitti.** Geriye VPS’te çalıştırmak kaldı — komutlar `DEPLOY.md` →
+“v1 → v2 geçişi” bölümünde, tek blok hâlinde.
 
-## Devam ederken ilk yapılacaklar
+Bu sıradan bir `git pull` değil: VPS bugün 49 ajanlı v1’i çalıştırıyor, v2 dört
+ajanlı. `npm run db:seed:fresh` kadroyu indiriyor; hareket geçmişi silinmiyor,
+çünkü `activity.agent_id` Faz 1’de tam bu an için `SET NULL`’a çevrildi.
 
-1. **Faz 7 — UI.** Önce design canvas (dört görünüm: Bugün · Hat · Para ·
-   Hafıza), sonra tasarım token'ları, sonra bileşenler, en son `/api/state` ile
-   gerçek canlı yenileme. 49 düğümlü org ağacı burada siliniyor.
-2. Sonra Faz 8: deploy + uçtan uca doğrulama.
+Senden bekleyen tek kurulum **Google Takvim OAuth** (~20 dk, `DEPLOY.md` § 8).
+Kurulmadan hiçbir şey bozulmuyor — takvim okuma `.ics`’ten devam ediyor,
+toplantı araçları `⚠️ Takvim kullanılamıyor` deyip duruyor.
 
 ## Faz 6 nasıl çalışıyor (brifing)
 

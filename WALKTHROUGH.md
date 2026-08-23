@@ -1,207 +1,204 @@
 # Walkthrough
 
-A written tour of each view — what you are looking at, what it is telling you,
-and what to do with it. Screenshots of every state described here are in
-`screenshots/`.
+A tour of the four views — what you are looking at, what it is telling you, and
+what to do with it. Screenshots are in `screenshots/`.
+
+**One thing to know before anything else:** the panel does not command anything.
+There is no button here that starts an agent, pauses one, or approves a draft.
+All of that is said to the **Yönetici** on Telegram. This screen exists to answer
+*ne oluyor?* at a glance — it is a mirror, and it refreshes itself when something
+actually changes.
+
+The single exception is the Brain, where you can add and delete memories. That is
+editing what the agents *know*, not telling one what to do.
 
 ---
 
-## COMMAND — `/`
+## Bugün — `/`
 
-**The screen you open every morning.**
+![](screenshots/01-bugun.png)
 
-The whole company, top to bottom, on one canvas. Read it in four seconds:
+**The screen you open in the morning.** Ordered by claim on your attention, not
+by subject.
 
-**The apex** is you. `[[ YOUR NAME ]]` in dashed type is not a rendering bug —
-it is a blank the system refuses to invent. Fill `src/lib/owner.ts`.
+**The gold band at the top** is the Yönetici's own framing — at most three
+sentences saying which of today's numbers actually needs you, and what it would
+do. The full figures are below it; its job is to choose, not to repeat. Without
+`ANTHROPIC_API_KEY` the band is absent and you get the figures alone — it never
+invents one to fill the space.
 
-**The Chief of Staff** sits directly beneath, gold-outlined, wide. Inside it a
-live ticker carries the two numbers that matter and one warning:
+**The four counts.** Running tasks · questions parked on you · approvals waiting ·
+mail sent today. The middle two are the ones that mean *you are the bottleneck*,
+which is why they turn red and orange rather than staying grey.
 
+**Sana düşenler** is the list that matters. Parked questions come first — a
+question is holding a task still, while an approval is merely waiting to be
+stamped. Each carries its short id (`#a4f2c1`), which is what you type if you
+answer with `/cevap` rather than plain text.
+
+**Bugün** is today's meetings with their Meet links, plus the day's send batch
+if one is open.
+
+**Şu an çalışıyor** is the only animated thing in the whole panel, and the dot
+pulses only while a task is genuinely mid-run. Nothing else moves.
+
+**Son hareketler** is every agent action, newest first, coloured by outcome —
+green succeeded, orange blocked, red failed. This used to be its own tab; on its
+own a raw log did not earn one.
+
+At 390px the two columns become one and the counts go 2×2. Same content, no
+horizontal scrolling.
+
+![](screenshots/05-bugun-mobil.png)
+
+---
+
+## Hat — `/pipeline`
+
+![](screenshots/02-hat.png)
+
+**Lead → fırsat → proje → müşteri**, which is the only thing the system is
+actually for. Before this view those were four separate numbers on separate
+screens and the line between them was nowhere.
+
+The row of four is the shape: how many at each stage, and one line saying what
+that stage is judged on — untouched leads, open pipeline value, projects needing
+attention, monthly recurring revenue.
+
+Under it, the same four stages name their rows. An orange dot means *this one
+needs looking at*: a lead with no email and no phone (unreachable), a deal that
+has not moved, a project at risk or a flow erroring, a client marked at-risk.
+The `web` / `flow` chip says which business it belongs to.
+
+Untouched leads are deleted after 30 days — Google's terms allow keeping place
+content only temporarily. A lead you have contacted is a record of your own
+business relationship and stays.
+
+---
+
+## Para — `/ledger`
+
+![](screenshots/03-para.png)
+
+**Per-branch P&L, plus a combined column.** Revenue, collected, open pipeline,
+live projects, unpaid invoices, agent cost, expenses, and net — for Ateş Design,
+for Ateş Flow, and for both together.
+
+Money in and out is entered by hand:
+
+```bash
+npm run money -- in  --amount 4200 --branch web --client "Kumsal Balık"
+npm run money -- out --amount 310  --category kira "Ofis, Ağustos"
 ```
-WEB  6 açık teklif · $23.806
-FLOW 6 açık teklif · 6/7 akış sağlıklı
-⚠ Stripe: STRIPE_SECRET_KEY tanımlı değil
+
+There is no payment processor to read it from, by decision — cash and bank
+transfer are how this business is actually paid.
+
+**Agent cost is real, not estimated.** Every run writes its token usage and the
+price of its model; the column is a sum of those rows. If a number cannot be
+sourced the line says so instead of showing a zero that looks like a fact.
+
+The 12-week chart is collections, not invoices — money that arrived.
+
+---
+
+## Hafıza — `/brain`
+
+![](screenshots/04-hafiza.png)
+
+**One shared memory, and the only screen you can edit.**
+
+Each dot is a memory. Colour is scope: gold for the web branch and for global
+facts, blue for automation, grey for client context. A ring around a dot means
+**kalıcı gerçek** — something you told the system directly, which no agent may
+prune. Lines are links the Brain drew between related memories.
+
+Search filters the field. Click a node to open it:
+
+![](screenshots/07-hafiza-secili.png)
+
+The panel shows the full text, its scopes, which agent wrote it, its confidence
+and how often it has been recalled. Two things you can do here:
+
+- **Not ekle** — write a permanent fact into the same scopes as the node you are
+  looking at, so it reaches the same agents that memory does.
+- **Sil** — remove a memory. Permanent facts have no delete button; they are
+  yours and the panel will not offer to drop them by accident.
+
+Scope is the isolation boundary and it is the one thing worth getting right. A
+memory is either `global` **or** branch-scoped, never both — `global` reaches
+everyone, and adding it alongside `branch.web` silently opens the whole thing.
+From the command line:
+
+```bash
+npm run remember -- --scope branch.web "Web ICP: sitesi olmayan, en az 1 yorumu olan işletme."
+npm run remember -- --list branch.web
 ```
 
-That third line is the system telling you it cannot see revenue rather than
-showing you a zero. Every view does this.
-
-**Flanking the Chief of Staff** are the four shared services — Finance, Client
-Success, Brain Keeper, Recruiter. They serve both branches, which is why they sit
-on the command row rather than under either director.
-
-**Two directors** below, one per branch, each in its branch colour: Ateş Design
-cool cyan, Ateş Flow warm amber. **Eight department leads** under them, each
-carrying its department's accent on its top border — crimson outreach, cyan
-sales, green delivery/build, violet content. **Thirty-four workers** hang beneath
-their lead in the same colour.
-
-### Reading state at a glance
-
-| What you see | What it means |
-|---|---|
-| Node dimmed to ~60% | Idle. Nothing to do right now |
-| Green dot, breathing, cable pulsing | Working. A light dot travels the cable *up* toward you — a report on its way |
-| Gold ring, slowly pulsing | Waiting on your approval. Also badged in the tray, top right |
-| Red, breathing slowly | Blocked. Something needs you to unblock it |
-
-In the seeded state: **Auditor**, **Pipeline Watch**, **Prospector**, **Tester**
-and **Client Success** are working; **Sender** and **Proposal Agent** are waiting
-on you; **Monitor** and **Finance** are blocked.
-
-### What you can do
-
-- **Branch switcher** (`TÜMÜ · WEB · AI OTOMASYON`) zooms to one branch and dims
-  the other. Shared services stay lit in both, because they belong to both.
-- **Click any node** → a drawer with its mission, KPIs and 7-day sparkline, full
-  config (model, autonomy, schedule, tools, memory scopes, gates), its recent
-  runs with cost and duration, and the memories it wrote. Three buttons: run it
-  now, pause it, chat with it.
-- **The approval tray** (top right) opens the cards. Each carries the **full
-  draft** — the actual message, the actual proposal — not a summary. Approve or
-  reject; nothing sends until you tap.
-- **Keyboard:** `F` fits, `1` jumps to Ateş Design, `2` to Ateş Flow. Drag to
-  pan, scroll to zoom.
-- **Bottom strip** — the shared memory count, linking to the Brain.
-
----
-
-## BRAIN — `/brain`
-
-**One memory. Every agent reads it, every agent writes to it, nobody has a
-private one.**
-
-A force-directed constellation of every memory, drifting slowly.
-
-- **Position** is meaning. Ateş Design memories cluster left, Ateş Flow right,
-  and within each the departments fan top to bottom: outreach, sales,
-  delivery/build, content. Memories that belong to a whole branch, and the
-  permanent facts that belong to the company, float between the two.
-- **Size** is how often a memory has actually been retrieved. A big node is
-  something the crew leans on.
-- **Colour** is who owns it — department accent, or gold for a permanent fact.
-- **Lines** are links between related memories. A gold line means one memory
-  **supersedes** another: a decision that changed. In the seed, the stale-deal
-  threshold moved from 10 days to 14, and both records are kept — the Brain
-  Keeper's job is exactly this.
-
-**Search** re-lights matches and dims the rest, so you can see where a topic
-actually lives in the org. **Click a node** for the statement, its scope, who
-wrote it, its confidence, and how often it has been used.
-
-The counters at the bottom: memories, permanent facts, clients with their own
-context, and links.
-
----
-
-## ACTIVITY — `/activity`
-
-**Every action, with its receipt.**
-
-Pinned at the top: what is waiting on you, and what is blocked. Below that, a
-reverse-chronological feed — roughly 290 rows across the last 30 days.
-
-Each row: timestamp, agent (in its department colour), the action verb, the
-outcome, and on the right the **cost in dollars and the duration**. Expand any
-row (`›`) for the full input and output, the agent's stated reason, and — where
-it recorded one — the thing it said it was unsure about:
-
-> `? Lighthouse tek seferlik ölçüm; ağ koşulları etkilemiş olabilir.`
-
-That line is required of every agent before it may report done. An agent that is
-sure of everything has not looked hard enough.
-
-Filter by branch, department, agent, or outcome. Rows marked `SİMÜLE` were
-produced without calling a model.
-
----
-
-## LEDGER — `/ledger`
-
-**Two columns, one per branch, plus a combined total.**
-
-Per branch: revenue MTD, cash collected, open pipeline value, live projects,
-unpaid invoices with a count, and **what the agents themselves cost to run this
-month**.
-
-The combined column exists, but the branches are reported separately first and
-on purpose — a single total that hides one branch subsidising the other is a lie
-by arithmetic.
-
-Revenue currently reads `⚠️ kaynak bağlı değil`. Stripe is not connected, so the
-number is not derivable, so it is not shown. Cash collected, pipeline and
-invoices *are* real — they come from the database — and are shown normally. The
-distinction is the whole point.
-
-At the bottom, twelve weeks of collected cash, per branch, stacked.
+`--scope` has no default on purpose.
 
 ---
 
 ## The morning brief
 
-Not a view — this is what arrives on your phone at 07:45, and what
-`npm run brief` prints:
+Every day at `brief.time` (07:30 by default, changeable by saying so on
+Telegram) the brief arrives on your phone: today's meetings, active projects
+with their stages and due dates, open deals with the stalled ones named, clients
+who have gone quiet past the threshold, cash, and what needs you. The Yönetici
+writes two or three sentences on top; every figure under them is counted.
 
-```
-☀️ Günaydın brifingi — 21 Ağustos Cuma
-Chief of Staff. Önce sayılar, sonra sana düşenler.
-
-WEB
-  Hat: 6 açık · $23.806 · 0 bugün görüşme
-  Teslimat: 3 proje · 0 riskte
-AI OTOMASYON
-  Hat: 6 açık · $33.918
-  Canlı akış: 6 sağlıklı / 1 hatalı
-NAKİT
-  Bu ay tahsil: $5.368 · Ödenmemiş: $19.184
-
-⚠️ Stripe kullanılamıyor (STRIPE_SECRET_KEY tanımlı değil)
-⚠️ Takvim kullanılamıyor (takvim kaynağı bağlı değil)
-
-SANA DÜŞENLER:
-  1. Kumsal Balık Restoran — ilk temas + 4 takip — onayını bekliyor.
-  2. Ege Tekstil İhracat — kurulum + aylık bakım teklifi — onayını bekliyor.
-  3. Monitor engelli: Poyraz İK aday eleme akışı 14 Ağustos'tan beri hata
-     veriyor — tedarikçi API anahtarı süresi doldu, yenisi gerekiyor.
+```bash
+npm run brief            # what lands on your phone
+npm run brief -- --raw   # figures only, no model call
 ```
 
-Numbers first. Then the unavailable sources, named. Then at most three things
-that need a decision from you. If nothing needs you, it says so.
+The evening summary follows the opposite rule: it arrives **only if something
+happened** — a mail went out, an approval closed, a meeting was booked, a task
+finished. On a quiet day it does not arrive at all.
+
+---
+
+## The day's outreach
+
+Once a day at `outreach.batch_time` the system picks the day's leads, has the
+Outreach agent write the drafts, and sends you **one** message:
+
+```
+📮 24 Ağustos — günün listesi
+Plan: 7 mail (senin isteğin, normalde 10) · 5 arama
+
+MAİL — onayını bekliyor
+ 1. Kumsal Balık · info@kumsalbalik.com
+    "Menünüzü telefondan güncelleyebildiğiniz bir sistem…"
+ …
+
+ARAMA — sen arayacaksın, onay gerekmiyor
+ A. Deniz Kuaför · 0532 xxx xx xx · 47 yorum, sitesi yok
+ …
+```
+
+You answer once: `gönder` · `3 hariç` · `1,2,5` · `iptal`. Rejecting with a
+reason ("fiyat yanlış") brings that business back tomorrow with a corrected
+draft; rejecting without one takes it off the list for good.
+
+You can change any day by saying so — *"bugün atma"*, *"bugün 7 tane at"*,
+*"yarın sadece web"*. That is a **one-day** instruction and expires on its own;
+*"günlük mail sayısını 7 yap"* is the permanent version.
 
 ---
 
 ## Watching one agent work
 
-The fastest way to understand the whole system is to run a single agent and
-follow what it leaves behind:
+```bash
+npm run agent:run -- shared.outreach.scout
+npm run agent:run -- shared.ops.assistant --task "45 bin TL kaç dolar?"
+```
+
+Every run writes one `activity` row — what it did, why, what it cost, how long
+it took, and one line of what it is genuinely unsure about. Without an API key
+it runs in simulate mode: real rows, no model call, labelled as such.
 
 ```bash
-npm run agent:run -- web.outreach.auditor
+npm run tick -- --plan   # what is scheduled
+npm run tick             # run whatever is due right now
 ```
-
-```
-  outcome     success
-  simulated   true
-  duration    65ms
-  memories    1 written
-  activity    21ac8016-…
-```
-
-What just happened, in order:
-
-1. `registry.ts` loaded and validated `agents/web/outreach/auditor.yaml`
-2. `prompt.ts` assembled: house rules + the Auditor's role prompt + **14
-   memories** retrieved from `global`, `branch.web` and `dept.web.outreach` —
-   and nothing from Ateş Flow
-3. the tool runner ran with the five tools that config grants it
-4. one `activity` row was written, with cost, duration and outcome
-5. one `memory` was written back, attributed to the agent and the run
-6. the agent's status flipped, which the tree shows on next load
-
-Open `/activity` and it is the first row. Open the Auditor's drawer on `/` and
-it is at the top of its log. That loop — config → prompt → tools → activity →
-memory → status — is the same one every agent uses.
-
-Add `ANTHROPIC_API_KEY` and step 3 calls a real model instead of a canned one.
-Nothing else changes.

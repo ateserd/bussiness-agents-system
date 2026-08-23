@@ -304,6 +304,66 @@ npm run agent:run -- shared.ops.assistant --task "45 bin TL kaç dolar? Kurun ta
 A real answer names the rate and the date it belongs to. On a Monday that date
 is usually Friday's — correct, and the reason the date is always printed.
 
+## v1 → v2 geçişi (bir kez)
+
+VPS bugün **v1** çalıştırıyor: 49 ajan satırı, org ağacı paneli, eski görünümler.
+v2 dört ajanlı ve panel baştan yazıldı, yani bu güncelleme sıradan bir `git pull`
+değil — veritabanındaki kadro da değişmek zorunda.
+
+```bash
+cd /opt/mission-control
+git pull
+npm install
+npm run db:push          # 6 migration: ayarlar, görev kuyruğu, outreach_days, …
+npm run db:seed:fresh    # kadroyu 49'dan 4'e indirir + duran kararları yazar
+npm run build
+sudo systemctl restart mission-control
+```
+
+**Hareket geçmişi silinmez.** `activity.agent_id` Faz 1'de `CASCADE`'den
+`SET NULL`'a çevrildi, tam da bu an için: eski ajan satırları giderken onların
+yazdığı kayıtlar kalır, panelde "silinmiş ajan" olarak görünür. Beyin, lead'ler,
+fırsatlar, projeler ve faturalar da olduğu gibi durur — `--fresh` yalnızca ajan
+tablosunu ve duran kararları tazeler.
+
+Sunucu **açıkken build alma.** Chunk hash'leri kayar ve tarayıcı CSS'i 404 alır;
+sayfa stilsiz gelir. Olduysa: servisi durdur, `rm -rf .next`, yeniden build al,
+başlat.
+
+Geçtikten sonra gözle doğrula:
+
+```bash
+curl -s localhost:3000/api/state          # {"running":…,"parked":…,"pending":…}
+npm run agent:list                        # 4 ajan
+npm run tick -- --plan                    # 2 programlı çalışma (Ops, Scout)
+```
+
+Panelde dört sekme olmalı — **Bugün · Hat · Para · Hafıza** — ve hiçbirinde ajan
+çalıştıran/duraklatan düğme bulunmamalı. `/activity` artık yok; içeriği Bugün'ün
+"Son hareketler" bölümünde.
+
+### Burada doğrulanamayan üç şey
+
+Geliştirme ortamının çıkış proxy'si TCMB'yi ve döviz API'lerini engelliyor,
+`ANTHROPIC_API_KEY` de orada yok. Bunlar ilk kez VPS'te çalışacak:
+
+```bash
+set -a; source .env; set +a
+
+# 1. Kur — gerçek bir TL çevrimi, tarihiyle birlikte
+npm run agent:run -- shared.ops.assistant --task "45 bin TL kaç dolar? Kurun tarihini de yaz."
+
+# 2. Web araştırma — gerçek, linklenebilir örnekler
+npm run agent:run -- shared.outreach.scout --task "İzmir'de kuaför sektöründe iyi üç site bul, linkleriyle."
+
+# 3. Önbellek — Telegram'dan arka arkaya iki mesaj yaz, sonra:
+npm run brief -- --raw > /dev/null   # ısıtma değil, yalnızca çalıştığını görmek için
+```
+
+Üçüncüsü için gerçek ölçüm Anthropic konsolunda: iki ardışık Yönetici mesajından
+sonra `cache_read_input_tokens` sıfırdan büyük olmalı. Sıfır kalıyorsa sessiz bir
+geçersizleştirici var demektir.
+
 ## Updating
 
 ```bash
