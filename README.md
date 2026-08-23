@@ -28,9 +28,9 @@ Putting this on a server that stays up — `DEPLOY.md`.
 | Route | What it is |
 |---|---|
 | `/` | **COMMAND** — the org tree. Who exists, who reports to whom, who is working, blocked or waiting on you |
-| `/brain` | **BRAIN** — every memory as a constellation, clustered by branch and department |
-| `/activity` | **ACTIVITY** — every agent action: who, what, why, cost, duration, outcome |
-| `/ledger` | **LEDGER** — per-branch scoreboard plus a combined column |
+| `/pipeline` | **Hat** — lead → fırsat → proje → müşteri, both branches on one line |
+| `/ledger` | **Para** — per-branch P&L plus a combined column and a 12-week trend |
+| `/brain` | **Hafıza** — every memory as a constellation, clustered by branch and department |
 
 `WALKTHROUGH.md` walks through each one.
 

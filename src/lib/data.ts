@@ -10,6 +10,7 @@ import {
   expenses,
   invoices,
   kpiSnapshots,
+  leads,
   memories,
   memoryLinks,
   projects,
@@ -336,6 +337,136 @@ export async function getBrain(): Promise<{
 /* ---------------------------------------------------------------------------
    BRIEF inputs
 --------------------------------------------------------------------------- */
+
+/* ---------------------------------------------------------------------------
+   FUNNEL — what the system actually produces, end to end
+--------------------------------------------------------------------------- */
+
+export type FunnelEntry = {
+  id: string;
+  title: string;
+  branch: Branch;
+  /** Stage, days quiet, review count — whatever that stage is judged on. */
+  meta: string;
+  /** Set when this row is the one that needs attention. */
+  flagged: boolean;
+};
+
+export type FunnelStage = {
+  key: "lead" | "deal" | "project" | "client";
+  count: number;
+  /** One line under the number: value, health, whatever the stage means. */
+  note: string;
+  rows: FunnelEntry[];
+};
+
+const FUNNEL_ROWS = 6;
+
+/**
+ * Lead → fırsat → proje → müşteri.
+ *
+ * The one thing the system exists to move, and until now it was visible
+ * nowhere: the dashboard counted deals and projects separately and never drew
+ * the line between them. Each stage returns both its full count and the first
+ * few rows, because a number tells the owner the shape and a name tells him
+ * what to do.
+ */
+export async function getFunnel(now = new Date()): Promise<FunnelStage[]> {
+  const db = await getDb();
+  const [leadRows, dealRows, projectRows, clientRows] = await Promise.all([
+    db.select().from(leads).orderBy(desc(leads.fitScore)),
+    db.select().from(deals).orderBy(desc(deals.valueUsd)),
+    db.select().from(projects),
+    db.select().from(clients),
+  ]);
+
+  const openDeals = dealRows.filter((d) => !["won", "lost"].includes(d.stage));
+  const days = (from: Date) => Math.round((now.getTime() - from.getTime()) / 86_400_000);
+  const untouched = leadRows.filter((l) => l.contactedAt === null && l.rejectedAt === null);
+
+  return [
+    {
+      key: "lead",
+      count: untouched.length,
+      note:
+        leadRows.length === untouched.length
+          ? "hiçbirine dokunulmadı"
+          : `${leadRows.length - untouched.length} tanesine temas edildi`,
+      rows: untouched.slice(0, FUNNEL_ROWS).map((l) => ({
+        id: l.id,
+        title: l.company,
+        branch: l.branch,
+        meta: [l.city, l.email ? "e-postası var" : l.phone ? "yalnızca telefon" : "ulaşılamıyor",
+               l.reviewCount !== null ? `${l.reviewCount} yorum` : null]
+          .filter(Boolean)
+          .join(" · "),
+        flagged: !l.email && !l.phone,
+      })),
+    },
+    {
+      key: "deal",
+      count: openDeals.length,
+      note: fmtUsd(openDeals.reduce((n, d) => n + Number(d.valueUsd), 0)),
+      rows: openDeals.slice(0, FUNNEL_ROWS).map((d) => ({
+        id: d.id,
+        title: d.title,
+        branch: d.branch,
+        meta: `${d.stage} · ${fmtUsd(Number(d.valueUsd))}${d.stalled ? ` · ${days(d.lastMovedAt)} gündür duruyor` : ""}`,
+        flagged: d.stalled,
+      })),
+    },
+    {
+      key: "project",
+      count: projectRows.length,
+      note: (() => {
+        const trouble = projectRows.filter((p) => p.atRisk || !p.healthy).length;
+        return trouble > 0 ? `${trouble} tanesi dikkat istiyor` : "hepsi yolunda";
+      })(),
+      rows: projectRows
+        .slice()
+        .sort((a, b) => Number(b.atRisk || !b.healthy) - Number(a.atRisk || !a.healthy))
+        .slice(0, FUNNEL_ROWS)
+        .map((p) => ({
+          id: p.id,
+          title: p.name,
+          branch: p.branch,
+          meta: [p.stage, p.atRisk ? "riskte" : null, !p.healthy ? "akış hatalı" : null]
+            .filter(Boolean)
+            .join(" · "),
+          flagged: p.atRisk || !p.healthy,
+        })),
+    },
+    {
+      key: "client",
+      count: clientRows.filter((c) => c.health !== "churned").length,
+      note: fmtUsd(clientRows.reduce((n, c) => n + Number(c.mrrUsd), 0)) + "/ay",
+      rows: clientRows
+        .filter((c) => c.health !== "churned")
+        .slice()
+        .sort((a, b) => Number(b.mrrUsd) - Number(a.mrrUsd))
+        .slice(0, FUNNEL_ROWS)
+        .map((c) => {
+          const quiet = days(c.lastContactAt ?? c.startedAt);
+          return {
+            id: c.id,
+            title: c.name,
+            branch: c.branch,
+            meta: `${fmtUsd(Number(c.mrrUsd))}/ay · ${c.lastContactAt ? `${quiet} gün önce konuşuldu` : "hiç temas yok"}`,
+            flagged: c.health === "at_risk",
+          };
+        }),
+    },
+  ];
+}
+
+/** Same shape the rest of the app prints money in, without importing copy.ts. */
+function fmtUsd(value: number): string {
+  return new Intl.NumberFormat("tr-TR", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(value);
+}
 
 export async function getBriefData() {
   const db = await getDb();

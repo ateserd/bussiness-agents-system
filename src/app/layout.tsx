@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import { Archivo, IBM_Plex_Mono } from "next/font/google";
-import { Starfield } from "@/components/deck/starfield";
 import "./globals.css";
 
 const archivo = Archivo({
@@ -31,7 +30,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="tr">
       <body className={`${archivo.variable} ${plexMono.variable}`}>
         <div className="mc-ground" aria-hidden />
-        <Starfield />
         {children}
       </body>
     </html>

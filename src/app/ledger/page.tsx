@@ -1,4 +1,5 @@
-import { TopBar } from "@/components/deck/top-bar";
+import { TopBar } from "@/components/shell/top-bar";
+import { LiveDot } from "@/components/shell/live";
 import { getLedger } from "@/lib/data";
 import { copy, fmt } from "@/lib/copy";
 import { TrendChart } from "@/components/ledger/trend-chart";
@@ -6,9 +7,9 @@ import { TrendChart } from "@/components/ledger/trend-chart";
 export const dynamic = "force-dynamic";
 
 const ACCENT: Record<string, string> = {
-  web: "var(--sales)",
-  automation: "var(--shared)",
-  combined: "var(--gold)",
+  web: "var(--accent)",
+  automation: "var(--flow)",
+  combined: "var(--line-hi)",
 };
 
 export default async function LedgerPage() {
@@ -30,23 +31,21 @@ export default async function LedgerPage() {
 
   return (
     <main className="relative z-10 min-h-screen pb-20">
-      <TopBar caption={copy.ledger.subtitle} />
-
-      <div className="px-7 pb-7">
-        <h2 className="m-0 text-[26px] font-bold tracking-[-0.01em]">{copy.ledger.title}</h2>
-      </div>
+      <TopBar caption={copy.ledger.subtitle}>
+        <LiveDot />
+      </TopBar>
 
       {allUnavailable.length > 0 && (
-        <div className="mx-7 mb-7 rounded px-4 py-3" style={{ border: "1px solid rgba(245,196,81,.3)", background: "rgba(245,196,81,.05)" }}>
+        <div className="mx-4 sm:mx-8 mb-7 rounded px-4 py-3" style={{ border: "1px solid var(--accent-line)", background: "var(--accent-soft)" }}>
           {allUnavailable.map((reason) => (
-            <p key={reason} className="m-0 font-mono text-[11.5px]" style={{ color: "var(--gold)" }}>
+            <p key={reason} className="m-0 font-mono text-[11.5px]" style={{ color: "var(--accent)" }}>
               ⚠️ {copy.ledger.revenueMtd} {copy.ledger.unavailable} — {reason}
             </p>
           ))}
         </div>
       )}
 
-      <div className="grid gap-5 px-7 lg:grid-cols-3">
+      <div className="grid gap-5 px-4 sm:px-8 lg:grid-cols-3">
         {branches.map((b) => (
           <Column
             key={b.branch}
@@ -66,8 +65,8 @@ export default async function LedgerPage() {
         />
       </div>
 
-      <section className="mt-9 px-7">
-        <p className="mc-eyebrow mb-4">{copy.ledger.trend}</p>
+      <section className="mt-9 px-4 sm:px-8">
+        <p className="label mb-4">{copy.ledger.trend}</p>
         <TrendChart data={weekly} />
       </section>
     </main>
@@ -117,9 +116,9 @@ function Column({
   return (
     <div
       className="rounded p-6"
-      style={{ border: "1px solid var(--line)", borderTop: `2px solid ${accent}`, background: "var(--panel)" }}
+      style={{ border: "1px solid var(--line)", borderTop: `2px solid ${accent}`, background: "var(--surface)" }}
     >
-      <p className="mc-eyebrow" style={{ color: accent, fontSize: 9.5 }}>
+      <p className="label" style={{ color: accent, fontSize: 9.5 }}>
         {eyebrow}
       </p>
       <h3 className="mb-6 mt-2 text-[17px] font-bold leading-tight">{title}</h3>
@@ -129,14 +128,14 @@ function Column({
           const missing = unavailableFields.includes(r.key);
           return (
             <div key={r.key} className="flex items-baseline justify-between gap-4">
-              <dt className="mc-eyebrow" style={{ fontSize: 9.5 }}>
+              <dt className="label" style={{ fontSize: 9.5 }}>
                 {r.label}
               </dt>
               <dd
                 className={`mc-num m-0 text-right ${
                   missing ? "text-[12px]" : r.big ? "text-[24px] font-semibold" : "text-[15px]"
                 }`}
-                style={{ color: missing ? "var(--gold)" : r.big ? "var(--ink)" : "var(--haze)" }}
+                style={{ color: missing ? "var(--accent)" : r.big ? "var(--ink)" : "var(--ink-2)" }}
               >
                 {/* A missing source is stated, not shouted — it should not
                     out-weigh the numbers that are real. */}

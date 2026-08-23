@@ -1,50 +1,17 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { eq } from "drizzle-orm";
-import { getDb } from "@/db/client";
 import { rootAgent } from "@/lib/agents/registry";
-import { agents } from "@/db/schema";
 
 /**
- * Mutations the deck can trigger. Everything here is deliberately small: the
- * dashboard commands, the runtime does the work.
+ * The only two mutations the panel can still make, and both edit *memory*.
+ *
+ * What used to be here — run this agent now, pause it, approve or reject a
+ * card — is gone. Control moved to Telegram, and leaving a second path to the
+ * same actions would have put a quieter door beside the one that has the gates
+ * on it. These two stay because the owner asked for them by name and because
+ * editing what the agents know is not commanding an agent.
  */
-
-export async function toggleAgentPause(agentId: string): Promise<void> {
-  const db = await getDb();
-  const [agent] = await db.select().from(agents).where(eq(agents.id, agentId));
-  if (!agent) return;
-  await db.update(agents).set({ paused: !agent.paused }).where(eq(agents.id, agentId));
-  revalidatePath("/");
-}
-
-export async function runAgentNow(agentId: string): Promise<{ ok: boolean; message: string }> {
-  const { runAgent } = await import("./agents/run");
-  try {
-    const result = await runAgent(agentId, { trigger: "manual" });
-    revalidatePath("/");
-    revalidatePath("/activity");
-    return { ok: result.outcome === "success", message: result.summary };
-  } catch (err) {
-    return { ok: false, message: (err as Error).message };
-  }
-}
-
-export async function decideApproval(
-  approvalId: string,
-  decision: "approved" | "rejected",
-  reason?: string,
-): Promise<void> {
-  // Goes through the same path the Telegram `/approve` uses. It used to have
-  // its own copy that marked the row and stopped, so approving here looked
-  // successful and never sent the email.
-  const { settleApproval } = await import("./approvals");
-  await settleApproval(approvalId, decision, reason);
-
-  revalidatePath("/");
-  revalidatePath("/activity");
-}
 
 /** From the BRAIN panel — the owner's own delete, not Brain Keeper's pruning. */
 export async function deleteBrainMemory(id: string): Promise<{ ok: boolean; message: string }> {

@@ -3,67 +3,83 @@
 /* ---------------------------------------------------------------------------
    Mission Control design tokens.
 
-   The deck commits to a single dark visual world on purpose — it is the screen
-   the owner looks at every morning, and the §4.2 colour language (one accent
-   per department, carried by card border, cable and glow) only reads against a
-   dark ground. Every colour below is painted explicitly so the page never
-   borrows a host theme.
+   The panel commits to one dark world on purpose — it is the screen the owner
+   looks at every morning, and the identity (dark ground, gold) is his, not a
+   default. Every colour is painted explicitly so the page never borrows a host
+   theme.
+
+   What changed in Faz 7, and why it was not taste: the old sheet had six neon
+   department accents for four agents, no scale for spacing, radius or type (so
+   every component invented its own numbers), three animations with no remaining
+   users, and a `--warn` one hue away from the accent — "warning" and "emphasis"
+   were not distinguishable. Below is one accent, real scales, and semantic
+   colour kept separate from it.
 --------------------------------------------------------------------------- */
 
 :root {
-  /* ground */
-  --void: #0a0f1e;
-  --deep: #10241f;
-  --panel: rgba(11, 19, 35, 0.66);
-  --panel-hi: rgba(18, 30, 52, 0.82);
-  --line: rgba(142, 163, 189, 0.15);
-  --line-hi: rgba(142, 163, 189, 0.3);
+  /* ground — four steps, dark to raised */
+  --bg: #0a0f1e;
+  --surface: #0e1526;
+  --surface-2: #131c30;
+  --line: #1e293f;
+  --line-hi: #2c3a58;
 
-  /* type — neutrals biased toward the cool ground, not default grey */
+  /* ink — three steps. There used to be four near-synonyms. */
   --ink: #e9eef6;
-  --haze: #8ea3bd;
-  --dim: #5b6d85;
-  --blank: #7c8ba1;
+  --ink-2: #97a6bd;
+  --ink-3: #5f6f88;
 
-  /* department accents (§4.2) */
-  --outreach: #ff4d6d;
-  --sales: #4dd6ff;
-  --build: #3ddc84;
-  --content: #a06cff;
-  --shared: #ffb84d;
-  --gold: #f5c451;
+  /* one accent */
+  --accent: #f5c451;
+  --accent-soft: rgba(245, 196, 81, 0.12);
+  --accent-line: rgba(245, 196, 81, 0.32);
 
-  /* branch cable temperature: A leans cool, B leans warm */
-  --branch-web: #4dd6ff;
-  --branch-automation: #ffb84d;
-
-  /* semantic state — separate from the accent hues */
+  /* semantic state, deliberately not the accent. `--warn` is orange rather
+     than the old #ffb84d, which sat a hair off gold and made a warning read
+     as emphasis. */
   --ok: #3ddc84;
-  --warn: #ffb84d;
-  --crit: #ff4d6d;
+  --ok-line: rgba(61, 220, 132, 0.35);
+  --warn: #e8833a;
+  --crit: #ff5b73;
+
+  /* the automation branch's tint — the one surviving second hue, used only
+     where two branches sit side by side and must be told apart */
+  --flow: #7fb8d8;
+  --flow-line: rgba(127, 184, 216, 0.3);
+
+  /* spacing */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 24px;
+  --s6: 32px;
+
+  /* radius */
+  --r1: 6px;
+  --r2: 10px;
+  --r3: 999px;
+
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.45), 0 12px 28px -18px rgba(0, 0, 0, 0.85);
 
   --sans: var(--font-archivo), system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: var(--font-plex-mono), ui-monospace, "SF Mono", Menlo, monospace;
 }
 
 @theme inline {
-  --color-void: var(--void);
-  --color-deep: var(--deep);
-  --color-panel: var(--panel);
-  --color-panel-hi: var(--panel-hi);
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
   --color-line: var(--line);
+  --color-line-hi: var(--line-hi);
   --color-ink: var(--ink);
-  --color-haze: var(--haze);
-  --color-dim: var(--dim);
-  --color-outreach: var(--outreach);
-  --color-sales: var(--sales);
-  --color-build: var(--build);
-  --color-content: var(--content);
-  --color-shared: var(--shared);
-  --color-gold: var(--gold);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-accent: var(--accent);
   --color-ok: var(--ok);
   --color-warn: var(--warn);
   --color-crit: var(--crit);
+  --color-flow: var(--flow);
   --font-sans: var(--sans);
   --font-mono: var(--mono);
 }
@@ -80,56 +96,122 @@ body {
 
 body {
   min-height: 100vh;
-  background: var(--void);
+  background: var(--bg);
   color: var(--ink);
   font-family: var(--sans);
-  font-size: 15px;
-  line-height: 1.6;
+  font-size: 14px;
+  line-height: 1.55;
   -webkit-font-smoothing: antialiased;
 }
 
-/* The canvas ground sits behind everything, fixed, so scrolling the deck does
-   not drag the gradient with it. */
+/* The ground sits behind everything, fixed, so scrolling does not drag it.
+   The gold radial that used to glow at the top is gone — it was the single
+   loudest "generated" marker on the page. */
 .mc-ground {
   position: fixed;
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background:
-    radial-gradient(1100px 620px at 50% -8%, rgba(245, 196, 81, 0.1), transparent 62%),
-    linear-gradient(178deg, var(--void) 0%, #0b1524 42%, var(--deep) 100%);
+  background: linear-gradient(178deg, var(--bg) 0%, #0b1524 55%, #0d1a20 100%);
 }
 
-.mc-stars {
-  position: fixed;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 0;
-  pointer-events: none;
-}
+/* --- type ----------------------------------------------------------------- */
 
-/* --- typographic utilities ------------------------------------------------ */
-
-.mc-eyebrow {
-  font-family: var(--mono);
-  font-size: 10.5px;
-  font-weight: 500;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--dim);
+/**
+ * Section labels. This replaces `.mc-eyebrow`, which was 10.5px uppercase mono
+ * at 0.2em tracking and was applied in 32 places — most of them plain labels
+ * that simply needed to be read. Mono is for numbers now, not for words.
+ */
+.label {
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--ink-3);
   margin: 0;
 }
 
+/** Numbers, ids and timestamps — the only things that earn a monospace face. */
 .mc-num {
   font-family: var(--mono);
   font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* --- surfaces ------------------------------------------------------------- */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r2);
+  box-shadow: var(--shadow);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: var(--r3);
+  font-size: 11px;
+  font-weight: 500;
+  border: 1px solid var(--line-hi);
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.rule {
+  height: 1px;
+  background: var(--line);
+  border: 0;
+  margin: 0;
+}
+
+/* --- motion --------------------------------------------------------------- */
+
+/**
+ * The only animation in the panel, and it means something: a task that is
+ * genuinely running right now. Everything else holds still.
+ *
+ * What this replaced: `mc-breathe`, `mc-breathe-red` and `mc-ring-gold`, all
+ * three of which had lost their last user when the org tree was deleted, plus
+ * a starfield and a travelling cable dot that animated over static data.
+ */
+@keyframes mc-live {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.running {
+  animation: mc-live 1.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
 }
 
 /* --- focus ---------------------------------------------------------------- */
 
 :focus-visible {
-  outline: 2px solid var(--gold);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
   border-radius: 2px;
 }
@@ -144,58 +226,8 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(142, 163, 189, 0.18);
-  border-radius: 999px;
+  background: var(--line-hi);
+  border-radius: var(--r3);
   border: 3px solid transparent;
   background-clip: content-box;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(142, 163, 189, 0.32);
-  background-clip: content-box;
-}
-
-/* --- motion --------------------------------------------------------------- */
-
-@keyframes mc-breathe {
-  0%,
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.35;
-    transform: scale(0.8);
-  }
-}
-
-@keyframes mc-breathe-red {
-  0%,
-  100% {
-    box-shadow: 0 0 0 0 rgba(255, 77, 109, 0.5), 0 0 26px rgba(255, 77, 109, 0.35);
-    border-color: rgba(255, 77, 109, 0.75);
-  }
-  50% {
-    box-shadow: 0 0 0 6px rgba(255, 77, 109, 0), 0 0 8px rgba(255, 77, 109, 0.12);
-    border-color: rgba(255, 77, 109, 0.3);
-  }
-}
-
-@keyframes mc-ring-gold {
-  0%,
-  100% {
-    box-shadow: 0 0 0 1px rgba(245, 196, 81, 0.9), 0 0 24px rgba(245, 196, 81, 0.35);
-  }
-  50% {
-    box-shadow: 0 0 0 1px rgba(245, 196, 81, 0.45), 0 0 10px rgba(245, 196, 81, 0.15);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.001ms !important;
-  }
 }

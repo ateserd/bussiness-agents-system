@@ -13,10 +13,43 @@ export const copy = {
   tagline: "Ateş Design Agency · Ateş Flow Agency",
 
   nav: {
-    command: "Command",
-    brain: "Brain",
-    activity: "Activity",
-    ledger: "Ledger",
+    today: "Bugün",
+    pipeline: "Hat",
+    money: "Para",
+    memory: "Hafıza",
+  },
+
+  today: {
+    needsYou: "Sana düşenler",
+    nothingNeedsYou: "Sana düşen bir şey yok.",
+    now: "Şu an çalışıyor",
+    nothingRunning: "Şu an çalışan görev yok.",
+    live: "canlı",
+    today: "Bugün",
+    noMeetings: "Bugün toplantı yok.",
+    recent: "Son hareketler",
+    noActivity: "Henüz hareket yok.",
+    running: "Çalışan görev",
+    parked: "Sana takılı",
+    awaiting: "Onay bekleyen",
+    sentToday: "Bugün giden",
+    askedYou: "sana soruldu",
+    batchWaiting: (n: number) => `${n} taslak günün listesinde onayını bekliyor`,
+    batchWhere: "Telegram'dan cevapla: “gönder” · “3 hariç” · “iptal”",
+    blocked: "engelli",
+    deletedAgent: "silinmiş ajan",
+  },
+
+  pipeline: {
+    title: "Hat",
+    subtitle: "Lead → fırsat → proje → müşteri",
+    lead: "Lead",
+    deal: "Fırsat",
+    project: "Proje",
+    client: "Müşteri",
+    empty: "Bu aşamada henüz kayıt yok.",
+    more: (n: number) => `+${n} tane daha`,
+    retention: "Dokunulmamış lead 30 gün sonra siliniyor · temas kurulan kalıyor",
   },
 
   branch: {
@@ -258,6 +291,12 @@ export const fmt = {
       hour: "2-digit",
       minute: "2-digit",
     }).format(d);
+  },
+
+  /** Just the time — meeting rows, where the date is already the page. */
+  clock(value: Date | string): string {
+    const d = typeof value === "string" ? new Date(value) : value;
+    return new Intl.DateTimeFormat("tr-TR", { hour: "2-digit", minute: "2-digit" }).format(d);
   },
 
   day(value: Date | string): string {

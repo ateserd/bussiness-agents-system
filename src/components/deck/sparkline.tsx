@@ -53,7 +53,7 @@ export function Sparkline({
           y1={targetY}
           x2={width - pad}
           y2={targetY}
-          stroke="var(--haze)"
+          stroke="var(--ink-2)"
           strokeWidth="1"
           strokeDasharray="2 3"
           opacity="0.35"

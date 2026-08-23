@@ -55,7 +55,7 @@ export function TrendChart({
               y1={scaleY(max * f)}
               x2={width - padL}
               y2={scaleY(max * f)}
-              stroke="rgba(142,163,189,.1)"
+              stroke="var(--line)"
               strokeWidth="1"
             />
           ))}
@@ -72,7 +72,7 @@ export function TrendChart({
                 x={padL + i * stepX}
                 y={height - 8}
                 textAnchor="middle"
-                fill="var(--dim)"
+                fill="var(--ink-3)"
                 fontSize="10"
                 fontFamily="var(--mono)"
               >
@@ -81,7 +81,7 @@ export function TrendChart({
             ) : null,
           )}
 
-          <text x={padL} y={scaleY(max) - 4} fill="var(--dim)" fontSize="10" fontFamily="var(--mono)">
+          <text x={padL} y={scaleY(max) - 4} fill="var(--ink-3)" fontSize="10" fontFamily="var(--mono)">
             {fmt.money(max)}
           </text>
         </svg>
@@ -97,8 +97,8 @@ export function TrendChart({
 
 function Key({ color, label }: { color: string; label: string }) {
   return (
-    <span className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.14em]" style={{ color: "var(--haze)" }}>
-      <span className="inline-block h-[3px] w-6 rounded-sm" style={{ background: color, boxShadow: `0 0 10px ${color}` }} />
+    <span className="flex items-center gap-2 text-[12px]" style={{ color: "var(--ink-2)" }}>
+      <span className="inline-block h-[3px] w-6 rounded-sm" style={{ background: color }} />
       {label}
     </span>
   );

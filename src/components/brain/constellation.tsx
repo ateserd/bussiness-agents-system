@@ -309,13 +309,13 @@ export function Constellation({
           className="min-w-[240px] flex-1 rounded border px-4 py-2.5 text-[14px]"
           style={{
             borderColor: "var(--line)",
-            background: "rgba(11,19,35,.7)",
+            background: "var(--surface)",
             color: "var(--ink)",
             maxWidth: 420,
           }}
         />
         {matches && (
-          <span className="mc-eyebrow" style={{ fontSize: 10 }}>
+          <span className="label">
             {fmt.number(matches.size)} eşleşme
           </span>
         )}
@@ -330,7 +330,7 @@ export function Constellation({
         <div
           ref={wrapRef}
           className="relative h-[560px] overflow-hidden rounded"
-          style={{ border: "1px solid var(--line)", background: "rgba(6,11,22,.45)" }}
+          style={{ border: "1px solid var(--line)", background: "var(--surface)" }}
         >
           <canvas ref={canvasRef} className="block h-full w-full" />
         </div>
@@ -340,7 +340,7 @@ export function Constellation({
 
       <div className="flex flex-wrap gap-x-8 gap-y-2 pt-1">
         <Counter n={counts.memories} label={copy.brain.memories} />
-        <Counter n={counts.facts} label={copy.brain.facts} accent="var(--gold)" />
+        <Counter n={counts.facts} label={copy.brain.facts} accent="var(--accent)" />
         <Counter n={counts.clients} label={copy.brain.clients} />
         <Counter n={counts.links} label={copy.brain.links} />
       </div>
@@ -366,9 +366,9 @@ function MemoryPanel({ node, onDeleted }: { node: BrainNode | null; onDeleted: (
     return (
       <div
         className="grid h-full min-h-[200px] place-items-center rounded p-6 text-center"
-        style={{ border: "1px solid var(--line)", background: "var(--panel)" }}
+        style={{ border: "1px solid var(--line)", background: "var(--surface)" }}
       >
-        <p className="m-0 text-[13px]" style={{ color: "var(--dim)" }}>
+        <p className="m-0 text-[13px]" style={{ color: "var(--ink-3)" }}>
           {copy.brain.pick}
         </p>
       </div>
@@ -397,13 +397,13 @@ function MemoryPanel({ node, onDeleted }: { node: BrainNode | null; onDeleted: (
       style={{
         border: "1px solid var(--line)",
         borderTop: `2px solid ${colorOf(node)}`,
-        background: "var(--panel)",
+        background: "var(--surface)",
         maxHeight: 560,
       }}
     >
       <div>
         <div className="flex items-start justify-between gap-3">
-          <p className="mc-eyebrow" style={{ color: colorOf(node), fontSize: 9.5 }}>
+          <p className="label" style={{ color: colorOf(node) }}>
             {copy.memoryKind[node.kind] ?? node.kind}
             {node.permanent ? ` · ${copy.brain.permanent}` : ""}
           </p>
@@ -412,8 +412,8 @@ function MemoryPanel({ node, onDeleted }: { node: BrainNode | null; onDeleted: (
               <button
                 disabled={pending}
                 onClick={() => setConfirming(true)}
-                className="flex-none rounded border px-2 py-1 font-mono text-[9.5px] uppercase tracking-[0.1em] disabled:opacity-40"
-                style={{ borderColor: "var(--line)", color: "var(--dim)" }}
+                className="flex min-h-[32px] flex-none items-center rounded border px-2.5 text-[12px] disabled:opacity-40"
+                style={{ borderColor: "var(--line)", color: "var(--ink-3)" }}
               >
                 {copy.brain.delete}
               </button>
@@ -422,16 +422,16 @@ function MemoryPanel({ node, onDeleted }: { node: BrainNode | null; onDeleted: (
                 <button
                   disabled={pending}
                   onClick={handleDelete}
-                  className="rounded border px-2 py-1 font-mono text-[9.5px] uppercase tracking-[0.1em] disabled:opacity-40"
-                  style={{ borderColor: "rgba(255,77,109,.5)", color: "var(--crit)" }}
+                  className="flex min-h-[32px] items-center rounded border px-2.5 text-[12px] disabled:opacity-40"
+                  style={{ borderColor: "var(--crit)", color: "var(--crit)" }}
                 >
                   {pending ? copy.common.loading : copy.brain.deleteConfirm}
                 </button>
                 <button
                   disabled={pending}
                   onClick={() => setConfirming(false)}
-                  className="rounded border px-2 py-1 font-mono text-[9.5px] uppercase tracking-[0.1em] disabled:opacity-40"
-                  style={{ borderColor: "var(--line)", color: "var(--dim)" }}
+                  className="flex min-h-[32px] items-center rounded border px-2.5 text-[12px] disabled:opacity-40"
+                  style={{ borderColor: "var(--line)", color: "var(--ink-3)" }}
                 >
                   {copy.brain.deleteCancel}
                 </button>
@@ -453,14 +453,14 @@ function MemoryPanel({ node, onDeleted }: { node: BrainNode | null; onDeleted: (
       {node.supersedes && (
         <p
           className="m-0 rounded px-3 py-2 font-mono text-[11px]"
-          style={{ border: "1px solid rgba(245,196,81,.3)", color: "var(--gold)" }}
+          style={{ border: "1px solid var(--accent-line)", color: "var(--accent)" }}
         >
           {copy.brain.supersedes}: {node.supersedes.slice(0, 8)}…
         </p>
       )}
 
       <div className="flex flex-col gap-2 border-t pt-4" style={{ borderColor: "var(--line)" }}>
-        <p className="mc-eyebrow mb-0" style={{ fontSize: 9.5 }}>
+        <p className="label mb-0">
           {copy.brain.addNote}
         </p>
         <textarea
@@ -470,18 +470,18 @@ function MemoryPanel({ node, onDeleted }: { node: BrainNode | null; onDeleted: (
           rows={3}
           maxLength={600}
           className="resize-none rounded border px-3 py-2 text-[12.5px] leading-relaxed"
-          style={{ borderColor: "var(--line)", background: "rgba(11,19,35,.7)", color: "var(--ink)" }}
+          style={{ borderColor: "var(--line)", background: "var(--surface)", color: "var(--ink)" }}
         />
         <button
           disabled={pending || !noteText.trim()}
           onClick={handleAddNote}
-          className="self-start rounded px-3 py-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] disabled:opacity-40"
-          style={{ background: colorOf(node), color: "var(--void)" }}
+          className="flex min-h-[36px] items-center self-start rounded px-4 text-[12.5px] font-semibold disabled:opacity-40"
+          style={{ background: colorOf(node), color: "var(--bg)" }}
         >
           {pending ? copy.common.loading : copy.brain.noteSubmit}
         </button>
         {flash && (
-          <p className="m-0 font-mono text-[11px] leading-relaxed" style={{ color: "var(--gold)" }}>
+          <p className="m-0 font-mono text-[11px] leading-relaxed" style={{ color: "var(--accent)" }}>
             {flash}
           </p>
         )}
@@ -493,10 +493,10 @@ function MemoryPanel({ node, onDeleted }: { node: BrainNode | null; onDeleted: (
 function Field({ label, value }: { label: string; value: string }) {
   return (
     <>
-      <dt className="mc-eyebrow" style={{ fontSize: 9, whiteSpace: "nowrap" }}>
+      <dt className="label" style={{ whiteSpace: "nowrap" }}>
         {label}
       </dt>
-      <dd className="m-0 break-words font-mono text-[11px]" style={{ color: "var(--haze)" }}>
+      <dd className="m-0 break-words font-mono text-[11px]" style={{ color: "var(--ink-2)" }}>
         {value}
       </dd>
     </>
@@ -509,7 +509,7 @@ function Counter({ n, label, accent }: { n: number; label: string; accent?: stri
       <b className="mc-num text-[19px] font-semibold" style={{ color: accent ?? "var(--ink)" }}>
         {fmt.number(n)}
       </b>
-      <span className="mc-eyebrow" style={{ fontSize: 9.5 }}>
+      <span className="label">
         {label}
       </span>
     </span>
@@ -518,11 +518,8 @@ function Counter({ n, label, accent }: { n: number; label: string; accent?: stri
 
 function Legend({ color, label }: { color: string; label: string }) {
   return (
-    <span className="flex items-center gap-2 font-mono text-[9.5px] uppercase tracking-[0.14em]" style={{ color: "var(--haze)" }}>
-      <span
-        className="inline-block h-[7px] w-[7px] rounded-full"
-        style={{ background: color, boxShadow: `0 0 8px ${color}` }}
-      />
+    <span className="flex items-center gap-2 text-[12px]" style={{ color: "var(--ink-2)" }}>
+      <span className="inline-block h-[7px] w-[7px] rounded-full" style={{ background: color }} />
       {label}
     </span>
   );

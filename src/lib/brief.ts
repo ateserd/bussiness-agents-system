@@ -384,17 +384,3 @@ export async function composeBrief(
   const body = renderBrief(brief);
   return narration ? `${narration}\n\n${body}` : body;
 }
-
-/** Three short lines for the manager card on the dashboard. */
-export function tickerLines(brief: Brief): string[] {
-  const lines = [
-    `WEB  ${brief.web.openDeals} açık teklif · ${fmt.money(brief.web.pipelineValue)}`,
-    `FLOW ${brief.automation.openDeals} açık teklif · ${brief.automation.healthy}/${brief.automation.live} akış sağlıklı`,
-  ];
-  if (brief.unavailable.length > 0) {
-    lines.push(`⚠ ${brief.unavailable[0].name}: ${brief.unavailable[0].reason}`);
-  } else {
-    lines.push(`NAKİT ${fmt.money(brief.cash.collectedMtd)} tahsil · ${fmt.money(brief.cash.unpaid)} açık`);
-  }
-  return lines;
-}
