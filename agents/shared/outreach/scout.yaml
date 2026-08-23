@@ -7,7 +7,7 @@ tier: worker
 reports_to: shared.command.manager
 accent: "#ff4d6d"
 status: idle
-model: claude-sonnet-5
+model: claude-haiku-4-5
 effort: medium
 mission: >
   Şubenin ICP'sine göre Google Haritalar'dan lead listesini çıkarır ve telefon numarası olan her yerde onu

@@ -7,7 +7,7 @@ tier: worker
 reports_to: shared.command.manager
 accent: "#a06cff"
 status: idle
-model: claude-sonnet-5
+model: claude-haiku-4-5
 effort: medium
 mission: >
   E-postasına ulaşılabilen leadler için cold mail, ulaşılamayanlar için arama metni ve telefon numarası

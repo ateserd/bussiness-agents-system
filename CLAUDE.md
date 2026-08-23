@@ -137,6 +137,16 @@ src/db/                         schema · client · migrate · seed
   çalışıyor, işçiler günde bir — onlara koymak primi ödeyip hiç okumamak olurdu.
   Anıların değişken tarafta olması şart: `recall()` sorguyu `mission + task` ile
   gömüyor, yani her mesajda değişiyor.
+- **Thinking ve effort her modelde yok — ve yanlışı runu tümden düşürüyor.**
+  Haiku 4.5 yalnızca extended thinking destekliyor: `thinking:{type:"adaptive"}`
+  400 dönüyor, `output_config.effort` de desteklenen parametreleri arasında
+  değil. `run.ts` eskiden ikisini de koşulsuz gönderiyordu, yani Ops Haiku'ya
+  alındığı andan beri her gerçek çağrıda patlıyordu — ve **anahtarsız checkout
+  hiç API'ye ulaşmadığı için burada görünmüyordu.** Artık `reasoningParams()`
+  modele bakıyor, kaynağı da `cost.ts`'teki tek model tablosu. Yeni model
+  eklerken fiyatla birlikte `thinking` alanı da yazılır; bilinmeyen model
+  `extended`'a düşer, çünkü göndermemek asla runu düşürmez.
+
 - **`tick()` içindeki sistem adımlarının saati AYARDAN gelir**, cadence
   tablosundan değil. `dueRuns()` statik cron okur; `brief.time` ve
   `outreach.batch_time` birer ayar. Bu yüzden brifing ve parti `tick.ts` içinde,
@@ -178,7 +188,7 @@ src/db/                         schema · client · migrate · seed
 Sahipten bekleyen tek kurulum: **Google Takvim OAuth** (~20 dk, `DEPLOY.md` § 8).
 Kurulmadan takvim yazma çalışmaz, okuma `.ics`'ten devam eder.
 
-Yalnızca VPS'te doğrulanabilecek üç şey — bu sandbox'ın çıkış proxy'si
+Yalnızca VPS'te doğrulanabilecek dört şey — bu sandbox'ın çıkış proxy'si
 `tcmb.gov.tr`'yi ve döviz API'lerini engelliyor, `ANTHROPIC_API_KEY` de yok:
 
 1. **Kur** — ilk gerçek TL çevrimi (`npm run agent:run -- shared.ops.assistant
@@ -187,5 +197,8 @@ Yalnızca VPS'te doğrulanabilecek üç şey — bu sandbox'ın çıkış proxy'
    gerçek bir çağrı yapılmadı
 3. **Önbellek isabeti** — iki ardışık Telegram mesajından sonra
    `usage.cache_read_input_tokens > 0` olmalı
+4. **Haiku işçiler** — Scout/Outreach/Ops'un gerçek bir çağrıda 400 almadığı
+   (`npm run agent:run -- shared.ops.assistant`). Model yeteneği tablosu
+   dokümana göre yazıldı, canlı çağrıyla doğrulanmadı.
 
 Geri kalan açık işler `SETUP_TODO.md`'de.

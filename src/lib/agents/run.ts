@@ -5,7 +5,7 @@ import { getDb } from "@/db/client";
 import type { Branch } from "@/db/schema";
 import { activity, agents, type Outcome } from "@/db/schema";
 import { writeMemory } from "@/lib/brain/write";
-import { costOf } from "./cost";
+import { costOf, thinkingModeFor } from "./cost";
 import { narrowScopes } from "@/lib/brain/scope";
 import { getSetting } from "@/lib/settings";
 import { assemblePrompt, extractUnsure } from "./prompt";
@@ -70,6 +70,28 @@ const MAX_ITERATIONS = 8;
 function defaultTask(): string {
   return `Görevini bir kez yürüt ve sonucunu raporla. Bugünün tarihi: ${new Date().toLocaleDateString("tr-TR")}.
 Elindeki araçlarla gerçekten yapabileceğini yap; yapamadığın kısmı açıkça "yapılamadı" diye işaretle.`;
+}
+
+/**
+ * Thinking and effort are not universal, and getting this wrong fails the run.
+ *
+ * Claude Haiku 4.5 supports extended thinking only: `thinking: {type:
+ * "adaptive"}` comes back a 400, and `output_config.effort` is not among its
+ * supported parameters either. Sending both unconditionally is what every agent
+ * used to do, so moving a worker to Haiku broke it on every real call — and
+ * stayed invisible here, because a checkout with no ANTHROPIC_API_KEY never
+ * reaches the API at all.
+ *
+ * Extended-thinking models are sent no `thinking` block: Haiku 4.5 defaults to
+ * thinking off, which is what the workers want — they run templated jobs and
+ * were moved to Haiku to be cheap. If their output ever needs more deliberation,
+ * the knob is `thinking: {type: "enabled", budget_tokens: N}` here, and it costs
+ * tokens against the same `max_tokens`.
+ */
+function reasoningParams(agent: AgentConfig) {
+  return thinkingModeFor(agent.model) === "adaptive"
+    ? { thinking: { type: "adaptive" as const }, output_config: { effort: agent.effort } }
+    : {};
 }
 
 export async function runAgent(agentId: string, options: RunOptions = {}): Promise<RunResult> {
@@ -152,8 +174,7 @@ export async function runAgent(agentId: string, options: RunOptions = {}): Promi
       const runner = client.beta.messages.toolRunner({
         model: agent.model,
         max_tokens: 8000,
-        thinking: { type: "adaptive" },
-        output_config: { effort: agent.effort },
+        ...reasoningParams(agent),
         system,
         tools: toolsFor(ctx),
         messages: [{ role: "user", content: user }],
