@@ -8,7 +8,11 @@ tier: cos
 reports_to: null
 accent: "#f5c451"
 status: idle
-model: claude-sonnet-5
+model: claude-haiku-4-5
+# `effort` is inert on Haiku 4.5 — it only supports extended thinking, and
+# `reasoningParams()` in run.ts skips both knobs there. Kept because switching
+# this model back to claude-sonnet-5 is the documented escape hatch if Haiku's
+# Turkish or tool choice disappoints, and then this value applies again.
 effort: high
 mission: >
   Sahibin tek muhatabı. Serbest yazılmış bir Telegram mesajından ya da sesli nottan ne istediğini çıkarır,

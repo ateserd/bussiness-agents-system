@@ -185,10 +185,17 @@ export async function assemblePrompt(ctx: PromptContext): Promise<AssembledPromp
    * write premium and never read it back.
    *
    * The prefix is `tools` → `system` → `messages`, so the agent's tools count
-   * toward the ~1024-token floor along with the house rules and the role
-   * prompt — comfortably over. `ctx.ownerChannel` changes the tool set, so
-   * chat and scheduled runs land in two cache entries; that is expected, not a
-   * miss.
+   * toward the minimum cacheable length along with the house rules and the
+   * role prompt. **That minimum is per-model**: 1024 tokens on Sonnet but
+   * 4096 on Haiku 4.5, and below it the breakpoint is ignored outright — no
+   * error, no write, `cache_read_input_tokens` simply stays 0. Measured on the
+   * manager: ~3.3k of tools plus ~2.6k of stable text ≈ 5.9k, so ~1.8k of
+   * headroom over the Haiku floor. Trimming the role prompt or dropping tools
+   * eats that margin, and on Haiku the caching stops silently — re-measure
+   * before doing either.
+   *
+   * `ctx.ownerChannel` changes the tool set, so chat and scheduled runs land
+   * in two cache entries; that is expected, not a miss.
    */
   const system: BetaTextBlockParam[] =
     agent.reports_to === null

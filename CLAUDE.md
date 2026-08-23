@@ -137,6 +137,12 @@ src/db/                         schema · client · migrate · seed
   çalışıyor, işçiler günde bir — onlara koymak primi ödeyip hiç okumamak olurdu.
   Anıların değişken tarafta olması şart: `recall()` sorguyu `mission + task` ile
   gömüyor, yani her mesajda değişiyor.
+- **Önbelleğin minimum önek uzunluğu MODELE göre değişiyor** ve altında kalınca
+  breakpoint sessizce yok sayılıyor — hata yok, yazma yok, `cache_read` sıfır.
+  Sonnet'te 1024 token, **Haiku 4.5'te 4096.** Yönetici ölçüldü: ~3.3k araç +
+  ~2.6k sabit metin ≈ **5.9k**, yani Haiku eşiğinin ~1.8k üstünde. Rol promptunu
+  kırpmak ya da araç çıkarmak bu marjı yer ve önbellek Haiku'da sessizce durur.
+  İkisinden birini yapmadan önce yeniden ölç.
 - **Thinking ve effort her modelde yok — ve yanlışı runu tümden düşürüyor.**
   Haiku 4.5 yalnızca extended thinking destekliyor: `thinking:{type:"adaptive"}`
   400 dönüyor, `output_config.effort` de desteklenen parametreleri arasında
