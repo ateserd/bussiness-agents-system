@@ -21,6 +21,7 @@ tools:
   - "crm.read"
   - "crm.write"
   - "places.search"
+  - "lighthouse"
   - "web.search"
   - "web.fetch"
   - "owner.ask"

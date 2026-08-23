@@ -50,11 +50,14 @@ src/db/                         schema · client · migrate · seed
   bir fiyat değişikliğini kod değişikliğine çevirir.
 - **Onay kapıları araç `run()`'ının İÇİNDE.** Başka bir döngü, retry veya yeni
   bir çağıran kapıyı atlayamaz. Dışarıya tek bir yol var, o da oradan geçer.
-- **`outreach_send` ve `send_contract` KOŞULSUZ kapılı** — `gatedBy` kontrolü
-  yok. YAML'dan kapıyı silmek ya da ajanı `act_freely` yapmak bir yabancının
-  gelen kutusuna yol açamaz. Sahibin duran talimatı bu; config'e bağlı bir kural
-  bu talimat değildir. `publish`/`deploy`/`spend` ajan bazında kalmaya devam
-  ediyor, onlar meşru biçimde role bağlı.
+- **`outreach_send` ve üç takvim aracı KOŞULSUZ kapılı** — `gatedBy` kontrolü
+  yok. YAML'dan kapıyı silmek ya da ajanı `act_freely` yapmak ne bir yabancının
+  gelen kutusuna ne de sahibin takvimine yol açabilir. İkisi de sahibin duran
+  talimatı; config'e bağlı bir kural bu talimat değildir. `spend` ajan bazında
+  kalmaya devam ediyor, o meşru biçimde role bağlı.
+  (`send_contract` vardı ve silindi: sözleşmeyi sahip elle yolluyor, yani onu
+  tutan bir ajan hiç olmadı. Ulaşılamayan bir araç hakkındaki kural, kural
+  değil süstür.)
 - **Her onay kartı oluşturulduğunda Telegram'a düşer** (`notifyOwner`) — tek
   istisna günün gönderim partisi: on kart on bildirim düşürmesin diye
   `requireApproval(..., notify=false)` ile susturulur ve hepsini kapsayan **tek**
@@ -99,9 +102,16 @@ src/db/                         schema · client · migrate · seed
 
 ## Tuzaklar (tekrar öğrenmeye değmez)
 
-- **Ajan `tools:` listesine yazılan her ad `BUILDERS`'ta olmalı.** Yoksa
-  `toolsFor()` onu sessizce düşürür. v1'de `agent.dispatch` on bir dosyada
-  yazılıydı ve hiç var olmamıştı — Chief of Staff hiç görev dağıtamıyordu.
+- **Ajan `tools:` listesine yazılan her ad artık zorunlu olarak var.** Eskiden
+  `toolsFor()` bilinmeyen adı sessizce düşürürdü; v1'de `agent.dispatch` on bir
+  dosyada yazılıydı ve hiç var olmamıştı — Chief of Staff hiç görev
+  dağıtamıyordu. Tuzak kapatıldı: geçerli adlar `src/lib/agents/tool-names.ts`'te,
+  `registry.ts` YAML'ı ona karşı doğruluyor (dosya adını söyleyerek patlıyor) ve
+  `BUILDERS` `satisfies Record<ToolName, …>` olduğu için ikisi sapamıyor.
+  Yeni araç eklerken **iki yere** yazılır: listeye ve `BUILDERS`'a; birini
+  unutmak derlemede yakalanır.
+  Kanal-bağlı araçlar (`settings.write`, `outreach.plan`) listede bilerek yok —
+  onlar YAML'dan değil, çalışmanın nereden geldiğinden mount ediliyor.
 - **`toolsFor()` araç *adına* göre tekilleştirir.** Bir ajan aynı aracı hem
   `tools:` hem `approval_required_for` üzerinden alabilir; kayıt adına göre
   tekilleştirmek API'ye aynı isimde iki tanım gönderiyordu.

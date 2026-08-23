@@ -4,6 +4,7 @@ import { parse } from "yaml";
 import { z } from "zod";
 import { AGENT_STATUSES, AUTONOMIES, BRANCHES, DEPARTMENTS, TIERS } from "@/db/schema";
 import { knownModels } from "./cost";
+import { isToolName, TOOL_NAMES } from "./tool-names";
 
 /**
  * Loads every agents/**\/*.yaml, validates it, and caches the result.
@@ -101,6 +102,19 @@ function load(): AgentConfig[] {
   if (roots.length !== 1) {
     problems.push(`expected exactly one root agent (reports_to: null), found ${roots.length}`);
   }
+  // A tool name with no implementation used to be dropped silently by
+  // `toolsFor()`, which is how `agent.dispatch` sat in eleven files claiming a
+  // capability that never existed. Fail here instead, naming the file.
+  for (const c of configs) {
+    for (const tool of c.tools) {
+      if (!isToolName(tool)) {
+        problems.push(
+          `${c.id}: tool "${tool}" has no implementation (known: ${TOOL_NAMES.join(", ")})`,
+        );
+      }
+    }
+  }
+
   // An agent whose model has no price cannot have its spend ceiling enforced,
   // so a typo here is a safety hole, not a cosmetic one. Fail at load, where
   // the offending file is named, rather than mid-run.

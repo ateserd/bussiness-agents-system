@@ -194,7 +194,7 @@ drift:
 |---|---|
 | **Branch isolation** — an agent reads only its own scopes | `src/lib/brain/scope.ts` (`scopeMatches`) |
 | **Approval gates** — nothing leaves without your tap | inside each gated tool's `run()`, `src/lib/agents/tools.ts` |
-| **Contacting a stranger always asks** — not per-agent config, so no YAML edit or autonomy change can open it | `outreach_send` and `send_contract` call `requireApproval` with no `gatedBy` check |
+| **Contacting a stranger always asks** — not per-agent config, so no YAML edit or autonomy change can open it | `outreach_send` calls `requireApproval` with no `gatedBy` check |
 | **The calendar never changes without asking** — create, move and cancel alike | `meeting_schedule` / `meeting_update` / `meeting_cancel`, gated the same unconditional way |
 | **No business number is hardcoded** — daily cap, thresholds, brief times, cost ceiling | the catalogue in `src/lib/settings.ts`; the table is only an override layer |
 | **A day's instruction expires** — "bugün 7 at" is not "always 7" | `outreach_days`, read by `planFor()` in `src/lib/outreach/plan.ts` |

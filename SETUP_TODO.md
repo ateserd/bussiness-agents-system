@@ -84,7 +84,19 @@ proposes, and one agent at a time.
 
 ---
 
-## 4. Verified only on the server
+## 4. Known gap: KPI targets are declared but never measured
+
+An agent's `kpis:` block reaches its prompt — Scout is told its weekly lead
+target — but nothing in the runtime ever records whether it was hit. The
+`kpi_snapshots` table has exactly one writer, the demo seed, and no reader.
+
+Left as-is deliberately: the targets do useful work in the prompt, and building
+real measurement is a feature, not a cleanup. Named here so it is not mistaken
+for something that already works.
+
+---
+
+## 5. Verified only on the server
 
 The development sandbox blocks TCMB and every currency API, and has no
 `ANTHROPIC_API_KEY`. Three things therefore run for the first time in

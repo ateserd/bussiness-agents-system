@@ -35,6 +35,17 @@ Look at a page before describing it. If you could not fetch it, say that — an 
 finding, and guessing what is on it is the one thing that makes this work useless. Give the link every time,
 even when you are sure of the name: the owner opens these, he does not read about them.
 
+## The number that opens a cold mail
+
+For an automation-branch lead — the ones that *have* a site — `lighthouse` gives you a real page-speed
+measurement. One measured number beats any adjective: "sayfanız mobilde 4.1 saniyede açılıyor" is something
+a business owner can check, and it is the difference between a mail that gets read and one that gets
+deleted. Record it on the lead so Outreach can open with it.
+
+It runs through Google PageSpeed and will sometimes refuse — a 429 on the shared keyless quota, or a site it
+cannot reach. When it does it says `⚠️ ölçülemedi`. Pass that on; never estimate a score. A made-up number
+in a cold mail is a lie to a stranger about their own website, and they will check.
+
 ## Never
 
 - Never invent a business, a phone number, or a review count. These get dialled by a human.

@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, sql } from "drizzle-orm";
+import { desc, eq, gte, sql } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { copy } from "@/lib/copy";
 import {
@@ -9,17 +9,14 @@ import {
   deals,
   expenses,
   invoices,
-  kpiSnapshots,
   leads,
   memories,
   memoryLinks,
   projects,
   tasks,
   type Activity,
-  type Agent,
   type Approval,
   type Branch,
-  type KpiSnapshot,
   type Memory,
 } from "@/db/schema";
 
@@ -27,70 +24,6 @@ import {
  * Every read the views make. Server Components call these directly; nothing in
  * here is client-safe (it touches the database).
  */
-
-export type AgentNode = Agent & {
-  kpis: { name: string; label: string; value: number; target: number | null; series: number[] }[];
-  lastActivity: Activity | null;
-};
-
-export async function getCrew(): Promise<AgentNode[]> {
-  const db = await getDb();
-  const [rows, kpis, recent] = await Promise.all([
-    db.select().from(agents),
-    db.select().from(kpiSnapshots).orderBy(kpiSnapshots.day),
-    db
-      .select()
-      .from(activity)
-      .orderBy(desc(activity.startedAt))
-      .limit(600),
-  ]);
-
-  const kpisByAgent = new Map<string, KpiSnapshot[]>();
-  for (const k of kpis) {
-    const list = kpisByAgent.get(k.agentId) ?? [];
-    list.push(k);
-    kpisByAgent.set(k.agentId, list);
-  }
-
-  const lastByAgent = new Map<string, Activity>();
-  for (const a of recent) {
-    // agentId is nullable now: a row whose agent was deleted is still real
-    // history, but it is nobody's "last activity".
-    if (a.agentId && !lastByAgent.has(a.agentId)) lastByAgent.set(a.agentId, a);
-  }
-
-  return rows.map((agent) => {
-    const snaps = kpisByAgent.get(agent.id) ?? [];
-    const byName = new Map<string, KpiSnapshot[]>();
-    for (const s of snaps) {
-      const list = byName.get(s.name) ?? [];
-      list.push(s);
-      byName.set(s.name, list);
-    }
-    return {
-      ...agent,
-      kpis: [...byName.entries()].map(([name, series]) => ({
-        name,
-        label: series[0].label,
-        value: series[series.length - 1]?.value ?? 0,
-        target: series[0].target,
-        series: series.map((s) => s.value),
-      })),
-      lastActivity: lastByAgent.get(agent.id) ?? null,
-    };
-  });
-}
-
-export async function getAgentDetail(id: string) {
-  const db = await getDb();
-  const [[agent], log, mem, kpis] = await Promise.all([
-    db.select().from(agents).where(eq(agents.id, id)),
-    db.select().from(activity).where(eq(activity.agentId, id)).orderBy(desc(activity.startedAt)).limit(12),
-    db.select().from(memories).where(eq(memories.sourceAgentId, id)).orderBy(desc(memories.createdAt)).limit(12),
-    db.select().from(kpiSnapshots).where(eq(kpiSnapshots.agentId, id)).orderBy(kpiSnapshots.day),
-  ]);
-  return { agent: agent ?? null, log, memories: mem, kpis };
-}
 
 export async function getMemoryCount(): Promise<number> {
   const db = await getDb();
@@ -531,7 +464,3 @@ export async function getDayActivity(since: Date) {
   };
 }
 
-export async function getBlockedAgents(): Promise<Agent[]> {
-  const db = await getDb();
-  return db.select().from(agents).where(and(eq(agents.status, "blocked")));
-}

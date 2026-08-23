@@ -12,6 +12,7 @@ import { writeMemory } from "@/lib/brain/write";
 import { clip, notifyOwner } from "@/lib/chat/notify";
 import { passesAutomationFloor, qualifiesForWeb, searchPlaces } from "@/lib/integrations/places";
 import { allAgents, getAgent, type AgentConfig } from "./registry";
+import { isToolName, type ToolName } from "./tool-names";
 
 /**
  * The tool surface agents act through.
@@ -421,50 +422,6 @@ const outreachSend = (ctx: ToolContext) =>
     },
   });
 
-const sendContract = (ctx: ToolContext) =>
-  betaZodTool({
-    name: "send_contract",
-    description: "Sözleşme veya teklif gönderir. Her zaman onay kapısı arkasındadır.",
-    inputSchema: z.object({ client: z.string(), document: z.string(), valueUsd: z.number().optional() }),
-    run: async ({ client, document, valueUsd }) => {
-      // Unconditional, like outreach_send — which is what the description above
-      // has always claimed. Signing is manual by the owner's decision, so an
-      // agent's job ends at a drafted contract sitting in the approval queue.
-      return requireApproval(ctx, "sending_contracts", `${client} — sözleşme`, document, {
-        client,
-        valueUsd,
-      });
-    },
-  });
-
-const publish = (ctx: ToolContext) =>
-  betaZodTool({
-    name: "publish",
-    description: "Müşteriye veya kamuya açık bir şey yayınlar. Onay kapısı arkasındadır.",
-    inputSchema: z.object({ where: z.string(), content: z.string() }),
-    run: async ({ where, content }) => {
-      if (gatedBy(ctx.agent, "client_facing_publish")) {
-        return requireApproval(ctx, "client_facing_publish", `${where} — yayın`, content, { where });
-      }
-      return `${where} üzerinde yayınlandı.`;
-    },
-  });
-
-const deploy = (ctx: ToolContext) =>
-  betaZodTool({
-    name: "deploy",
-    description: "Müşteri ortamına dağıtım yapar. Onay kapısı arkasındadır.",
-    inputSchema: z.object({ target: z.string(), summary: z.string() }),
-    run: async ({ target, summary }) => {
-      if (gatedBy(ctx.agent, "deploying_to_client_environment")) {
-        return requireApproval(ctx, "deploying_to_client_environment", `${target} — dağıtım`, summary, {
-          target,
-        });
-      }
-      return `${target} ortamına dağıtıldı.`;
-    },
-  });
-
 const spend = (ctx: ToolContext) =>
   betaZodTool({
     name: "spend",
@@ -602,7 +559,6 @@ const settingsWrite = (ctx: ToolContext) =>
       return `${result.label} ${result.from} → ${result.to} olarak güncellendi.`;
     },
   });
-
 
 /**
  * Route the owner's reply back to the task that asked.
@@ -1047,7 +1003,13 @@ const outreachBatchRead = () =>
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyTool = BetaRunnableTool<any> | BetaToolUnion;
 
-const BUILDERS: Record<string, (ctx: ToolContext) => AnyTool> = {
+/**
+ * Name → builder. Typed against `TOOL_NAMES` so the two cannot drift: a builder
+ * whose key is not a declared name fails to compile, and a declared name with
+ * no builder here does too. `outreach.plan` is absent on purpose — it is
+ * mounted by channel, never by YAML.
+ */
+const BUILDERS = {
   "brain.read": brainRead,
   "brain.write": brainWrite,
   browser: () => browser(),
@@ -1055,9 +1017,6 @@ const BUILDERS: Record<string, (ctx: ToolContext) => AnyTool> = {
   "crm.read": crmRead,
   "crm.write": crmWrite,
   "outreach.send": outreachSend,
-  "docs.write": publish,
-  "automation.deploy": deploy,
-  "automation.build": deploy,
   "places.search": placesSearch,
   "agent.delegate": delegate,
   "owner.ask": askOwner,
@@ -1071,10 +1030,9 @@ const BUILDERS: Record<string, (ctx: ToolContext) => AnyTool> = {
   "web.search": () => webSearch(),
   "web.fetch": () => webFetch(),
   "outreach.call_script": callScript,
-  "outreach.plan": outreachPlan,
   "outreach.decide": outreachDecide,
   "outreach.batch": () => outreachBatchRead(),
-};
+} as const satisfies Record<Exclude<ToolName, never>, (ctx: ToolContext) => AnyTool>;
 
 /**
  * Every agent also gets the gated tools matching its own `approval_required_for`
@@ -1096,18 +1054,18 @@ export function toolsFor(ctx: ToolContext): AnyTool[] {
     if (!out.has(key)) out.set(key, tool);
   };
 
+  // The registry already refused to load a YAML naming a tool that does not
+  // exist, so an unknown name cannot reach here — but the guard stays, because
+  // `toolsFor` is also called with hand-built contexts in tests.
   for (const name of ctx.agent.tools) {
-    const builder = BUILDERS[name];
-    if (builder) add(builder(ctx));
+    if (!isToolName(name)) continue;
+    add(BUILDERS[name](ctx));
   }
 
   // An agent that is *allowed* to do a gated thing gets the tool for it, so it
   // hits the gate rather than finding no tool and inventing a way around it.
   for (const gate of ctx.agent.approval_required_for) {
-    if (gate === "sending_contracts") add(sendContract(ctx));
-    if (gate === "client_facing_publish") add(publish(ctx));
     if (gate === "spending_money") add(spend(ctx));
-    if (gate === "deploying_to_client_environment") add(deploy(ctx));
     if (gate === "sending_external_messages") add(outreachSend(ctx));
   }
 
