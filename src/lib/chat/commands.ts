@@ -154,6 +154,7 @@ export async function executeCommand(command: Command, options: ExecuteOptions =
         command.id,
         command.kind === "approve" ? "approved" : "rejected",
         command.kind === "reject" ? command.reason : undefined,
+        "chat",
       );
       return settled.message;
     }

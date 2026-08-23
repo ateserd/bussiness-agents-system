@@ -3,6 +3,8 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { activity, agents, approvals, leads, type Department } from "@/db/schema";
 import { markContacted } from "@/lib/integrations/places";
+import { notifyOwner } from "@/lib/chat/notify";
+import type { CalendarOp } from "@/lib/agents/tools";
 
 /**
  * The one place an approval is settled.
@@ -77,10 +79,100 @@ async function dispatchOutreach(row: typeof approvals.$inferSelect): Promise<str
   return result.ok ? "✓ Gönderildi." : `⚠️ Gönderilemedi: ${result.reason}`;
 }
 
+/**
+ * Execution for an approved `changing_calendar` card.
+ *
+ * The owner's rule for the calendar is two rules at once: full authority over
+ * it, and nothing created, moved or cancelled without being asked on Telegram
+ * first. The ask lives in the gated tool; this is the other half — the work
+ * happens only after he has said yes, and it happens here, once, so there is no
+ * second way to reach Google.
+ *
+ * "Yaptığı her şeyi de raporlasın" is why this returns prose and writes an
+ * `activity` row for every branch, success or failure. The row is the durable
+ * record; the string is what he reads on his phone.
+ */
+async function dispatchCalendar(row: typeof approvals.$inferSelect): Promise<string> {
+  const op = ((row.context ?? {}) as { calendar?: CalendarOp }).calendar;
+  if (!op) return "⚠️ Takvim işlemi eksik kaydedilmiş — hiçbir şey yapılmadı.";
+
+  const calendar = await import("@/lib/integrations/google-calendar");
+  const db = await getDb();
+  const started = new Date();
+
+  let report: string;
+  let ok: boolean;
+
+  if (op.op === "create") {
+    const res = await calendar.createMeeting({
+      title: op.title,
+      startsAt: op.startsAt,
+      durationMin: op.durationMin,
+      attendeeEmails: op.attendees,
+      description: op.description,
+      withMeet: op.withMeet,
+    });
+    ok = res.ok;
+    report = res.ok
+      ? [
+          `📅 Toplantı oluşturuldu — ${res.meeting.summary}`,
+          calendar.describe(res.meeting),
+          res.meeting.attendees.length > 0
+            ? `Davet gönderildi: ${res.meeting.attendees.join(", ")}`
+            : "Katılımcı yok — yalnızca senin takvimine eklendi.",
+        ].join("\n")
+      : `⚠️ Toplantı oluşturulamadı (${res.reason}). Takvimde hiçbir değişiklik olmadı.`;
+  } else if (op.op === "update") {
+    const res = await calendar.updateMeeting({
+      eventId: op.eventId,
+      title: op.title,
+      startsAt: op.startsAt,
+      durationMin: op.durationMin,
+      attendeeEmails: op.attendees,
+    });
+    ok = res.ok;
+    report = res.ok
+      ? [`📅 Toplantı güncellendi — ${op.label}`, calendar.describe(res.meeting), "Katılımcılara güncelleme gitti."].join("\n")
+      : `⚠️ Toplantı güncellenemedi (${res.reason}). Takvimde hiçbir değişiklik olmadı.`;
+  } else {
+    const res = await calendar.cancelMeeting(op.eventId);
+    ok = res.ok;
+    report = res.ok
+      ? `📅 Toplantı iptal edildi — ${op.label}. Katılımcılara iptal bildirimi gitti.`
+      : `⚠️ Toplantı iptal edilemedi (${res.reason}). Takvimde hiçbir değişiklik olmadı.`;
+  }
+
+  await db.insert(activity).values({
+    id: randomUUID(),
+    agentId: row.agentId,
+    branch: row.branch,
+    department: (row.agentId?.split(".")[1] ?? "ops") as Department,
+    action: `calendar_${op.op}`,
+    summary: report.slice(0, 900),
+    reason: "Sahip onayladı.",
+    input: { ...op },
+    output: {},
+    outcome: ok ? "success" : "failure",
+    simulated: false,
+    error: ok ? null : report,
+    startedAt: started,
+    finishedAt: new Date(),
+  });
+
+  return report;
+}
+
 export async function settleApproval(
   approvalId: string,
   decision: "approved" | "rejected",
   reason?: string,
+  /**
+   * Where the decision came from. Only affects whether the outcome is *pushed*
+   * to Telegram: settling from chat already answers in the same thread, so
+   * pushing again would report the same thing twice. From the dashboard there
+   * is nowhere else the report would appear.
+   */
+  via: "chat" | "dashboard" = "dashboard",
 ): Promise<SettleResult> {
   const db = await getDb();
   const [row] = await db.select().from(approvals).where(eq(approvals.id, approvalId));
@@ -109,8 +201,15 @@ export async function settleApproval(
   }
 
   const verdict = `${row.title} — ${decision === "approved" ? "onaylandı" : "reddedildi"}.`;
-  if (decision === "rejected" || row.gate !== "sending_external_messages") {
-    return { ok: true, message: verdict };
+  if (decision === "rejected") return { ok: true, message: verdict };
+
+  if (row.gate === "sending_external_messages") {
+    return { ok: true, message: `${verdict}\n${await dispatchOutreach(row)}` };
   }
-  return { ok: true, message: `${verdict}\n${await dispatchOutreach(row)}` };
+  if (row.gate === "changing_calendar") {
+    const report = await dispatchCalendar(row);
+    if (via !== "chat") await notifyOwner(report);
+    return { ok: true, message: `${verdict}\n${report}` };
+  }
+  return { ok: true, message: verdict };
 }

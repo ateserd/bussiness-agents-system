@@ -21,6 +21,8 @@ tools:
   - "crm.read"
   - "crm.write"
   - "places.search"
+  - "web.search"
+  - "web.fetch"
   - "owner.ask"
 memory_scopes:
   - "global"

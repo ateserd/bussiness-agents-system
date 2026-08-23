@@ -75,7 +75,17 @@ export const CATALOGUE = {
   },
   "brief.time": { type: "string", value: "07:30", label: "Sabah brifingi saati" },
   "brief.evening_time": { type: "string", value: "19:00", label: "Akşam özeti saati" },
-  "fx.source": { type: "enum", value: "tcmb", allowed: ["tcmb"], label: "Döviz kuru kaynağı" },
+  "fx.source": {
+    type: "enum",
+    value: "tcmb",
+    allowed: ["tcmb", "erapi"],
+    label: "Döviz kuru kaynağı (tcmb / erapi)",
+  },
+  "owner.timezone": {
+    type: "string",
+    value: "Europe/Istanbul",
+    label: "Takvim saat dilimi",
+  },
   "agent.max_cost_usd": {
     type: "number",
     value: 0.5,
@@ -201,7 +211,11 @@ export async function allSettings(): Promise<SettingView[]> {
     return {
       key,
       value: parsed ?? def.value,
-      isDefault: parsed === null,
+      // A row holding the default value is still at its default. Without the
+      // second half, setting 15 and then setting 10 back leaves the key listed
+      // under "yalnızca varsayılandan farklı olanlar" forever, showing a value
+      // identical to the default under a heading that says it differs.
+      isDefault: parsed === null || parsed === def.value,
       def,
       updatedAt: parsed !== null && row ? row.updatedAt : null,
       updatedBy: parsed !== null && row ? row.updatedBy : null,

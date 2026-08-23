@@ -9,28 +9,46 @@
 |---|---|
 | Planlama + kararlar | ✅ bitti (aşağıdaki kararlar sana soruldu, sen seçtin) |
 | 0 — Branch/güvenlik | ✅ gerek kalmadı — v1'in tamamı `claude/proje-kalan-gorevler-j5xwv3` olarak GitHub'da duruyor, hiçbir şey kaybolmaz |
-| 1 — Yıkım | ⬜ başlanmadı |
-| 2 — Runtime temeli | ⬜ başlanmadı |
-| 3 — Dört ajan | ⬜ başlanmadı |
-| 4 — Entegrasyonlar (kur, Takvim/Meet, web araştırma) | ⬜ başlanmadı |
+| 1 — Yıkım | ✅ bitti (`e90757a`) |
+| 2 — Runtime temeli | ✅ bitti (`cfc82bb`) |
+| 3 — Dört ajan | ✅ bitti (`465bb32`) |
+| 4 — Entegrasyonlar (kur, Takvim/Meet, web araştırma) | ✅ bitti — kur yalnızca VPS'te doğrulanabilir, aşağıya bak |
 | 5 — Outreach (toplu onay) | ⬜ başlanmadı |
 | 6 — Brifing | ⬜ başlanmadı |
 | 7 — UI (önce design canvas) | ⬜ başlanmadı |
 | 8 — Deploy + doğrulama | ⬜ başlanmadı |
 
-**Hiçbir kod değişmedi** — bu commit yalnızca planı ekliyor. Çalışan sistem
-(v1) VPS'te olduğu gibi ayakta.
+VPS hâlâ **v1** çalıştırıyor. Faz 8'e kadar öyle kalıyor; oraya geldiğinde
+`npm run db:seed:fresh` gerekecek, çünkü veritabanında hâlâ 49 eski ajan satırı
+var. Geçmiş hareket kayıtları silinmez — `activity.agent_id` artık `SET NULL`.
 
 ## Devam ederken ilk yapılacaklar
 
-1. Faz 1'e başla: 24 ajan YAML + prompt sil, org ağacı bileşenlerini sil,
-   `stripe.ts`'i ve çağıranlarını sil, 6 ölü tool adını temizle, `mc-spark`
-   keyframe'ini sil, gölgelenmiş `EXTRA_CADENCES` kayıtlarını düzelt,
-   `costOf()`'u bilinmeyen modelde 0 yerine hata verecek şekilde düzelt.
-2. **Dikkat — veri kaybı uyarısı:** `activity.agent_id → agents.id` ilişkisi
-   `ON DELETE CASCADE`. Ajan satırlarını silmek o ajanların geçmiş hareket
-   kayıtlarını da siler. v1'de biriken ~17 satırın çoğu bugünkü testler, ama
-   silmeden önce sana sorulacak.
+1. **Faz 5 — Outreach.** Toplu onay (günün taslakları tek Telegram mesajı,
+   tek "gönder", `3 hariç` / `1,2,5` anlaşılır), şube bazlı ayrım (web = cold
+   call metni + telefon, automation = cold mail), kota `outreach.daily_cap_per_mailbox`
+   ayarından.
+2. Sonra Faz 6 (brifing), Faz 7 (UI — önce design canvas), Faz 8 (deploy).
+
+## Senden gereken tek kurulum: Google Takvim
+
+Faz 4 kodu hazır ama takvim yazma yetkisi OAuth istiyor — ~20 dakikalık, bir
+kerelik Google Cloud işi. Adımlar `DEPLOY.md` → **8. Takvim ve Meet**'te
+yazılı; sonunda `npm run google:auth` refresh token'ı basıyor.
+
+Kurmadığın sürece hiçbir şey bozulmaz: takvim okuma `.ics` beslemesinden devam
+eder, toplantı araçları `⚠️ Takvim kullanılamıyor` der ve orada durur.
+
+## Faz 4'te yalnızca VPS'te doğrulanabilen iki şey
+
+Bu geliştirme ortamının çıkış proxy'si hem `tcmb.gov.tr`'yi hem denenen bütün
+döviz API'lerini engelliyor (403), ve `ANTHROPIC_API_KEY` burada yok. Yani:
+
+- **Kur** — kod burada yalnızca "kaynak kullanılamıyor" yolunu kanıtlayabildi
+  (ki o da doğru davranış). İlk gerçek TL çevrimi bir formalite değil, kontrol
+  noktası: `npm run agent:run -- shared.ops.assistant --task "45 bin TL kaç dolar?"`
+- **`web_search` / `web_fetch`** — sunucu tarafı araçlar, tanımları doğru ama
+  gerçek bir çağrı yapılmadı. Scout'un ilk sektör araştırması bunu doğrular.
 
 ## Bu turda alınan kararlar
 

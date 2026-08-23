@@ -19,7 +19,8 @@
     "tick": "tsx scripts/tick.ts",
     "brief": "tsx scripts/brief.ts",
     "remember": "tsx scripts/remember.ts",
-    "money": "tsx scripts/money.ts"
+    "money": "tsx scripts/money.ts",
+    "google:auth": "tsx scripts/google-auth.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.120.0",

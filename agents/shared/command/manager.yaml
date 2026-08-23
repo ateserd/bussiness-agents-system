@@ -21,6 +21,11 @@ tools:
   - "brain.write"
   - "crm.read"
   - "agent.delegate"
+  - "calendar.read"
+  - "meeting.schedule"
+  - "meeting.update"
+  - "meeting.cancel"
+  - "money"
   - "owner.ask"
   - "owner.answer"
   - "settings.read"
@@ -30,7 +35,8 @@ memory_scopes:
   - "branch.automation"
 schedule: "30 7 * * *"
 autonomy: propose
-approval_required_for: []
+approval_required_for:
+  - "changing_calendar"
 escalate_to_human_when:
   - "any decision that would commit money — there is no amount small enough to spend without asking"
   - "a client threatens to leave, sue, or claw back"

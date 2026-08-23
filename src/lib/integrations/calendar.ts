@@ -17,6 +17,8 @@
  * BYSETPOS, BYMONTHDAY and friends — counts as unparsed.
  */
 
+import { calendarWriteConfigured, listRange } from "./google-calendar";
+
 const TIMEOUT_MS = 12_000;
 const MAX_BYTES = 5 * 1024 * 1024;
 
@@ -24,7 +26,7 @@ export type CalendarDay =
   | { ok: true; events: CalendarEvent[]; unparsed: number }
   | { ok: false; reason: string };
 
-export type CalendarEvent = { start: Date; summary: string };
+export type CalendarEvent = { start: Date; summary: string; meetUrl?: string | null };
 
 type VEvent = {
   start?: Date;
@@ -34,7 +36,7 @@ type VEvent = {
 };
 
 export function calendarConfigured(): boolean {
-  return Boolean(process.env.CALENDAR_URL);
+  return Boolean(process.env.CALENDAR_URL) || calendarWriteConfigured();
 }
 
 /** Local-day key, so comparisons never cross a timezone boundary by accident. */
@@ -185,8 +187,31 @@ function parseEvents(raw: string): VEvent[] {
   return events;
 }
 
-/** Events on `target` (default: today). */
+/**
+ * Events on `target` (default: today).
+ *
+ * OAuth first when it is configured: it is the same calendar, but it returns
+ * Google's own expansion of every recurrence rule — including the ones this
+ * parser declines — plus the Meet link, so `unparsed` is genuinely zero rather
+ * than merely small. The `.ics` feed stays underneath for a box where the OAuth
+ * setup was never finished, which is the only reason that parser still exists.
+ */
 export async function fetchDay(target = new Date()): Promise<CalendarDay> {
+  if (calendarWriteConfigured()) {
+    const from = new Date(target.getFullYear(), target.getMonth(), target.getDate());
+    const to = new Date(from.getTime() + 86_400_000);
+    const res = await listRange(from, to);
+    if (res.ok) {
+      return {
+        ok: true,
+        unparsed: 0,
+        events: res.meetings.map((m) => ({ start: m.start, summary: m.summary, meetUrl: m.meetUrl })),
+      };
+    }
+    // Fall through to the feed rather than failing: a broken token should cost
+    // the Meet links, not the whole brief.
+  }
+
   const url = process.env.CALENDAR_URL;
   if (!url) return { ok: false, reason: "CALENDAR_URL tanımlı değil" };
 

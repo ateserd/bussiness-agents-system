@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
+import type { BetaToolUnion } from "@anthropic-ai/sdk/resources/beta";
 import type { BetaRunnableTool } from "@anthropic-ai/sdk/lib/tools/BetaRunnableTool";
 import { z } from "zod";
 import { betaZodTool } from "@anthropic-ai/sdk/helpers/beta/zod";
@@ -610,15 +611,239 @@ const answerTaskTool = () =>
     },
   });
 
+/* -------------------------------------------------------------- calendar --- */
+
+/**
+ * What an approved calendar card will actually do, stored on the approval row
+ * so the settle path can execute it without re-deriving anything.
+ */
+export type CalendarOp =
+  | {
+      op: "create";
+      title: string;
+      startsAt: string;
+      durationMin: number;
+      attendees: string[];
+      description?: string;
+      withMeet: boolean;
+    }
+  | {
+      op: "update";
+      eventId: string;
+      label: string;
+      title?: string;
+      startsAt?: string;
+      durationMin?: number;
+      attendees?: string[];
+    }
+  | { op: "cancel"; eventId: string; label: string };
+
+/**
+ * Reading the calendar is not gated. Nothing leaves the building and nothing
+ * changes; an agent that could not see the week would have to ask the owner
+ * what his own diary says.
+ */
+const calendarRead = () =>
+  betaZodTool({
+    name: "calendar_read",
+    description:
+      "Sahibin takvimindeki yaklaşan toplantıları listeler (Meet linkleri ve etkinlik id'leriyle). " +
+      "Bir toplantıyı değiştirmeden ya da iptal etmeden önce id'sini buradan al.",
+    inputSchema: z.object({
+      days: z.number().int().min(1).max(60).optional().describe("Kaç günlük ileriye bakılacak (varsayılan 7)."),
+    }),
+    run: async ({ days }) => {
+      const { listUpcoming, describe } = await import("@/lib/integrations/google-calendar");
+      const res = await listUpcoming(days ?? 7);
+      if (!res.ok) return `⚠️ Takvim kullanılamıyor (${res.reason}). Toplantı uydurma; okuyamadığını yaz.`;
+      if (res.meetings.length === 0) return `Önümüzdeki ${days ?? 7} günde kayıtlı toplantı yok.`;
+      return res.meetings.map((m) => `- ${describe(m)}`).join("\n");
+    },
+  });
+
+/**
+ * The three calendar mutations, all behind one unconditional gate.
+ *
+ * Unconditional in the same sense as `outreach_send`: no `gatedBy` check, so no
+ * YAML edit and no `act_freely` can open a path around it. The owner's
+ * instruction was explicit — "toplantı ayarlama ve iptali için tam yetkisi
+ * olsun ama telegramdan bana sormadan yapmasın silme ekleme değiştirme falan" —
+ * which is authority over the whole calendar paired with a mandatory ask, and a
+ * gate that config could remove would not be that.
+ *
+ * Nothing here touches Google. The card is written, the owner answers on his
+ * phone, and `settleApproval` does the work — so the ask cannot be skipped by
+ * reaching for a different code path.
+ */
+function calendarGate(ctx: ToolContext, title: string, draft: string, op: CalendarOp): Promise<string> {
+  return requireApproval(ctx, "changing_calendar", title, draft, { calendar: op });
+}
+
+const meetingSchedule = (ctx: ToolContext) =>
+  betaZodTool({
+    name: "meeting_schedule",
+    description:
+      "Yeni bir toplantı önerir: Google Meet linki üretilir, takvime eklenir ve katılımcılara davet " +
+      "gider. Sahibin onayı olmadan hiçbir şey oluşturulmaz — bu araç yalnızca onay kartı yazar.",
+    inputSchema: z.object({
+      title: z.string().describe("Toplantı başlığı, sahibin takviminde göreceği metin."),
+      startsAt: z
+        .string()
+        .describe("Başlangıç: 2026-08-25T14:00 biçiminde, sahibin yerel saatiyle. Tahmin etme, sor."),
+      durationMin: z.number().int().min(15).max(480).optional(),
+      attendeeEmails: z.array(z.string().email()).default([]).describe("Davet edilecek e-posta adresleri."),
+      description: z.string().optional().describe("Toplantı notu / gündem."),
+      withMeet: z.boolean().optional().describe("Meet linki üretilsin mi (varsayılan evet)."),
+    }),
+    run: async ({ title, startsAt, durationMin, attendeeEmails, description, withMeet }) => {
+      const { getSetting } = await import("@/lib/settings");
+      const minutes = durationMin ?? (await getSetting("meeting.default_duration_min"));
+      const meet = withMeet !== false;
+      const draft = [
+        `Başlık: ${title}`,
+        `Zaman: ${startsAt} · ${minutes} dk`,
+        `Katılımcı: ${attendeeEmails.length > 0 ? attendeeEmails.join(", ") : "yok (yalnızca sen)"}`,
+        `Meet linki: ${meet ? "üretilecek" : "üretilmeyecek"}`,
+        description ? `Not: ${description}` : "",
+        "",
+        "Onaylarsan takvime eklenir ve davet katılımcılara Google tarafından gönderilir.",
+      ]
+        .filter(Boolean)
+        .join("\n");
+      return calendarGate(ctx, `Toplantı — ${title}`, draft, {
+        op: "create",
+        title,
+        startsAt,
+        durationMin: minutes,
+        attendees: attendeeEmails,
+        description,
+        withMeet: meet,
+      });
+    },
+  });
+
+const meetingUpdate = (ctx: ToolContext) =>
+  betaZodTool({
+    name: "meeting_update",
+    description:
+      "Var olan bir toplantıyı değiştirir (saat, başlık, katılımcı). eventId'yi calendar_read'den al. " +
+      "Sahibin onayı olmadan hiçbir şey değişmez.",
+    inputSchema: z.object({
+      eventId: z.string().describe("calendar_read çıktısındaki id:... değeri."),
+      label: z.string().describe("Toplantının şu anki adı — sahip kartta neyi değiştirdiğini görsün."),
+      title: z.string().optional(),
+      startsAt: z.string().optional().describe("Yeni başlangıç, 2026-08-25T14:00 biçiminde."),
+      durationMin: z.number().int().min(15).max(480).optional(),
+      attendeeEmails: z.array(z.string().email()).optional(),
+    }),
+    run: async ({ eventId, label, title, startsAt, durationMin, attendeeEmails }) => {
+      const changes = [
+        title ? `Başlık → ${title}` : "",
+        startsAt ? `Zaman → ${startsAt}${durationMin ? ` · ${durationMin} dk` : ""}` : "",
+        attendeeEmails ? `Katılımcı → ${attendeeEmails.join(", ") || "yok"}` : "",
+      ].filter(Boolean);
+      if (changes.length === 0) return "Değiştirilecek bir alan vermedin.";
+      const draft = [`Toplantı: ${label}`, ...changes, "", "Onaylarsan katılımcılara güncelleme gider."].join("\n");
+      return calendarGate(ctx, `Toplantı değişikliği — ${label}`, draft, {
+        op: "update",
+        eventId,
+        label,
+        title,
+        startsAt,
+        durationMin,
+        attendees: attendeeEmails,
+      });
+    },
+  });
+
+const meetingCancel = (ctx: ToolContext) =>
+  betaZodTool({
+    name: "meeting_cancel",
+    description:
+      "Bir toplantıyı iptal eder. eventId'yi calendar_read'den al. Sahibin onayı olmadan iptal edilmez.",
+    inputSchema: z.object({
+      eventId: z.string().describe("calendar_read çıktısındaki id:... değeri."),
+      label: z.string().describe("Toplantının adı ve saati — sahip neyi iptal ettiğini görsün."),
+      reason: z.string().optional().describe("İptal gerekçesi, varsa."),
+    }),
+    run: async ({ eventId, label, reason }) => {
+      const draft = [
+        `İptal edilecek: ${label}`,
+        reason ? `Gerekçe: ${reason}` : "",
+        "",
+        "Onaylarsan takvimden silinir ve katılımcılara iptal bildirimi gider. Bu geri alınamaz.",
+      ]
+        .filter(Boolean)
+        .join("\n");
+      return calendarGate(ctx, `Toplantı iptali — ${label}`, draft, { op: "cancel", eventId, label });
+    },
+  });
+
+/* ------------------------------------------------------------------ para --- */
+
+/**
+ * TL ↔ USD at a rate that was actually fetched.
+ *
+ * Every money column in the schema is USD and the business runs in lira, so
+ * without this an agent asked to record "45 bin TL" either invents a rate or
+ * writes the wrong number into the ledger. The rate's date travels with the
+ * answer because a Friday rate quoted on a Sunday is correct but must not read
+ * as today's.
+ */
+const money = () =>
+  betaZodTool({
+    name: "money",
+    description:
+      "Lira ile dolar arasında güncel kurdan çevirir. Kuru asla kendin tahmin etme — tutarı yazmadan " +
+      "önce buradan çevir. Kaynak ulaşılamazsa çevirme, ulaşılamadığını yaz.",
+    inputSchema: z.object({
+      amount: z.number().describe("Çevrilecek tutar."),
+      from: z.enum(["TRY", "USD"]).describe("Tutarın para birimi."),
+    }),
+    run: async ({ amount, from }) => {
+      const { tryToUsd, usdToTry, rateNote } = await import("@/lib/integrations/fx");
+      if (from === "TRY") {
+        const res = await tryToUsd(amount);
+        if (!res.ok) return `⚠️ Kur kaynağı kullanılamıyor (${res.reason}). Tutarı çevirme, TL olarak bırak ve bunu yaz.`;
+        return `${amount.toLocaleString("tr-TR")} TL = ${res.usd.toFixed(2)} USD · ${rateNote(res.usdTry, res.asOf, res.source)}`;
+      }
+      const res = await usdToTry(amount);
+      if (!res.ok) return `⚠️ Kur kaynağı kullanılamıyor (${res.reason}). Tutarı çevirme, USD olarak bırak ve bunu yaz.`;
+      return `${amount.toFixed(2)} USD = ${res.tryAmount.toLocaleString("tr-TR", { maximumFractionDigits: 0 })} TL · ${rateNote(res.usdTry, res.asOf, res.source)}`;
+    },
+  });
+
+/* ------------------------------------------------------------- araştırma --- */
+
+/**
+ * Search and fetch, executed on Anthropic's side rather than here.
+ *
+ * The local `browser` tool stays: it fetches one URL the agent already knows
+ * about. These answer the other half — "bu sektörde iyi siteler hangileri" —
+ * which needs a search index, and returning real names and links instead of
+ * adjectives was the explicit ask.
+ *
+ * `code_execution` must never be declared alongside these: the server-side
+ * tools run their own sandbox, and declaring both puts two sandboxes in one
+ * request.
+ */
+const webSearch = (): AnyTool => ({ type: "web_search_20260209", name: "web_search", max_uses: 6 });
+const webFetch = (): AnyTool => ({ type: "web_fetch_20260209", name: "web_fetch", max_uses: 6 });
+
 /* ------------------------------------------------------------ assembly --- */
 
 /**
- * The tool array is heterogeneous — every tool has a different input schema —
- * so it needs the same widened element type the SDK's own
- * `BetaToolRunnerParams.tools` uses.
+ * The tool array is heterogeneous — every tool has a different input schema,
+ * and some entries are not runnable at all — so it needs the same widened
+ * element type the SDK's own `BetaToolRunnerParams.tools` uses.
+ *
+ * The `BetaToolUnion` half is what lets a server-side tool sit in the same
+ * array as a Zod tool: `web_search` and `web_fetch` are declarations, executed
+ * by Anthropic rather than here, so they have a `type` and a `name` and no
+ * `run()`. Both halves expose `name`, which is all the dedupe below needs.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnyTool = BetaRunnableTool<any>;
+type AnyTool = BetaRunnableTool<any> | BetaToolUnion;
 
 const BUILDERS: Record<string, (ctx: ToolContext) => AnyTool> = {
   "brain.read": brainRead,
@@ -636,6 +861,13 @@ const BUILDERS: Record<string, (ctx: ToolContext) => AnyTool> = {
   "owner.ask": askOwner,
   "owner.answer": () => answerTaskTool(),
   "settings.read": () => settingsRead(),
+  "calendar.read": () => calendarRead(),
+  "meeting.schedule": meetingSchedule,
+  "meeting.update": meetingUpdate,
+  "meeting.cancel": meetingCancel,
+  money: () => money(),
+  "web.search": () => webSearch(),
+  "web.fetch": () => webFetch(),
 };
 
 /**
@@ -651,7 +883,11 @@ export function toolsFor(ctx: ToolContext): AnyTool[] {
   // called `outreach_send` in one request.
   const out = new Map<string, AnyTool>();
   const add = (tool: AnyTool) => {
-    if (!out.has(tool.name)) out.set(tool.name, tool);
+    // One member of the SDK's tool union is a *toolset* and carries no `name`,
+    // so the key falls back to `type` — otherwise every nameless entry would
+    // collide on `undefined` and the map would keep exactly one of them.
+    const key = "name" in tool ? tool.name : tool.type;
+    if (!out.has(key)) out.set(key, tool);
   };
 
   for (const name of ctx.agent.tools) {

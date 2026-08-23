@@ -19,6 +19,11 @@ tools:
   - "brain.write"
   - "crm.read"
   - "crm.write"
+  - "calendar.read"
+  - "meeting.schedule"
+  - "meeting.update"
+  - "meeting.cancel"
+  - "money"
   - "owner.ask"
 memory_scopes:
   - "global"
@@ -26,7 +31,8 @@ memory_scopes:
   - "branch.automation"
 schedule: "0 */4 * * *"
 autonomy: act_with_log
-approval_required_for: []
+approval_required_for:
+  - "changing_calendar"
 escalate_to_human_when:
   - "an invoice passes its due date"
   - "a live project has no movement for a week"

@@ -2,6 +2,7 @@ import { and, eq, not, inArray, sql } from "drizzle-orm";
 import { getDb } from "@/db/client";
 import { deals, leads, memories, projects } from "@/db/schema";
 import { allAgents } from "@/lib/agents/registry";
+import { calendarWriteConfigured } from "@/lib/integrations/google-calendar";
 import { calendarConfigured } from "@/lib/integrations/calendar";
 import { placesConfigured } from "@/lib/integrations/places";
 import { resendConfigured } from "@/lib/integrations/resend";
@@ -108,7 +109,11 @@ export async function buildSystemMap(): Promise<string> {
       tick(Boolean(process.env.ANTHROPIC_API_KEY), "model", "ANTHROPIC_API_KEY yok"),
       tick(resendConfigured(), "mail", "RESEND_API_KEY yok"),
       tick(placesConfigured(), "places", "GOOGLE_PLACES_API_KEY yok"),
-      tick(calendarConfigured(), "takvim", "CALENDAR_URL yok"),
+      // Two different capabilities, and conflating them would let the manager
+      // promise a booking it can only read. Write is the OAuth path; the .ics
+      // feed underneath can still answer "what is today".
+      tick(calendarWriteConfigured(), "takvim-yaz", "Google OAuth yok"),
+      tick(calendarConfigured(), "takvim-oku", "takvim kaynağı yok"),
       tick(notifyConfigured(), "telegram", "token/chat yok"),
     ].join(" ")}`,
   );

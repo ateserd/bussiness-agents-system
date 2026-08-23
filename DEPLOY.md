@@ -226,6 +226,84 @@ schema drifts more easily than an outbound API call, so if nothing arrives,
 check the request actually reached Caddy/the app (not a signature rejection)
 before assuming the field names moved.
 
+## 8. Takvim ve Meet (optional)
+
+The `.ics` feed from step 3 can only *read* the calendar. Booking a meeting,
+moving it, cancelling it, and minting a Google Meet link need a real OAuth
+client. About twenty minutes of console work, done once.
+
+Nothing on the calendar happens unattended once this is wired: creating,
+changing and cancelling are all behind an unconditional approval, so each one
+lands on Telegram first and is reported back afterwards with the Meet link and
+who was invited. The gate is in the tool, not in config — no YAML edit and no
+autonomy setting can remove it.
+
+1. **Google Cloud Console** → the same project as the Places key →
+   *APIs & Services* → *Library* → enable **Google Calendar API**.
+2. *APIs & Services* → **OAuth consent screen** → **External**. Fill in the app
+   name and your own email. Under **Test users**, add the Gmail account whose
+   calendar this is. Publishing is not needed — a test user's refresh token does
+   not expire while the app stays in testing, as long as that account is listed.
+3. *Credentials* → **Create credentials** → **OAuth client ID** →
+   **Desktop app**. Copy the client ID and secret into `.env`:
+
+   ```
+   GOOGLE_CLIENT_ID=...
+   GOOGLE_CLIENT_SECRET=...
+   ```
+
+4. Mint the refresh token. Scripts do not read `.env` on their own (same as
+   `db:push` in step 3), so source it first:
+
+   ```bash
+   cd /opt/mission-control
+   set -a; source .env; set +a
+   npm run google:auth
+   ```
+
+   It prints a Google URL. Open it in any browser, approve with the account from
+   step 2, and Google redirects to `http://localhost:<port>/?code=...`. On the
+   server that page will not load — **that is expected**; copy the whole URL out
+   of the address bar and paste it back into the terminal. (Running this on a
+   laptop instead, the redirect is caught automatically and there is nothing to
+   paste.)
+
+5. Paste the printed `GOOGLE_REFRESH_TOKEN=...` into `.env`. If the agency has
+   its own calendar rather than the account's default, add its ID too —
+   Google Calendar → that calendar's settings → *Takvim kimliği*:
+
+   ```
+   GOOGLE_REFRESH_TOKEN=...
+   # GOOGLE_CALENDAR_ID=...
+   ```
+
+6. Restart and check:
+
+   ```bash
+   sudo systemctl restart mission-control
+   set -a; source .env; set +a
+   npm run agent:run -- shared.ops.assistant --task "Önümüzdeki 7 gündeki toplantıları listele."
+   ```
+
+   A configured calendar lists the week. An unconfigured one answers
+   `⚠️ Takvim kullanılamıyor (...)` — which is the honest failure, not a crash,
+   so the rest of the system keeps working while this is half-done.
+
+Keep `CALENDAR_URL` set. `fetchDay()` prefers OAuth and falls back to the feed,
+so a dead token costs the Meet links in the brief rather than the brief.
+
+**Kur** needs nothing here. TL amounts are converted through TCMB's daily XML;
+`fx.source` switches to `erapi` by telling the manager on Telegram if TCMB is
+flaky. Verify it on the box, because a dev sandbox usually cannot reach either:
+
+```bash
+set -a; source .env; set +a
+npm run agent:run -- shared.ops.assistant --task "45 bin TL kaç dolar? Kurun tarihini de yaz."
+```
+
+A real answer names the rate and the date it belongs to. On a Monday that date
+is usually Friday's — correct, and the reason the date is always printed.
+
 ## Updating
 
 ```bash
