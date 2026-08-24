@@ -98,12 +98,23 @@ async function deliver(chatId: string, text: string) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   if (!token) return NextResponse.json({ ok: false, text });
 
+  // Telegram rejects an empty message with a 400, and this used to post one and
+  // throw the rejection away — the owner saw nothing at all, with no error
+  // anywhere to explain it. `runAgent` no longer returns an empty summary; this
+  // is the backstop for every other caller.
+  const body = text.trim() || "(boş cevap üretildi — bir şey ters gitti, tekrar sorar mısın?)";
+
   const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text, parse_mode: undefined }),
+    body: JSON.stringify({ chat_id: chatId, text: body, parse_mode: undefined }),
   });
-  return NextResponse.json({ ok: res.ok, text });
+  if (!res.ok) {
+    // Loud, because a delivery that fails silently is indistinguishable from a
+    // system that never ran.
+    console.warn(`· telegram gönderimi başarısız (${res.status}): ${await res.text().catch(() => "")}`);
+  }
+  return NextResponse.json({ ok: res.ok, text: body });
 }
 
 export async function GET() {

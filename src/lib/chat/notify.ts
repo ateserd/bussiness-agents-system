@@ -22,6 +22,12 @@ export async function notifyOwner(text: string): Promise<boolean> {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const chatId = process.env.TELEGRAM_CHAT_ID;
   if (!token || !chatId) return false;
+  // An empty body is a 400 from Telegram. Refuse it here rather than spending a
+  // round trip to be told, and say so in the log.
+  if (!text.trim()) {
+    console.warn("· telegram bildirimi atlandı: boş metin");
+    return false;
+  }
 
   try {
     const res = await fetch(`${API}/bot${token}/sendMessage`, {

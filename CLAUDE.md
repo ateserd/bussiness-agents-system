@@ -143,6 +143,15 @@ src/db/                         schema · client · migrate · seed
   ~2.6k sabit metin ≈ **5.9k**, yani Haiku eşiğinin ~1.8k üstünde. Rol promptunu
   kırpmak ya da araç çıkarmak bu marjı yer ve önbellek Haiku'da sessizce durur.
   İkisinden birini yapmadan önce yeniden ölç.
+- **Boş cevap = hiç cevap.** Telegram boş metni 400 ile reddediyor, ve `deliver`
+  bu reddi yutuyordu. `runAgent`'ın *activity satırı* boş çıktı için
+  `"Çıktı üretilmedi."` fallback'i alıyordu ama **dönüş değeri almıyordu** — iki
+  satır arayken biri korumalı, diğeri değil. Model turu bir araç çağrısıyla
+  bitirip metin yazmadığında (yani "işi yaptım ve sustum" durumunda) sahibe
+  hiçbir şey gitmiyordu, hiçbir yerde de sebebi yazmıyordu. Artık tek bir
+  `reported` değeri hem satıra hem çağırana gidiyor, `deliver` ve `notifyOwner`
+  boş metni reddediyor, ve başarısız gönderim log'a düşüyor. Kural: **sessizce
+  başarısız olan bir teslimat, hiç çalışmamış bir sistemden ayırt edilemez.**
 - **Telegram durumsuzdu ve bu bir prompt sorunu değildi.** Her mesaj tek
   mesajlık taze bir çalışma kuruyordu, yani Yönetici *kendi önceki cevabını*
   göremiyordu. Sonucu canlıda görüldü: bir tur önce "scout'u durdurdum" dedi,

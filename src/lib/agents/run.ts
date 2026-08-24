@@ -231,13 +231,26 @@ export async function runAgent(agentId: string, options: RunOptions = {}): Promi
   const durationMs = finishedAt.getTime() - startedAt.getTime();
   const costUsd = costOf(agent.model, inputTokens, outputTokens);
 
+  /*
+   * One message for both the audit row and the caller.
+   *
+   * These used to differ, and the gap was a silent failure with teeth: the row
+   * fell back to "Çıktı üretilmedi." while the *return* kept the empty string.
+   * A run that ends on a tool call with no trailing text — which is exactly
+   * what happens when the model just does the thing and stops — handed "" up
+   * to the Telegram route, which posted an empty message, which Telegram
+   * rejects with a 400. The owner got no reply at all and nothing anywhere
+   * said why.
+   */
+  const reported = summary.trim() || emptyRunNote(outcome, error);
+
   await db.insert(activity).values({
     id: activityId,
     agentId,
     branch: agent.branch,
     department: agent.department,
     action: trigger === "schedule" ? "scheduled_run" : "manual_run",
-    summary: summary.slice(0, 900) || "Çıktı üretilmedi.",
+    summary: reported.slice(0, 900),
     reason:
       trigger === "manual" ? "Sahip panelden çalıştırdı." : "Programlı çalışma.",
     input: { task, memoriesUsed, trigger },
@@ -256,7 +269,7 @@ export async function runAgent(agentId: string, options: RunOptions = {}): Promi
 
   // A run that produced something worth keeping writes it to the Brain. In
   // simulate mode this is what proves the write path end to end.
-  if (outcome === "success" && summary) {
+  if (outcome === "success" && summary.trim()) {
     try {
       const statement = firstStatement(summary);
       if (statement) {
@@ -288,7 +301,7 @@ export async function runAgent(agentId: string, options: RunOptions = {}): Promi
     activityId,
     agentId,
     outcome,
-    summary: summary.slice(0, 400),
+    summary: reported.slice(0, 400),
     costUsd,
     durationMs,
     simulated,
@@ -296,6 +309,19 @@ export async function runAgent(agentId: string, options: RunOptions = {}): Promi
     gated: ctx.gated,
     callScripts: ctx.callScripts ?? [],
   };
+}
+
+/**
+ * What to say when a run produced no text of its own.
+ *
+ * Never empty, and never a lie: it reports what actually happened rather than
+ * inventing a reply. "Onay kartı yazıldı" is the common one — the model called
+ * a gated tool, the gate stopped it, and stopping is the whole point.
+ */
+function emptyRunNote(outcome: Outcome, error: string | null): string {
+  if (error) return `Çalışma hata ile bitti: ${error}`;
+  if (outcome === "needs_approval") return "Onay kartı yazıldı — telefonuna düştü ve orada bekliyor.";
+  return "İşi yaptım ama yazılı bir cevap üretmedim. Ne olduğunu sorarsan bakayım.";
 }
 
 function textOf(message: { content: unknown }): string {
