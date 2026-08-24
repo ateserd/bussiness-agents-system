@@ -24,6 +24,7 @@ export type Command =
   | { kind: "run"; agent: string }
   | { kind: "remember"; fact: string; scope: string }
   | { kind: "blockers" }
+  | { kind: "forget" }
   | { kind: "answer"; id: string; text: string }
   | { kind: "batch"; action: "send_all" | "send_only" | "send_except" | "cancel"; numbers: number[]; reason: string }
   | { kind: "ask"; text: string };
@@ -86,6 +87,10 @@ export function parseCommand(input: string): Command {
       return parseRemember(arg);
     case "blockers":
       return { kind: "blockers" };
+    case "unut":
+    case "sifirla":
+    case "sıfırla":
+      return { kind: "forget" };
     case "gonder":
     case "gönder": {
       // `/gonder` · `/gonder 1,2,5` · `/gonder haric 3`. The deterministic path
@@ -196,6 +201,17 @@ export async function executeCommand(command: Command, options: ExecuteOptions =
       return settled.message;
     }
 
+    case "forget": {
+      // The escape hatch for a thread that went somewhere he does not want
+      // carried forward. Deterministic on purpose: clearing the context must
+      // not depend on the model whose context is being cleared.
+      const { forgetHistory } = await import("@/lib/chat/history");
+      const n = await forgetHistory();
+      return n === 0
+        ? "Hatırlanacak bir sohbet zaten yoktu."
+        : `${n} mesajlık sohbet geçmişi silindi — bundan sonrası temiz sayfa. Kalıcı notlara dokunulmadı.`;
+    }
+
     case "pause": {
       const agent = getAgent(command.agent);
       if (!agent) return unknownAgent(command.agent);
@@ -250,10 +266,14 @@ export async function executeCommand(command: Command, options: ExecuteOptions =
         ].join("\n");
       }
       const { runAgent } = await import("@/lib/agents/run");
+      const { recentTurns } = await import("@/lib/chat/history");
       const result = await runAgent(rootAgent().id, {
         trigger: "dispatch",
         mode: "chat",
         ownerChannel: options.ownerChannel === true,
+        // What was said before this message. Without it the manager cannot see
+        // its own previous reply, which is how "yapsın" became unanswerable.
+        history: await recentTurns(),
         task: `Sahip Telegram'dan yazdı: "${command.text}"\n\nBu bir sohbet mesajı, rapor değil — doğrudan ve doğal cevap ver. Soru gerçekten bir departmanın durumunu/rakamını gerektiriyorsa ilgili lideri adıyla an; gerektirmiyorsa yönlendirme icat etme, sadece cevapla.`,
       });
       return result.summary;
@@ -278,6 +298,7 @@ Kısayollar:
 /branch web|ai    tek şubenin rakamları
 /cevap <metin>    sana takılı soruyu cevapla (tek soru varsa id gerekmez)
 /blockers         engellenen ajanlar
+/unut             sohbet geçmişini sil — Beyin’deki kalıcı notlara dokunmaz
 /gonder           günün partisini gönder — "/gonder 1,2,5" ya da "/gonder haric 3"
 /iptal <sebep>    günün partisini gönderme (sebep yazarsan yarın düzeltilmiş döner)
 /approve <id>     tek bir onay kartını onayla

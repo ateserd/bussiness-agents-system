@@ -109,6 +109,20 @@ export const CATALOGUE = {
     label: "Sormadan harcanabilecek tavan (USD)",
     ownerConfirm: true,
   },
+  "chat.history_turns": {
+    type: "number",
+    value: 12,
+    min: 0,
+    max: 40,
+    label: "Sohbette hatırlanan mesaj sayısı",
+  },
+  "chat.history_hours": {
+    type: "number",
+    value: 6,
+    min: 1,
+    max: 72,
+    label: "Sohbet hafızasının geriye bakma süresi (saat)",
+  },
   "runtime.concurrency": {
     type: "number",
     value: 3,

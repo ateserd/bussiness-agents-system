@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { executeCommand, parseCommand, COMMAND_HELP } from "@/lib/chat/commands";
 import { transcribeVoice } from "@/lib/chat/voice";
+import { recordTurn } from "@/lib/chat/history";
 
 /**
  * Telegram webhook — the phone-side command line (§6).
@@ -74,12 +75,23 @@ export async function POST(req: Request) {
   if (!text) return NextResponse.json({ ok: true });
   if (text === "/help" || text === "/start") return deliver(chatId, COMMAND_HELP);
 
+  // Both halves of the exchange are recorded here, after the command has run,
+  // so the message being handled never appears in its own history. Slash
+  // commands are recorded too: "/pause scout" followed by "geri al" is one
+  // conversation, and the second half is unanswerable without the first.
+  //
+  // Recording is best-effort and deliberately not awaited into the reply path
+  // beyond this point — the owner gets his answer whether or not it is kept.
+  const at = new Date();
+  let reply: string;
   try {
-    const reply = await executeCommand(parseCommand(text), { ownerChannel });
-    return deliver(chatId, reply);
+    reply = await executeCommand(parseCommand(text), { ownerChannel });
   } catch (err) {
-    return deliver(chatId, `Komut hata verdi: ${(err as Error).message}`);
+    reply = `Komut hata verdi: ${(err as Error).message}`;
   }
+  await recordTurn("user", text, "telegram", at);
+  await recordTurn("assistant", reply, "telegram", new Date(at.getTime() + 1));
+  return deliver(chatId, reply);
 }
 
 async function deliver(chatId: string, text: string) {

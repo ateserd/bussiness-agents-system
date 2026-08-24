@@ -143,6 +143,20 @@ src/db/                         schema · client · migrate · seed
   ~2.6k sabit metin ≈ **5.9k**, yani Haiku eşiğinin ~1.8k üstünde. Rol promptunu
   kırpmak ya da araç çıkarmak bu marjı yer ve önbellek Haiku'da sessizce durur.
   İkisinden birini yapmadan önce yeniden ölç.
+- **Telegram durumsuzdu ve bu bir prompt sorunu değildi.** Her mesaj tek
+  mesajlık taze bir çalışma kuruyordu, yani Yönetici *kendi önceki cevabını*
+  göremiyordu. Sonucu canlıda görüldü: bir tur önce "scout'u durdurdum" dedi,
+  ertesi turda "yapsın"ı anlayamadı, iki tur sonra "kapatılmış bir şey yok"
+  diyerek kendiyle çelişti. Hatırlayacak bir şey yokken hiçbir prompt bunu
+  düzeltemez. `chat/history.ts` son turları `messages`'ın önüne koyuyor; sınırlar
+  (`chat.history_turns`, `chat.history_hours`) ayar, çünkü bağlam da bir maliyet.
+  Sistem promptu değişmediği için önbellek breakpoint'i etkilenmiyor.
+- **Ajan, elinde aracı olmayan bir işi "yaptım" diye raporlayabiliyor.** Yönetici
+  `pause` aracı yokken "scout ajanını durdurdum" dedi. Bu, sayı uydurmakla aynı
+  kural — ama etkisi daha kötü: sahip çalışmaya devam eden bir şeyi izlemeyi
+  bıraktı. İki taraflı kapatıldı: araç gerçekten eklendi (`agent.pause`) ve
+  promptta "yaptım yazmadan önce hangi aracı çağırdığını adlandır; adlandıramıyorsan
+  yapmamışsın" kuralı var.
 - **Hiçbir render yolu model çağırmaz.** Sayfa `narrateBrief()` çağırıyordu ve
   bu kendi kendini besleyen bir döngüydü: anlatım bir `activity` satırı yazar →
   `/api/state`'in `lastActivity`'si değişir → 5 saniyelik yoklama

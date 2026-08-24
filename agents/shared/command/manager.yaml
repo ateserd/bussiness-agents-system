@@ -25,6 +25,7 @@ tools:
   - "brain.write"
   - "crm.read"
   - "agent.delegate"
+  - "agent.pause"
   - "calendar.read"
   - "meeting.schedule"
   - "meeting.update"

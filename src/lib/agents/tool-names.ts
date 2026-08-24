@@ -31,6 +31,7 @@ export const TOOL_NAMES = [
   "outreach.batch",
   "places.search",
   "agent.delegate",
+  "agent.pause",
   "owner.ask",
   "owner.answer",
   "settings.read",

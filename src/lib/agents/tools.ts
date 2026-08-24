@@ -485,6 +485,52 @@ const delegate = (ctx: ToolContext) =>
   });
 
 /**
+ * Pause or resume a worker.
+ *
+ * This exists because the manager fabricated it. Asked to stop Scout, it
+ * replied "scout ajanını durdurdum" while holding no tool that could — and two
+ * messages later denied anything was paused, because nothing was. A claimed
+ * capability is worse than a missing one: the owner acted on a stop that never
+ * happened.
+ *
+ * Ungated on purpose. Pausing reaches nothing outside the company, changes no
+ * money, and is undone by one sentence — the cost of a wrong pause is a worker
+ * idling until the owner notices, which he will, because he asked.
+ */
+const pauseAgent = () =>
+  betaZodTool({
+    name: "pause_agent",
+    description:
+      "Bir ajanı duraklatır ya da sürdürür. Duraklatılan ajan YENİ çalışma başlatmaz; " +
+      "hâlihazırda çalışan bir iş devam eder. Kendini duraklatamazsın.",
+    inputSchema: z.object({
+      agent: z.string().describe("Ajan id'si, örn. shared.outreach.scout"),
+      paused: z.boolean().describe("true = duraklat, false = sürdür"),
+    }),
+    run: async ({ agent, paused }) => {
+      const target = getAgent(agent);
+      if (!target) {
+        return `"${agent}" diye bir ajan yok. Mevcutlar: ${allAgents().map((a) => a.id).join(", ")}`;
+      }
+      // A paused root agent cannot be un-paused by talking to it: `runAgent`
+      // returns before any tool runs. That is a locked door with the key inside.
+      if (target.reports_to === null) {
+        return "Kendini duraklatamazsın — duraklatılmış bir Yönetici'yi konuşarak geri açmanın yolu yok. Sahibe söyle.";
+      }
+      const db = await getDb();
+      const [row] = await db.select().from(agents).where(eq(agents.id, target.id));
+      if (row?.paused === paused) {
+        return `${target.display_name} zaten ${paused ? "duraklatılmış" : "çalışır durumda"} — bir şey değişmedi.`;
+      }
+      await db.update(agents).set({ paused }).where(eq(agents.id, target.id));
+      return paused
+        ? `${target.display_name} duraklatıldı. Yeni çalışma başlatmayacak. ` +
+          "Şu anda uçuşta bir işi varsa o devam eder — durdurulmadı, sahibe böyle raporla."
+        : `${target.display_name} sürdürüldü, programına göre yeniden çalışacak.`;
+    },
+  });
+
+/**
  * Ask the owner and stop — without stopping anything else.
  *
  * This parks *this* task only. The queue keeps running the others, which is the
@@ -1043,6 +1089,7 @@ const BUILDERS = {
   "outreach.send": outreachSend,
   "places.search": placesSearch,
   "agent.delegate": delegate,
+  "agent.pause": () => pauseAgent(),
   "owner.ask": askOwner,
   "owner.answer": () => answerTaskTool(),
   "settings.read": () => settingsRead(),

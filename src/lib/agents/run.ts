@@ -49,6 +49,18 @@ export type RunOptions = {
    * unchanged.
    */
   batchMode?: boolean;
+  /**
+   * Earlier turns of this conversation, oldest first, prepended to `messages`.
+   *
+   * Only the Telegram chat path passes this. A worker is handed a task, not a
+   * conversation — `delegate` writes the whole instruction precisely because
+   * the worker cannot see any of this.
+   *
+   * It lands after the system prompt in the cached prefix, so the manager's
+   * cache breakpoint is unaffected; the history itself is not cached and is
+   * paid for in full each turn, which is what bounds it to a few turns.
+   */
+  history?: { role: "user" | "assistant"; content: string }[];
 };
 
 export type RunResult = {
@@ -177,7 +189,7 @@ export async function runAgent(agentId: string, options: RunOptions = {}): Promi
         ...reasoningParams(agent),
         system,
         tools: toolsFor(ctx),
-        messages: [{ role: "user", content: user }],
+        messages: [...(options.history ?? []), { role: "user", content: user }],
         max_iterations: MAX_ITERATIONS,
       });
 

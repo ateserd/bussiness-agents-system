@@ -270,6 +270,37 @@ export const tasks = pgTable(
 );
 
 /* ---------------------------------------------------------------------------
+   CHAT HISTORY
+
+   Telegram used to be stateless: every message built a fresh single-message
+   run, so the manager could not see its own previous reply. It answered "yapsın"
+   with "who should do what?" one turn after saying what it had just done, and
+   contradicted itself across two consecutive messages. That is not a prompt
+   problem — there was nothing to remember with.
+
+   Stored rather than held in memory because the process restarts, and because
+   the owner's half of a conversation is worth keeping regardless: it is the
+   record of what he actually asked for, in his words.
+--------------------------------------------------------------------------- */
+
+export const CHAT_ROLES = ["user", "assistant"] as const;
+export type ChatRole = (typeof CHAT_ROLES)[number];
+
+export const conversations = pgTable(
+  "conversations",
+  {
+    id: text("id").primaryKey(),
+    /** Where it came from. One channel today; named so a second one can exist. */
+    channel: text("channel").notNull().default("telegram"),
+    role: text("role").$type<ChatRole>().notNull(),
+    /** Assistant turns are clipped before insert — see `chat/history.ts`. */
+    content: text("content").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("conversations_created_idx").on(t.channel, t.createdAt)],
+);
+
+/* ---------------------------------------------------------------------------
    SETTINGS — every business value that used to be frozen in a YAML or a prompt
 
    The owner's rule is that he never edits a hardcoded value by hand: he says
