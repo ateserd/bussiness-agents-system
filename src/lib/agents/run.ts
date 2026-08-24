@@ -372,7 +372,17 @@ export async function runAgent(agentId: string, options: RunOptions = {}): Promi
     activityId,
     agentId,
     outcome,
-    summary: reported.slice(0, 400),
+    /*
+     * The full text, not a slice.
+     *
+     * This used to be cut at 400 characters, which was fine while it only fed a
+     * log line — but `commands.ts` returns it straight to Telegram, so **every
+     * free-text reply the owner got was truncated mid-word**. The audit row
+     * keeps its own 900-character copy; `deliver` now splits at Telegram's
+     * limit; and callers that want it shorter clip it themselves, which they
+     * already do. Nothing downstream needed this.
+     */
+    summary: reported,
     costUsd,
     durationMs,
     simulated,

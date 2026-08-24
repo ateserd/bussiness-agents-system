@@ -156,6 +156,20 @@ src/db/                         schema · client · migrate · seed
   her şeyi siliyor, ve config YAML'dan geri geliyor — ama sahibin bir ajanı
   durdurmuş olması config değil, ve başka hiçbir yer hatırlamıyor. Seed artık
   truncate'ten önce okuyup geri yazıyor.
+- **`runAgent`'ın döndürdüğü `summary` 400 karakterde kesiliyordu** ve
+  `commands.ts` onu doğrudan Telegram'a veriyordu — yani **her serbest cevap
+  kelimenin ortasından kesiliyordu.** Sınır bir log satırı içinken makuldü,
+  cevap yolu olduğunda değil. Kaldırıldı; denetim satırı kendi 900'lük kopyasını
+  tutuyor, `deliver` zaten 4096'da bölüyor, kısaltmak isteyen çağıranlar zaten
+  kendileri kırpıyor.
+- **Ölçülmemiş bir kural saçmalayabilir.** `places_search` `spending_money`
+  kapısındaydı — kural doğru, sayı yanlış: Places araması ~3,5 kuruş ve **ayda
+  ilk 1.000 çağrı ücretsiz**, yani hafta içi bir arama $0.00. Kapı sahibe sıfır
+  doları onaylatıp lead hattının tamamını durduruyordu; uyuduğu sabah parti boş
+  çıkıyordu. Artık `outreach.daily_searches` kotası var: kotanın altı serbest,
+  **kotayı aşmak** onay istiyor. Kural anlamını koruyor, saçmalığını kaybediyor.
+  Ve her arama artık `activity`'ye yazılıyor — ücretli bir çağrının hiçbir yerde
+  görünmemesi, ölçülen bir API'nin pratikte ölçülmemesidir.
 - **Çalışma başına maliyet tavanı bir kaçak döngüyü GÖREMEZ.** Panelin render
   döngüsü çalışma başına $0.002'ydi ve tavan $0.50 — yani hiç tetiklenemezdi,
   günde $14 yakarken. Kaçak döngü pahalı çalışmalardan oluşmaz, çok

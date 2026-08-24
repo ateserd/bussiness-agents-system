@@ -1,16 +1,17 @@
 import { randomUUID } from "node:crypto";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, gte, inArray, sql } from "drizzle-orm";
 import type { BetaToolUnion } from "@anthropic-ai/sdk/resources/beta";
 import type { BetaRunnableTool } from "@anthropic-ai/sdk/lib/tools/BetaRunnableTool";
 import { z } from "zod";
 import { betaZodTool } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { getDb } from "@/db/client";
 import type { Branch } from "@/db/schema";
-import { agents, approvals, leads } from "@/db/schema";
+import { activity, agents, approvals, leads } from "@/db/schema";
 import { recall } from "@/lib/brain/search";
 import { writeMemory } from "@/lib/brain/write";
 import { clip, notifyOwner } from "@/lib/chat/notify";
 import { passesAutomationFloor, qualifiesForWeb, searchPlaces } from "@/lib/integrations/places";
+import { getSetting } from "@/lib/settings";
 import { allAgents, getAgent, type AgentConfig } from "./registry";
 import { isToolName, type ToolName } from "./tool-names";
 
@@ -340,6 +341,53 @@ const crmWrite = (ctx: ToolContext) =>
  * qualified, with the rejected count stated so a thin list is visibly thin
  * rather than quietly short.
  */
+/**
+ * How many Places lookups today, counted from the same rows the ledger shows.
+ *
+ * One mechanism, three uses: it bounds the quota, it puts a paid call on the
+ * activity trail, and it makes searches visible on the panel — where they were
+ * invisible before, which is how a metered API ends up unmetered in practice.
+ */
+async function searchesToday(): Promise<number> {
+  try {
+    const db = await getDb();
+    const now = new Date();
+    const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const [row] = await db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(activity)
+      .where(and(eq(activity.action, "places_search"), gte(activity.startedAt, midnight)));
+    return row?.n ?? 0;
+  } catch {
+    // Unreadable count means an unknown quota. Treat it as spent, so a broken
+    // query cannot become an unbounded spend.
+    return Number.MAX_SAFE_INTEGER;
+  }
+}
+
+async function recordSearch(ctx: ToolContext, query: string, ok: boolean): Promise<void> {
+  try {
+    const db = await getDb();
+    const at = new Date();
+    await db.insert(activity).values({
+      id: randomUUID(),
+      agentId: ctx.agent.id,
+      branch: ctx.agent.branch,
+      department: ctx.agent.department,
+      action: "places_search",
+      summary: ok ? `Places araması: "${query}"` : `Places araması başarısız: "${query}"`,
+      reason: "Lead havuzunu beslemek için.",
+      input: { query },
+      outcome: ok ? "success" : "failure",
+      simulated: false,
+      startedAt: at,
+      finishedAt: at,
+    });
+  } catch {
+    // A missing audit line must not fail the search that produced it.
+  }
+}
+
 const placesSearch = (ctx: ToolContext) =>
   betaZodTool({
     name: "places_search",
@@ -350,17 +398,38 @@ const placesSearch = (ctx: ToolContext) =>
       maxResults: z.number().int().min(1).max(20).optional(),
     }),
     run: async ({ query, maxResults }) => {
-      if (gatedBy(ctx.agent, "spending_money")) {
+      /*
+       * A daily quota rather than a card per search.
+       *
+       * The money gate was stopping every single lookup, which sounds right —
+       * the owner's rule is that money is asked about — but the number made it
+       * absurd: Places bills roughly three and a half cents a search and gives
+       * a thousand calls a month free, so a weekday search sits at $0.00, and
+       * asking about it held up the whole lead pipeline until he tapped a card.
+       * A morning he slept through was a morning with an empty batch.
+       *
+       * So the rule keeps its meaning and loses its silliness: searching is
+       * free up to a quota he sets, and the quota is what needs approval to
+       * exceed. Under it, nothing to decide. Over it, the gate is back.
+       */
+      const quota = await getSetting("outreach.daily_searches");
+      const used = await searchesToday();
+      if (used >= quota && gatedBy(ctx.agent, "spending_money")) {
         return requireApproval(
           ctx,
           "spending_money",
-          `Places araması — "${query}"`,
-          `Google Places API'de "${query}" araması yapılacak (en fazla ${maxResults ?? 20} sonuç).`,
-          { query },
+          `Places araması — "${query}" (günlük kota doldu)`,
+          `Bugün ${used} arama yapıldı, günlük kota ${quota}. Bu arama kotanın üstünde.\n\n` +
+            `Sorgu: "${query}" (en fazla ${maxResults ?? 20} sonuç).`,
+          { query, used, quota },
         );
       }
 
       const result = await searchPlaces({ query, maxResults });
+      // Recorded whether or not it found anything: the row is what the quota
+      // counts, and it is also the only place a paid call shows up in the
+      // ledger. An unrecorded spend is an unbounded one.
+      await recordSearch(ctx, query, result.ok);
       if (!result.ok) {
         return `⚠️ Google Places kullanılamıyor (${result.reason}). Liste uydurma; kaynağın çalışmadığını yaz.`;
       }

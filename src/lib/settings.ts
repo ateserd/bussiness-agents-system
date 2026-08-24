@@ -45,6 +45,13 @@ export const CATALOGUE = {
     max: 50,
     label: "Gönderen kutu başına günlük mail",
   },
+  "outreach.daily_searches": {
+    type: "number",
+    value: 20,
+    min: 0,
+    max: 200,
+    label: "Günlük Google Places araması sayısı",
+  },
   "outreach.daily_calls": {
     type: "number",
     value: 5,
