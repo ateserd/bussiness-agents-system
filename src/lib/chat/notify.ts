@@ -47,6 +47,28 @@ export async function notifyOwner(text: string): Promise<boolean> {
   }
 }
 
+/**
+ * Push a message at most once per key.
+ *
+ * For conditions that stay true rather than happening once — a spend ceiling
+ * holds for the rest of the day, and re-announcing it every fifteen minutes
+ * would train the owner to ignore the one notification that matters.
+ *
+ * In memory on purpose. A restart re-announces once, which is harmless and
+ * arguably right: the process restarting is itself worth knowing about when a
+ * ceiling is being hit.
+ */
+const announced = new Set<string>();
+
+export async function onceToday(key: string, text: string): Promise<boolean> {
+  if (announced.has(key)) return false;
+  announced.add(key);
+  // Bounded: one key per condition per day, but a long-lived process should not
+  // accumulate them forever.
+  if (announced.size > 200) announced.clear();
+  return notifyOwner(text);
+}
+
 /** Telegram rejects messages over 4096 characters. */
 export function clip(text: string, max = 900): string {
   const t = text.trim();

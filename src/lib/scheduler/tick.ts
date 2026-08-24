@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, lt, sql } from "drizzle-orm";
 import { getDb } from "@/db/client";
-import { approvals, tasks, type Branch } from "@/db/schema";
+import { activity, approvals, conversations, tasks, type Branch } from "@/db/schema";
 import { notifyOwner, sendLong } from "@/lib/chat/notify";
 import { buildBrief, composeBrief, narrateBrief, renderBrief } from "@/lib/brief";
 import { getDayActivity } from "@/lib/data";
@@ -325,17 +325,80 @@ async function runEveningWrap(now: Date, result: TickResult): Promise<void> {
  * failed would turn a housekeeping problem into an outage.
  */
 async function runRetention(now: Date, result: TickResult): Promise<void> {
-  await onceToday(`retention:${dayKey(now)}`, "Lead saklama süresi taraması", now, result, async () => {
-    const days = await getSetting("lead.retention_days");
+  await onceToday(`retention:${dayKey(now)}`, "Saklama süresi taraması", now, result, async () => {
+    const db = await getDb();
+    const notes: string[] = [];
+
+    const leadDays = await getSetting("lead.retention_days");
     const { pruneLeads } = await import("@/lib/integrations/places");
-    const pruned = await pruneLeads(now, days);
-    return {
-      outcome: "retention",
-      note:
-        pruned.deleted > 0
-          ? `${pruned.deleted} dokunulmamış lead silindi (${days} günü geçti), ${pruned.kept} kaldı`
-          : undefined,
-    };
+    const pruned = await pruneLeads(now, leadDays);
+    if (pruned.deleted > 0) {
+      notes.push(`${pruned.deleted} dokunulmamış lead silindi (${leadDays} gün), ${pruned.kept} kaldı`);
+    }
+
+    // Chat history. Bounded because it is a transcript, not a record: what the
+    // owner decided lives in settings, memory and the approval trail, all of
+    // which outlive this.
+    const chatDays = await getSetting("chat.retention_days");
+    const chatCutoff = new Date(now.getTime() - chatDays * 86_400_000);
+    const [chatDue] = await db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(conversations)
+      .where(lt(conversations.createdAt, chatCutoff));
+    if ((chatDue?.n ?? 0) > 0) {
+      await db.delete(conversations).where(lt(conversations.createdAt, chatCutoff));
+      notes.push(`${chatDue.n} eski sohbet mesajı silindi`);
+    }
+
+    /*
+     * Activity is thinned, never deleted.
+     *
+     * This table is the audit trail — what an agent actually did, what it cost,
+     * what it sent — and that has to outlive everything else, so no row goes.
+     * What makes it *large* is the verbatim prompt and output carried on each
+     * row, and those stop being worth their bytes long before the record does.
+     * Old rows keep their summary, outcome, cost and timing; they lose the
+     * transcript.
+     */
+    const detailDays = await getSetting("activity.detail_days");
+    const detailCutoff = new Date(now.getTime() - detailDays * 86_400_000);
+    const fat = and(lt(activity.startedAt, detailCutoff), isNotNull(activity.output));
+    const [detailDue] = await db.select({ n: sql<number>`count(*)::int` }).from(activity).where(fat);
+    if ((detailDue?.n ?? 0) > 0) {
+      await db.update(activity).set({ input: null, output: null }).where(fat);
+      notes.push(`${detailDue.n} eski hareket kaydının tam metni boşaltıldı`);
+    }
+
+    /*
+     * Stale approvals expire.
+     *
+     * A cold-mail draft approved three weeks after it was written sends a stale
+     * email to a business whose situation has moved on — and the owner reading
+     * `/approve <id>` has no way to see the age from the card. Expiring is not
+     * deciding for him: an expired card can be regenerated, an email cannot be
+     * recalled.
+     */
+    const staleDays = await getSetting("approval.stale_days");
+    const staleCutoff = new Date(now.getTime() - staleDays * 86_400_000);
+    const stale = and(eq(approvals.state, "pending"), lt(approvals.createdAt, staleCutoff));
+    const [staleDue] = await db.select({ n: sql<number>`count(*)::int` }).from(approvals).where(stale);
+    if ((staleDue?.n ?? 0) > 0) {
+      await db
+        .update(approvals)
+        .set({
+          state: "rejected",
+          decidedAt: now,
+          rejectionReason: `${staleDays} gün içinde karar verilmedi — bayatladı, gönderilmedi.`,
+        })
+        .where(stale);
+      notes.push(`${staleDue.n} bekleyen onay bayatladı ve kapatıldı`);
+      await notifyOwner(
+        `🗑 ${staleDue.n} onay kartı ${staleDays} gündür bekliyordu ve bayatladı — hiçbiri gönderilmedi. ` +
+          "Hâlâ istiyorsan yeniden hazırlatabilirim.",
+      );
+    }
+
+    return { outcome: "retention", note: notes.length > 0 ? notes.join(" · ") : undefined };
   });
 }
 

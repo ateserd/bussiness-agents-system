@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { executeCommand, parseCommand, COMMAND_HELP } from "@/lib/chat/commands";
 import { transcribeVoice } from "@/lib/chat/voice";
 import { recordTurn } from "@/lib/chat/history";
+import { splitLong } from "@/lib/chat/notify";
 
 /**
  * Telegram webhook — the phone-side command line (§6).
@@ -34,6 +35,7 @@ export async function POST(req: Request) {
   }
 
   const update = (await req.json()) as {
+    update_id?: number;
     message?: {
       text?: string;
       chat?: { id?: number | string };
@@ -82,16 +84,75 @@ export async function POST(req: Request) {
   //
   // Recording is best-effort and deliberately not awaited into the reply path
   // beyond this point — the owner gets his answer whether or not it is kept.
+  // Telegram redelivers an update whose webhook did not answer quickly, and a
+  // model turn can outlast that. Without this, one message becomes two runs:
+  // billed twice, and — worse — two approval cards for the same draft.
+  if (!claimUpdate(update.update_id)) {
+    return NextResponse.json({ ok: true, duplicate: true });
+  }
+
   const at = new Date();
   let reply: string;
   try {
-    reply = await executeCommand(parseCommand(text), { ownerChannel });
+    // A hung provider used to hang the webhook with it. The ceiling is well
+    // past a normal turn, and a run that passes it is reported rather than
+    // waited on — the model may still finish and write its own activity row,
+    // but the owner is no longer left staring at a sent message.
+    reply = await withTimeout(
+      executeCommand(parseCommand(text), { ownerChannel }),
+      REPLY_TIMEOUT_MS,
+      "Cevap zamanında gelmedi — model yanıt vermedi. Tekrar sorar mısın?",
+    );
   } catch (err) {
     reply = `Komut hata verdi: ${(err as Error).message}`;
   }
   await recordTurn("user", text, "telegram", at);
   await recordTurn("assistant", reply, "telegram", new Date(at.getTime() + 1));
   return deliver(chatId, reply);
+}
+
+const REPLY_TIMEOUT_MS = 110_000;
+
+/**
+ * Resolve to a fallback rather than reject, so a slow turn still answers.
+ */
+function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(fallback), ms);
+    promise
+      .then((v) => {
+        clearTimeout(timer);
+        resolve(v);
+      })
+      .catch((err) => {
+        clearTimeout(timer);
+        resolve(`Komut hata verdi: ${(err as Error).message}` as T);
+      });
+  });
+}
+
+/**
+ * Remember which updates have been handled, in memory and bounded.
+ *
+ * A restart forgets them, which is the right trade: the window that matters is
+ * the seconds during which Telegram retries, and paying a database round trip
+ * on every message to survive a restart buys nothing.
+ */
+const SEEN_LIMIT = 500;
+const seen = new Set<number>();
+
+function claimUpdate(id: number | undefined): boolean {
+  if (typeof id !== "number") return true; // no id to dedupe on — let it through
+  if (seen.has(id)) return false;
+  seen.add(id);
+  if (seen.size > SEEN_LIMIT) {
+    // Oldest first: insertion order is iteration order for a Set.
+    for (const old of seen) {
+      seen.delete(old);
+      if (seen.size <= SEEN_LIMIT) break;
+    }
+  }
+  return true;
 }
 
 async function deliver(chatId: string, text: string) {
@@ -104,17 +165,29 @@ async function deliver(chatId: string, text: string) {
   // is the backstop for every other caller.
   const body = text.trim() || "(boş cevap üretildi — bir şey ters gitti, tekrar sorar mısın?)";
 
-  const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text: body, parse_mode: undefined }),
-  });
-  if (!res.ok) {
-    // Loud, because a delivery that fails silently is indistinguishable from a
-    // system that never ran.
-    console.warn(`· telegram gönderimi başarısız (${res.status}): ${await res.text().catch(() => "")}`);
+  // Telegram rejects anything over 4096 characters, and this path used to post
+  // the whole thing and lose it. `/brief` is the guaranteed case: the brief was
+  // designed to list every project, client and deal, and `sendLong` was written
+  // for exactly that — but only the *push* path used it, so the same text
+  // requested by hand died at the wall. Cutting it would be the wrong fix: a
+  // truncated brief is a wrong answer to someone who asked for the full one.
+  const parts = splitLong(body);
+  let allOk = true;
+  for (const [i, part] of parts.entries()) {
+    const chunk = parts.length > 1 ? `${part}\n\n— ${i + 1}/${parts.length} —` : part;
+    const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, text: chunk, parse_mode: undefined }),
+    });
+    if (!res.ok) {
+      allOk = false;
+      // Loud, because a delivery that fails silently is indistinguishable from
+      // a system that never ran.
+      console.warn(`· telegram gönderimi başarısız (${res.status}): ${await res.text().catch(() => "")}`);
+    }
   }
-  return NextResponse.json({ ok: res.ok, text: body });
+  return NextResponse.json({ ok: allOk, text: body });
 }
 
 export async function GET() {

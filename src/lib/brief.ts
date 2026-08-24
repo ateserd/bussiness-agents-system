@@ -367,6 +367,12 @@ export async function narrateBrief(brief: Brief, kind: "morning" | "evening" = "
 
   try {
     const result = await runAgent(rootAgent().id, { trigger: "schedule", mode: "chat", task: ask });
+    // Only a successful run may frame the brief. A blocked or failed one still
+    // returns a summary — now that a daily spend ceiling exists, that summary is
+    // "cost ceiling exceeded" — and using it here would print an operational
+    // error where the day's editorial belongs. Falling back to no framing is
+    // the designed graceful path: the figures below are unaffected.
+    if (result.outcome !== "success") return null;
     const text = result.summary.trim();
     return text.length > 0 ? text : null;
   } catch {

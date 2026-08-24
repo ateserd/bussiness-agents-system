@@ -156,6 +156,27 @@ src/db/                         schema · client · migrate · seed
   her şeyi siliyor, ve config YAML'dan geri geliyor — ama sahibin bir ajanı
   durdurmuş olması config değil, ve başka hiçbir yer hatırlamıyor. Seed artık
   truncate'ten önce okuyup geri yazıyor.
+- **Çalışma başına maliyet tavanı bir kaçak döngüyü GÖREMEZ.** Panelin render
+  döngüsü çalışma başına $0.002'ydi ve tavan $0.50 — yani hiç tetiklenemezdi,
+  günde $14 yakarken. Kaçak döngü pahalı çalışmalardan oluşmaz, çok
+  çalışmadan oluşur; onu ancak bir *toplam* görür. `agent.daily_cost_usd`
+  günlük toplamı tutuyor ve **yalnızca programlı işi** durduruyor: her kaçak
+  otomatiktir, ve sahibi tavanı yükseltebileceği tek kanaldan kilitlemek
+  içeriden sürgülenmiş bir kapı olurdu.
+- **`deliver` 4096'da bölmüyordu, `sendLong` ise yalnızca push yolundaydı.**
+  Yani brifing zamanlanmış gelince bölünüyor, `/brief` ile istenince sessizce
+  kayboluyordu — hem de brifing bilerek "tam" olacak şekilde tasarlandığı için
+  gerçek veriyle %100 patlayacak bir yol. Artık her iki yol da bölüyor;
+  kırpmak yanlış düzeltme olurdu, tam liste isteyene yarım liste vermek olur.
+- **Telegram yavaş webhook'u tekrar gönderiyor.** Zaman aşımı olmayan bir
+  sohbet yolu + tekrar koruması olmayan bir route = bir mesaj iki çalışma, iki
+  fatura, ve aynı taslak için iki onay kartı. `update_id` bellekte
+  tekilleştiriliyor (yeniden başlatma unutur, önemsiz: pencere saniyeler) ve
+  cevap yolunun kendi zaman aşımı var.
+- **`narrateBrief` outcome'a bakmalı.** Engellenen çalışma da `summary`
+  döndürüyor, ve günlük tavan geldikten sonra o summary "maliyet tavanı aşıldı"
+  oluyordu — brifingin günü özetleyen ilk cümlesi yerine bir işletim hatası.
+  Yeni bir koruma, eski bir varsayımla çarpıştı; sınıf olarak akılda tutulmalı.
 - **Model araç çağırıp susabiliyor, ve cevap araç sonucunda duruyor.** Haiku
   `pause_agent`'ı çağırıp "Scout sürdürüldü" sonucunu okuyunca işi bitmiş sayıp
   turu metinsiz kapatıyor; `max_iterations` aşılınca da aynı şekil çıkıyor (SDK

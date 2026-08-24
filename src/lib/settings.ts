@@ -93,6 +93,14 @@ export const CATALOGUE = {
     value: "Europe/Istanbul",
     label: "Takvim saat dilimi",
   },
+  "agent.daily_cost_usd": {
+    type: "number",
+    value: 3,
+    min: 0.1,
+    max: 100,
+    label: "Günlük toplam maliyet tavanı (USD)",
+    ownerConfirm: true,
+  },
   "agent.max_cost_usd": {
     type: "number",
     value: 0.5,
@@ -108,6 +116,27 @@ export const CATALOGUE = {
     max: 100_000,
     label: "Sormadan harcanabilecek tavan (USD)",
     ownerConfirm: true,
+  },
+  "chat.retention_days": {
+    type: "number",
+    value: 30,
+    min: 1,
+    max: 365,
+    label: "Sohbet kaydının saklanma süresi (gün)",
+  },
+  "activity.detail_days": {
+    type: "number",
+    value: 90,
+    min: 7,
+    max: 730,
+    label: "Hareket kaydında tam metnin saklanma süresi (gün)",
+  },
+  "approval.stale_days": {
+    type: "number",
+    value: 7,
+    min: 1,
+    max: 90,
+    label: "Onay kartının bayatlama süresi (gün)",
   },
   "chat.history_turns": {
     type: "number",

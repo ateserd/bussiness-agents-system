@@ -4,6 +4,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { getDb } from "@/db/client";
 import type { Branch } from "@/db/schema";
 import { activity, agents, type Outcome } from "@/db/schema";
+import { gte, sql } from "drizzle-orm";
 import { writeMemory } from "@/lib/brain/write";
 import { costOf, thinkingModeFor } from "./cost";
 import { narrowScopes } from "@/lib/brain/scope";
@@ -106,6 +107,41 @@ function reasoningParams(agent: AgentConfig) {
     : {};
 }
 
+/**
+ * Today's spend against the day's ceiling, or null when there is room.
+ *
+ * Notifies once when it first trips: a ceiling that stops work silently is a
+ * system that looks broken. Reads `activity`, which is the same figure the
+ * dashboard shows, so the owner can see what the number was made of.
+ */
+async function dayCostExceeded(now: Date): Promise<string | null> {
+  try {
+    const ceiling = await getSetting("agent.daily_cost_usd");
+    const db = await getDb();
+    const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const [row] = await db
+      .select({ total: sql<string>`coalesce(sum(${activity.costUsd}), 0)` })
+      .from(activity)
+      .where(gte(activity.startedAt, midnight));
+    const spent = Number(row?.total ?? 0);
+    if (spent <= ceiling) return null;
+
+    const note =
+      `Günlük maliyet tavanı aşıldı — bugün $${spent.toFixed(2)}, tavan $${ceiling.toFixed(2)}. ` +
+      "Programlı çalışmalar durduruldu; sen yazmaya devam edebilirsin. " +
+      'Tavanı değiştirmek için "günlük maliyet tavanını X yap" de.';
+
+    const { onceToday } = await import("@/lib/chat/notify");
+    await onceToday(`cost-ceiling:${midnight.toISOString().slice(0, 10)}`, `⚠️ ${note}`);
+    return note;
+  } catch {
+    // A ceiling that cannot be read must not stop the work. Spending too much
+    // is recoverable; a system that refuses to run because one query failed is
+    // a worse failure than the one being guarded against.
+    return null;
+  }
+}
+
 export async function runAgent(agentId: string, options: RunOptions = {}): Promise<RunResult> {
   const agent = requireAgent(agentId);
   const db = await getDb();
@@ -129,6 +165,38 @@ export async function runAgent(agentId: string, options: RunOptions = {}): Promi
   const activityId = randomUUID();
   const startedAt = new Date();
   const trigger = options.trigger ?? "manual";
+
+  /*
+   * The day's ceiling, and why the per-run one was never going to be enough.
+   *
+   * A runaway loop is not made of expensive runs. The one this system actually
+   * had — a page render that called a model, which wrote a row, which changed
+   * what the poll reported, which re-rendered the page — cost $0.002 a turn and
+   * ran every twelve seconds. Roughly $14 a day, and the per-run ceiling of
+   * $0.50 could not fire once, because no single run came close. A guard shaped
+   * per run cannot see a loop; only a total can.
+   *
+   * Scheduled and delegated work stops; the owner's own messages do not. Every
+   * runaway is automated, and locking him out of the one channel that can raise
+   * the ceiling would be a door bolted from the inside.
+   */
+  if (trigger === "schedule") {
+    const over = await dayCostExceeded(startedAt);
+    if (over) {
+      return {
+        activityId: "",
+        agentId,
+        outcome: "blocked",
+        summary: over,
+        costUsd: 0,
+        durationMs: 0,
+        simulated: true,
+        memoriesWritten: 0,
+        gated: [],
+        callScripts: [],
+      };
+    }
+  }
   const task = options.task ?? defaultTask();
   // The ceiling is a setting now, not an env var: the owner can raise or lower
   // it by saying so, and `AGENT_MAX_COST_USD` no longer has to be edited on the
