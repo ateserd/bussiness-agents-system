@@ -197,16 +197,33 @@ async function onceToday(
  * in touch with reality.
  *
  * It runs no agent and makes no judgement, which is why it lives here rather
- * than in a cadence — the same reasoning as lead retention.
+ * than in a cadence.
+ *
+ * **Every tick, not once a day.** It used to be an `onceToday` step next to
+ * retention, and that conflated two different things: retention is a daily
+ * *policy* (leads older than N days go), while this is a *repair* (the record
+ * disagrees with reality). Gating a repair to once a day meant a row orphaned
+ * at 10:00 kept the dashboard saying "çalışıyor" until the next morning — the
+ * exact lie this function exists to prevent. It costs one indexed query per
+ * tick and calls no model, so there is nothing to save by rationing it.
+ *
+ * No task row is written when there is nothing to reap: at a fifteen-minute
+ * cadence that would be ninety-six rows a day of "checked, nothing found".
+ * A reap that actually closes something reports it on the tick result.
+ *
+ * The cutoff has to be well past the run timeout, or a slow-but-live run gets
+ * declared dead underneath itself.
  */
 const STALE_RUN_MS = TIMEOUT_MS * 6;
 
 async function reapStaleRuns(now: Date, result: TickResult): Promise<void> {
-  await onceToday(`reap:${dayKey(now)}`, "Yarım kalmış çalışma taraması", now, result, async () => {
+  // Its own try/catch, which `onceToday` used to provide: a failing repair must
+  // not take down the tick that would have run the real work.
+  try {
     const { staleRunning } = await import("@/lib/tasks");
     const db = await getDb();
     const stale = await staleRunning(now, STALE_RUN_MS);
-    if (stale.length === 0) return { outcome: "reap" };
+    if (stale.length === 0) return;
 
     for (const task of stale) {
       await db
@@ -218,8 +235,18 @@ async function reapStaleRuns(now: Date, result: TickResult): Promise<void> {
         })
         .where(eq(tasks.id, task.id));
     }
-    return { outcome: "reap", note: `${stale.length} yarım kalmış çalışma kapatıldı` };
-  });
+    result.details.push({
+      agentId: "—",
+      outcome: "reap",
+      note: `${stale.length} yarım kalmış çalışma kapatıldı`,
+    });
+  } catch (err) {
+    result.details.push({
+      agentId: "—",
+      outcome: "blocked",
+      note: `Yarım kalmış çalışma taraması: ${(err as Error).message}`,
+    });
+  }
 }
 
 /**

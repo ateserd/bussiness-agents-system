@@ -177,8 +177,17 @@ src/db/                         schema · client · migrate · seed
   `outreach.batch_time` birer ayar. Bu yüzden brifing ve parti `tick.ts` içinde,
   `onceToday()` kalıbıyla.
 - **Süreç ölürse görev sonsuza kadar `running` kalır.** `runUnit` fırlatılan
-  hatayı yakalar, sürecin kaybolmasını yakalayamaz. Günlük toplayıcı
-  (`reapStaleRuns`) bunun tek çaresi.
+  hatayı yakalar, sürecin kaybolmasını yakalayamaz. `reapStaleRuns` bunun tek
+  çaresi ve **her tick'te** çalışır, günde bir değil: saklama bir *politika*
+  (günlük doğru), bu ise bir *onarım* — kayıt gerçekle çelişiyor. Günde bire
+  bağlamak, 10:00'da öksüz kalan bir satırın ertesi sabaha kadar panelde
+  "çalışıyor" demesi demekti; yani fonksiyonun önlemek için var olduğu yalanın
+  ta kendisi. Eşik `TIMEOUT_MS * 6` (12 dk) — timeout'un çok ötesinde, yoksa
+  yavaş ama canlı bir çalışma kendi altından ölü ilan edilir.
+- **`/pause` çalışan görevi durdurmaz.** Yalnızca `agents.paused`'ı çeviriyor,
+  yani *sonraki* çalışmaları engelliyor; uçuştaki iş devam eder. Çalışan bir işi
+  yarıda kesmenin yolu yok — kasıtlı: yarıda kesilen bir araç çağrısı dış
+  dünyada yarım iş bırakabilir.
 
 - **PGlite üst dizini kendi oluşturmuyor.** `client.ts` `data/` dizinini
   `mkdirSync(recursive)` ile açıyor, yoksa ENOENT.
