@@ -156,6 +156,15 @@ src/db/                         schema · client · migrate · seed
   her şeyi siliyor, ve config YAML'dan geri geliyor — ama sahibin bir ajanı
   durdurmuş olması config değil, ve başka hiçbir yer hatırlamıyor. Seed artık
   truncate'ten önce okuyup geri yazıyor.
+- **Model araç çağırıp susabiliyor, ve cevap araç sonucunda duruyor.** Haiku
+  `pause_agent`'ı çağırıp "Scout sürdürüldü" sonucunu okuyunca işi bitmiş sayıp
+  turu metinsiz kapatıyor; `max_iterations` aşılınca da aynı şekil çıkıyor (SDK
+  "loop will terminate even if tools are still being requested" diyor). `run.ts`
+  önce modelin metnine, o yoksa **son `tool_result`'a** bakıyor. Bu sistemdeki
+  araçlar zaten sahibe okunacak Türkçe cümleler döndürüyor — elde "Scout
+  sürdürüldü" varken "yazılı bir cevap üretmedim" demek dürüstlük değil,
+  bildiğini çöpe atmak. Promptta da "araç çağırdıktan sonra asla sessiz kapatma"
+  kuralı var; fallback ikinci savunma hattı.
 - **Boş cevap = hiç cevap.** Telegram boş metni 400 ile reddediyor, ve `deliver`
   bu reddi yutuyordu. `runAgent`'ın *activity satırı* boş çıktı için
   `"Çıktı üretilmedi."` fallback'i alıyordu ama **dönüş değeri almıyordu** — iki

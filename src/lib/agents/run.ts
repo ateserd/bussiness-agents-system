@@ -216,7 +216,10 @@ export async function runAgent(agentId: string, options: RunOptions = {}): Promi
       }
 
       const final = await runner.done();
-      summary = textOf(final).trim();
+      // The model's own words when it wrote any; otherwise what the tools
+      // actually returned. See `toolOutcome` — throwing that away and saying
+      // "no reply produced" was discarding the answer while holding it.
+      summary = textOf(final).trim() || toolOutcome(runner.params.messages);
       unsure = extractUnsure(summary);
     }
 
@@ -312,11 +315,50 @@ export async function runAgent(agentId: string, options: RunOptions = {}): Promi
 }
 
 /**
+ * The last thing a tool reported back, for a run that called tools and then
+ * wrote nothing of its own.
+ *
+ * This happens often and is not an error: the model calls `pause_agent`, reads
+ * "Scout sürdürüldü", considers the job finished and ends the turn with no
+ * prose. `max_iterations` produces the same shape — the SDK terminates the loop
+ * "even if tools are still being requested", so the final message can carry
+ * tool calls and no text at all.
+ *
+ * Either way the answer exists; it is sitting in the tool result. Reporting
+ * "yazılı bir cevap üretmedim" while holding "Scout sürdürüldü" is not honesty,
+ * it is discarding what we already know. The tools in this system return
+ * sentences written for the owner precisely so they can be shown to him.
+ *
+ * The last result wins: it is the one the model was about to report on.
+ */
+function toolOutcome(messages: readonly Anthropic.Beta.BetaMessageParam[]): string {
+  let last = "";
+  for (const message of messages) {
+    if (message.role !== "user" || !Array.isArray(message.content)) continue;
+    for (const block of message.content) {
+      if (block.type !== "tool_result") continue;
+      const body = block.content;
+      const text =
+        typeof body === "string"
+          ? body
+          : Array.isArray(body)
+            ? body
+                .filter((b): b is Anthropic.Beta.BetaTextBlockParam => b.type === "text")
+                .map((b) => b.text)
+                .join("\n")
+            : "";
+      if (text.trim()) last = text.trim();
+    }
+  }
+  return last;
+}
+
+/**
  * What to say when a run produced no text of its own.
  *
- * Never empty, and never a lie: it reports what actually happened rather than
- * inventing a reply. "Onay kartı yazıldı" is the common one — the model called
- * a gated tool, the gate stopped it, and stopping is the whole point.
+ * Reached only when there is genuinely nothing to report: no prose, and no tool
+ * said anything either. Never empty, and never a lie — it reports what actually
+ * happened rather than inventing a reply.
  */
 function emptyRunNote(outcome: Outcome, error: string | null): string {
   if (error) return `Çalışma hata ile bitti: ${error}`;
