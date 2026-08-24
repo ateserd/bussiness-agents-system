@@ -143,6 +143,19 @@ src/db/                         schema · client · migrate · seed
   ~2.6k sabit metin ≈ **5.9k**, yani Haiku eşiğinin ~1.8k üstünde. Rol promptunu
   kırpmak ya da araç çıkarmak bu marjı yer ve önbellek Haiku'da sessizce durur.
   İkisinden birini yapmadan önce yeniden ölç.
+- **Sistem haritasındaki AJANLAR satırı YAML'dan okunur, veritabanından değil.**
+  Yani ne yaptıklarını değil, ne olduklarını anlatır. Bu boşluk sistemin en kötü
+  hatasını üretti: sahip Scout'u duraklattı, araya giren bir reseed bayrağı
+  sildi, ve altı dakika sonra Yönetici "Scout zaten çalışıyordu" dedi. İki cümle
+  de kendi anında doğruydu — Yönetici zeminin kaydığını **göremediği** için
+  çelişti. Artık `DURUM` satırı canlı okunuyor (duraklatılmış + engelli), her
+  zaman basılıyor (yalnızca sorun varken görünen bir satır, render edilememiş
+  bir satırdan ayırt edilemez), ve promptta "araç sonucu ile senin üç mesaj
+  önceki cümlen çelişirse araç haklıdır, geçiştirme" kuralı var.
+- **`db:seed:fresh` elle konmuş `paused` bayrağını eziyordu.** `truncate agents`
+  her şeyi siliyor, ve config YAML'dan geri geliyor — ama sahibin bir ajanı
+  durdurmuş olması config değil, ve başka hiçbir yer hatırlamıyor. Seed artık
+  truncate'ten önce okuyup geri yazıyor.
 - **Boş cevap = hiç cevap.** Telegram boş metni 400 ile reddediyor, ve `deliver`
   bu reddi yutuyordu. `runAgent`'ın *activity satırı* boş çıktı için
   `"Çıktı üretilmedi."` fallback'i alıyordu ama **dönüş değeri almıyordu** — iki

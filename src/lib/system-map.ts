@@ -1,6 +1,6 @@
 import { eq, not, inArray, sql } from "drizzle-orm";
 import { getDb } from "@/db/client";
-import { deals, leads, memories, projects } from "@/db/schema";
+import { agents, deals, leads, memories, projects } from "@/db/schema";
 import { allAgents } from "@/lib/agents/registry";
 import { calendarWriteConfigured } from "@/lib/integrations/google-calendar";
 import { calendarConfigured } from "@/lib/integrations/calendar";
@@ -66,6 +66,31 @@ function crewLine(crew: ReturnType<typeof allAgents>): string {
   return kept.join(" · ") + (rest > 0 ? ` · (+${rest} ajan daha)` : "");
 }
 
+/**
+ * Which agents are actually stopped right now.
+ *
+ * The crew line above is read from YAML, so it describes what each agent *is*
+ * and knows nothing about what it is *doing*. That gap produced the worst
+ * failure this system has had: the owner paused Scout, a reseed cleared the
+ * flag, and the next message reported Scout as never paused — two true
+ * statements six minutes apart with no way for the manager to notice the
+ * ground had moved. It could not notice because nothing here told it.
+ *
+ * Always rendered, including when everything is normal. A line that appears
+ * only on trouble is indistinguishable from a line that failed to render.
+ */
+function stateLine(rows: { id: string; paused: boolean; blocker: string | null }[]): string {
+  if (rows.length === 0) return "⚠️ okunamadı";
+  const stopped = rows.filter((r) => r.paused).map((r) => `⏸ ${r.id}`);
+  const blocked = rows
+    .filter((r) => !r.paused && r.blocker)
+    .map((r) => `⛔ ${r.id} (${(r.blocker ?? "").slice(0, 60)})`);
+  const flagged = [...stopped, ...blocked];
+  const rest = rows.length - flagged.length;
+  if (flagged.length === 0) return `${rows.length} ajanın hepsi çalışır durumda`;
+  return flagged.join(" · ") + (rest > 0 ? ` · diğer ${rest} ajan çalışır durumda` : "");
+}
+
 function tick(ok: boolean, label: string, missing: string): string {
   return ok ? `${label}✓` : `${label}✗(${missing})`;
 }
@@ -74,10 +99,19 @@ export async function buildSystemMap(): Promise<string> {
   const crew = allAgents();
   const db = await getDb();
 
-  const [settings, running, parked, counts] = await Promise.all([
+  const [settings, running, parked, crewState, counts] = await Promise.all([
     allSettings(),
     runningTasks(),
     openQuestions(),
+    (async () => {
+      try {
+        return await db
+          .select({ id: agents.id, paused: agents.paused, blocker: agents.blocker })
+          .from(agents);
+      } catch {
+        return [] as { id: string; paused: boolean; blocker: string | null }[];
+      }
+    })(),
     (async () => {
       try {
         const [[lead], [deal], [project], [live], [memory]] = await Promise.all([
@@ -114,6 +148,8 @@ export async function buildSystemMap(): Promise<string> {
   const lines: string[] = ["# Sistem haritası (çalışma anında üretildi)"];
 
   lines.push(`AJANLAR    ${crewLine(crew)}`);
+  // What the crew line cannot say: which of them is stopped right now.
+  lines.push(`DURUM      ${stateLine(crewState)}`);
 
   // Changed settings first: what the owner altered is what he is likely to ask
   // about, and it is what differs from the documented defaults.

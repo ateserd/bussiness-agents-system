@@ -452,6 +452,25 @@ async function main() {
   const FRESH = process.argv.includes("--fresh");
   console.log(FRESH ? "· fresh mode — agents and standing decisions only, no demo data" : "· demo mode");
 
+  /*
+   * Runtime state the owner set by hand outlives a reseed.
+   *
+   * `truncate ... agents` wipes `paused` with everything else, and that cost a
+   * real hour: the owner paused Scout from Telegram, a deploy reseeded, and the
+   * next message reported Scout as never having been paused. A contradiction
+   * with no lie in it — the state genuinely had changed underneath, and nothing
+   * told the manager. Config comes from YAML; whether the owner stopped an
+   * agent does not, and nothing else in the system remembers it.
+   */
+  const heldPause = new Set<string>();
+  try {
+    for (const row of await db.select().from(agents)) {
+      if (row.paused) heldPause.add(row.id);
+    }
+  } catch {
+    // First run — no table yet, nothing to carry forward.
+  }
+
   console.log("· clearing");
   await raw(`truncate table
     memory_links, memories, kpi_snapshots, activity, approvals, tasks,
@@ -506,14 +525,17 @@ async function main() {
       escalateWhen: c.escalate_to_human_when,
       schedule: c.schedule,
       autonomy: c.autonomy,
-      paused: false,
+      paused: heldPause.has(c.id),
       blocker: BLOCKED.get(c.id) ?? null,
       lastRunAt: FRESH ? null : c.schedule ? daysAgo(0, 8) : rnd() > 0.5 ? daysAgo(int(1, 5), 12) : null,
       nextRunAt: FRESH ? null : c.schedule ? new Date(now.getTime() + int(1, 22) * 3_600_000) : null,
       createdAt: FRESH ? now : daysAgo(34),
     })),
   );
-  console.log(`· ${configs.length} agents`);
+  console.log(
+    `· ${configs.length} agents` +
+      (heldPause.size > 0 ? ` (${heldPause.size} duraklatılmış olarak korundu)` : ""),
+  );
 
   if (!FRESH) {
   /* --- leads ------------------------------------------------------------- */
