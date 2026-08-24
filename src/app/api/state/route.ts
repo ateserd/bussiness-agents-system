@@ -13,15 +13,19 @@ export const dynamic = "force-dynamic";
  * the opposite trade: almost no animation, and a real 5-second check that
  * refreshes the page when the underlying counts change.
  *
- * Four counts and one id, chosen because they cover every visible change on
- * Bugün: a task starting or finishing, a question parked or answered, an
- * approval settled, and any new agent action. Anything else the owner sees is
- * downstream of one of those.
+ * Five counts and one id, chosen because they cover every visible change on
+ * Bugün: work queued, a task starting or finishing, a question parked or
+ * answered, an approval settled, and any new agent action. Anything else the
+ * owner sees is downstream of one of those.
+ *
+ * `queued` is here because delegation is fire-and-forget: without it, work
+ * handed to a worker stayed invisible until the next tick claimed it.
  */
 export async function GET() {
   try {
     const db = await getDb();
-    const [[running], [parked], [pending], [last]] = await Promise.all([
+    const [[queued], [running], [parked], [pending], [last]] = await Promise.all([
+      db.select({ n: sql<number>`count(*)::int` }).from(tasks).where(eq(tasks.status, "queued")),
       db.select({ n: sql<number>`count(*)::int` }).from(tasks).where(eq(tasks.status, "running")),
       db.select({ n: sql<number>`count(*)::int` }).from(tasks).where(eq(tasks.status, "waiting_owner")),
       db.select({ n: sql<number>`count(*)::int` }).from(approvals).where(eq(approvals.state, "pending")),
@@ -29,6 +33,7 @@ export async function GET() {
     ]);
 
     return NextResponse.json({
+      queued: queued?.n ?? 0,
       running: running?.n ?? 0,
       parked: parked?.n ?? 0,
       pending: pending?.n ?? 0,

@@ -3,7 +3,7 @@ import { LiveDot } from "@/components/shell/live";
 import { TodayBoard } from "@/components/today/board";
 import { buildBrief, todaysNarration } from "@/lib/brief";
 import { getActivity, getDayActivity, getMemoryCount, getPendingApprovals } from "@/lib/data";
-import { openQuestions, runningTasks } from "@/lib/tasks";
+import { openQuestions, queuedTasks, runningTasks } from "@/lib/tasks";
 import { openBatch } from "@/lib/outreach/batch";
 import { OWNER_NAME } from "@/lib/owner";
 import { copy, fmt } from "@/lib/copy";
@@ -14,9 +14,10 @@ export default async function TodayPage() {
   const now = new Date();
   const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-  const [brief, running, parked, approvals, activity, day, memoryCount, batch] = await Promise.all([
+  const [brief, running, queued, parked, approvals, activity, day, memoryCount, batch] = await Promise.all([
     buildBrief(now),
     runningTasks(),
+    queuedTasks(),
     openQuestions(),
     getPendingApprovals(),
     getActivity(12),
@@ -52,6 +53,7 @@ export default async function TodayPage() {
         brief={brief}
         narration={narration}
         running={running}
+        queued={queued}
         parked={parked}
         approvals={approvals}
         batch={batch ? { pending: batch.pending.length, calls: batch.payload.call.length, planLine: batch.payload.planLine } : null}

@@ -30,6 +30,8 @@ export const copy = {
     recent: "Son hareketler",
     noActivity: "Henüz hareket yok.",
     running: "Çalışan görev",
+    queued: "Kuyrukta",
+    queuedNote: (n: number) => `${n} iş sırada — bir sonraki taramada başlar`,
     parked: "Sana takılı",
     awaiting: "Onay bekleyen",
     sentToday: "Bugün giden",

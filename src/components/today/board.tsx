@@ -68,6 +68,7 @@ export function TodayBoard({
   brief,
   narration,
   running,
+  queued,
   parked,
   approvals,
   batch,
@@ -78,6 +79,7 @@ export function TodayBoard({
   brief: Brief;
   narration: string | null;
   running: Task[];
+  queued: Task[];
   parked: Task[];
   approvals: PendingApproval[];
   batch: { pending: number; calls: number; planLine: string | null } | null;
@@ -104,7 +106,18 @@ export function TodayBoard({
       )}
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        <Stat label={c.running} value={running.length} sub={running.length > 0 ? "şu anda" : "boşta"} tone="ok" />
+        <Stat
+          label={c.running}
+          value={running.length}
+          sub={
+            queued.length > 0
+              ? `${queued.length} kuyrukta`
+              : running.length > 0
+                ? "şu anda"
+                : "boşta"
+          }
+          tone="ok"
+        />
         <Stat
           label={c.parked}
           value={parked.length}
@@ -197,7 +210,7 @@ export function TodayBoard({
               ) : undefined
             }
           >
-            {running.length === 0 ? (
+            {running.length === 0 && queued.length === 0 ? (
               <Empty>{c.nothingRunning}</Empty>
             ) : (
               running.map((task, i) => (
@@ -222,6 +235,33 @@ export function TodayBoard({
                   )}
                 </div>
               ))
+            )}
+
+            {/* Handed over, not started. Dimmed and unanimated on purpose: the
+                one moving indicator on the panel means "running", and a queued
+                row is precisely the thing that is not. */}
+            {queued.length > 0 && (
+              <div style={{ borderTop: "1px solid var(--line)" }}>
+                <p className="label m-0 px-5 pt-3">{c.queued}</p>
+                {queued.map((task) => (
+                  <div key={task.id} className="flex items-center justify-between gap-3 px-5 py-2.5">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <span className="dot" style={{ background: "var(--ink-3)" }} />
+                      <div className="min-w-0">
+                        <p className="m-0 truncate text-[13.5px]" style={{ color: "var(--ink-2)" }}>
+                          {task.title}
+                        </p>
+                        <p className="mc-num m-0 text-[11.5px]" style={{ color: "var(--ink-3)" }}>
+                          {task.agentId ?? "sistem"} · #{shortId(task.id)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                <p className="m-0 px-5 pb-3 text-[11.5px]" style={{ color: "var(--ink-3)" }}>
+                  {c.queuedNote(queued.length)}
+                </p>
+              </div>
             )}
           </Card>
         </div>

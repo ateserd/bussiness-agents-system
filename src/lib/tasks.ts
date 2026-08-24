@@ -144,6 +144,19 @@ export async function openQuestions(): Promise<Task[]> {
     .orderBy(asc(tasks.askedAt));
 }
 
+/**
+ * Work handed over but not started yet.
+ *
+ * `delegate` is fire-and-forget, so a task sits `queued` until the next tick —
+ * up to fifteen minutes. Without this the manager says "başlattım" and the
+ * panel shows nothing at all for that whole window, which reads as a failure
+ * rather than as a queue. Oldest first, because that is the order it runs in.
+ */
+export async function queuedTasks(): Promise<Task[]> {
+  const db = await getDb();
+  return db.select().from(tasks).where(eq(tasks.status, "queued")).orderBy(asc(tasks.createdAt));
+}
+
 export async function runningTasks(): Promise<Task[]> {
   const db = await getDb();
   return db.select().from(tasks).where(eq(tasks.status, "running")).orderBy(desc(tasks.startedAt));
