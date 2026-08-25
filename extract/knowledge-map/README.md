@@ -6,6 +6,15 @@ erişimi yok. `npm install && npm run dev` yeter.
 
 Kaynak: `src/components/brain/constellation.tsx` (Mission Control).
 
+## İki sürüm var
+
+**`knowledge-map.html`** — tek dosya, **sıfır bağımlılık**. React yok, d3 yok,
+npm yok, derleme yok. Çift tıkla aç, çalışır; `file://` üzerinden de. d3-force'un
+kullanılan beş kuvveti dosyanın içine okunabilir hâlde yazıldı. Yapıyı incelemek
+ve başka bir projeye taşımak için olan sürüm bu.
+
+**`src/`** — aynı bileşenin TypeScript + React hâli, Vite demosuyla:
+
 ```
 npm install
 npm run dev      # http://localhost:5180

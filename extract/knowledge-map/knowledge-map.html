@@ -1,0 +1,1219 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Knowledge Map — bağımsız</title>
+
+<!--
+================================================================================
+  KNOWLEDGE MAP — tek dosya, sıfır bağımlılık
+
+  Mission Control'ün /brain görünümündeki takımyıldız haritasının backend'den
+  tamamen koparılmış hâli. Ne var ne yok bu dosyanın içinde:
+
+    · veri tabanı yok, sunucu yok, ağ isteği yok
+    · npm yok, derleme adımı yok
+    · React yok, d3 yok, hiçbir kütüphane yok
+
+  Çift tıkla aç, çalışır. file:// üzerinden de çalışır — bu yüzden
+  <script type="module"> DEĞİL, düz <script>: Chrome, module script'leri
+  file:// üzerinde CORS ile engelliyor.
+
+  DOSYA HARİTASI (üç bölüm, aşağıda aynı sırayla):
+    BÖLÜM 1  Kuvvet simülasyonu   — d3-force'un kullanılan 5 kuvveti, elde
+    BÖLÜM 2  Bileşen              — createKnowledgeMap(), taşınacak olan kısım
+    BÖLÜM 3  Demo                 — örnek veri + kurulum, PAKETE DAHİL DEĞİL
+
+  Başka bir projeye taşırken: BÖLÜM 1 + BÖLÜM 2 + aşağıdaki "BİLEŞEN CSS"
+  bloğu. BÖLÜM 3 ve "DEMO CSS" bloğu burada kalır.
+================================================================================
+-->
+
+<style>
+/* ==========================================================================
+   BİLEŞEN CSS — bileşenle birlikte taşınır.
+   Hepsi km- önekli, hiçbir global seçici yok, hiçbir framework'e bağlı değil.
+   Yeniden renklendirmek için .km-root üzerindeki --km-* değişkenlerini ez.
+   ========================================================================== */
+
+.km-root {
+  --km-ink: #e9eef6;
+  --km-haze: #8ea3bd;
+  --km-dim: #5b6d85;
+  --km-line: rgba(142,163,189,.15);
+  --km-line-hi: rgba(142,163,189,.3);
+  --km-panel: rgba(11,19,35,.66);
+  --km-field: rgba(11,19,35,.7);
+  --km-ground: rgba(6,11,22,.45);
+  --km-accent: #f5c451;
+  --km-radius: 4px;
+  --km-sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --km-mono: ui-monospace, "SF Mono", Menlo, monospace;
+
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  font-family: var(--km-sans);
+  color: var(--km-ink);
+}
+
+.km-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; }
+
+.km-search {
+  flex: 1 1 240px; max-width: 420px;
+  padding: 10px 16px;
+  font: inherit; font-size: 14px;
+  color: var(--km-ink);
+  background: var(--km-field);
+  border: 1px solid var(--km-line);
+  border-radius: var(--km-radius);
+}
+.km-search::placeholder { color: var(--km-dim); }
+.km-search:focus-visible { outline: 2px solid var(--km-accent); outline-offset: 2px; }
+
+.km-reset {
+  padding: 5px 10px;
+  font-family: var(--km-mono); font-size: 9.5px;
+  text-transform: uppercase; letter-spacing: .14em;
+  color: var(--km-haze);
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid var(--km-line-hi);
+  border-radius: var(--km-radius);
+}
+.km-reset:hover { color: var(--km-ink); border-color: var(--km-accent); }
+.km-reset[hidden] { display: none; }
+
+.km-eyebrow {
+  margin: 0;
+  font-family: var(--km-mono); font-size: 9.5px; font-weight: 500;
+  letter-spacing: .2em; text-transform: uppercase;
+  color: var(--km-dim);
+}
+
+.km-legend { display: flex; flex-wrap: wrap; gap: 16px; margin-left: auto; }
+.km-legend-item {
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--km-mono); font-size: 9.5px;
+  letter-spacing: .14em; text-transform: uppercase;
+  color: var(--km-haze);
+}
+.km-swatch { display: inline-block; width: 7px; height: 7px; border-radius: 999px; }
+
+.km-body { display: grid; gap: 20px; }
+@media (min-width: 1024px) { .km-body--panel { grid-template-columns: 1fr 340px; } }
+
+/* TUZAK: bu kutunun KESİN bir yüksekliği olmak zorunda. flex-1 ya da
+   yüzde-yükseklikli bir ebeveyn sıfıra çözülür ve harita hiç görünmez. */
+.km-canvas-wrap {
+  position: relative;
+  overflow: hidden;
+  background: var(--km-ground);
+  border: 1px solid var(--km-line);
+  border-radius: var(--km-radius);
+}
+
+.km-canvas {
+  display: block; width: 100%; height: 100%;
+  touch-action: none;   /* pan/zoom'u pointer olayları sürüyor */
+}
+
+.km-hint {
+  position: absolute; right: 10px; bottom: 8px;
+  pointer-events: none;
+  font-family: var(--km-mono); font-size: 9px;
+  letter-spacing: .12em; text-transform: uppercase;
+  color: var(--km-dim); opacity: .7;
+}
+
+.km-panel {
+  display: flex; flex-direction: column; gap: 20px;
+  padding: 24px;
+  overflow-y: auto;
+  background: var(--km-panel);
+  border: 1px solid var(--km-line);
+  border-radius: var(--km-radius);
+}
+.km-panel--empty { display: grid; place-items: center; min-height: 200px; text-align: center; }
+.km-muted { margin: 0; font-size: 13px; color: var(--km-dim); }
+.km-label { margin: 10px 0 0; font-size: 14px; line-height: 1.65; }
+
+.km-fields { display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; margin: 0; font-size: 12px; }
+.km-field-label { white-space: nowrap; font-size: 9px; }
+.km-field-value {
+  margin: 0; overflow-wrap: anywhere;
+  font-family: var(--km-mono); font-size: 11px; color: var(--km-haze);
+}
+
+.km-note {
+  margin: 0; padding: 8px 12px;
+  font-family: var(--km-mono); font-size: 11px;
+  color: var(--km-accent);
+  border: 1px solid rgba(245,196,81,.3);
+  border-radius: var(--km-radius);
+}
+
+.km-stats { display: flex; flex-wrap: wrap; gap: 8px 32px; padding-top: 4px; }
+.km-stat { display: flex; align-items: baseline; gap: 8px; }
+.km-stat-value {
+  font-family: var(--km-mono); font-size: 19px; font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ==========================================================================
+   DEMO CSS — yalnız bu sayfanın kabuğu. Bileşene dahil DEĞİL.
+   ========================================================================== */
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; min-height: 100%; }
+
+body {
+  background: #0a0f1e;
+  color: #e9eef6;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 15px; line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+body::before {
+  content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(1100px 620px at 50% -8%, rgba(245,196,81,.1), transparent 62%),
+    linear-gradient(178deg, #0a0f1e 0%, #0b1524 42%, #10241f 100%);
+}
+
+.demo { position: relative; z-index: 1; max-width: 1440px; margin: 0 auto; padding: 32px 28px 48px; }
+
+.demo-head {
+  display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between;
+  gap: 20px; margin-bottom: 28px;
+}
+.demo-head h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: .06em; }
+.demo-head h1 span { color: #f5c451; }
+.demo-head p { margin: 6px 0 0; font-size: 12.5px; color: #5b6d85; max-width: 62ch; }
+
+.demo-range {
+  display: flex; align-items: center; gap: 12px;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8ea3bd;
+  white-space: nowrap;
+}
+.demo-range input { width: 200px; accent-color: #f5c451; }
+
+.demo-data { margin-top: 28px; }
+.demo-data summary {
+  cursor: pointer;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #8ea3bd;
+}
+.demo-data summary:hover { color: #e9eef6; }
+.demo-data-body { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+.demo-data textarea {
+  width: 100%; min-height: 180px; padding: 14px;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 11.5px; line-height: 1.55;
+  color: #e9eef6; background: rgba(11,19,35,.7);
+  border: 1px solid rgba(142,163,189,.15); border-radius: 4px;
+  resize: vertical;
+}
+.demo-data-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.demo-btn {
+  padding: 7px 14px; cursor: pointer;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
+  color: #0a0f1e; background: #f5c451; border: 0; border-radius: 4px;
+}
+.demo-btn--ghost { color: #8ea3bd; background: transparent; border: 1px solid rgba(142,163,189,.3); }
+.demo-btn--ghost:hover { color: #e9eef6; border-color: #f5c451; }
+.demo-status {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 10.5px; color: #5b6d85;
+}
+.demo-status[data-bad="1"] { color: #ff4d6d; }
+
+.demo-foot {
+  margin: 22px 0 0;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 10.5px; letter-spacing: .1em; color: #5b6d85;
+}
+</style>
+</head>
+
+<body>
+<main class="demo">
+  <header class="demo-head">
+    <div>
+      <h1>KNOWLEDGE <span>MAP</span></h1>
+      <p>
+        Backend'den tamamen koparılmış, tek dosya, sıfır bağımlılık.
+        Kaynağı görmek için sayfaya sağ tık → “Sayfa kaynağını görüntüle”.
+      </p>
+    </div>
+    <label class="demo-range">
+      <span id="countLabel">140 düğüm</span>
+      <input id="count" type="range" min="20" max="1200" step="20" value="140">
+    </label>
+  </header>
+
+  <div id="map"></div>
+
+  <details class="demo-data">
+    <summary>Kendi verini dene (JSON)</summary>
+    <div class="demo-data-body">
+      <p class="demo-status" style="margin:0">
+        Beklenen şekil: <code>{ "nodes": [...], "links": [...] }</code> — zorunlu alan yalnız
+        <code>id</code> ve <code>label</code>. Diğerleri: <code>kind</code>, <code>group</code>,
+        <code>subgroup</code>, <code>tags[]</code>, <code>weight</code>, <code>pinned</code>,
+        <code>meta{}</code>, <code>note</code>.
+      </p>
+      <textarea id="json" spellcheck="false"></textarea>
+      <div class="demo-data-row">
+        <button class="demo-btn" id="apply">Uygula</button>
+        <button class="demo-btn demo-btn--ghost" id="dump">Şu anki veriyi yaz</button>
+        <span class="demo-status" id="status"></span>
+      </div>
+    </div>
+  </details>
+
+  <p class="demo-foot" id="foot">
+    Bir düğüme tıkla · tekerlek yakınlaştırır · boşluğu sürüklemek gezdirir · düğümü sürüklemek yerinden oynatır
+  </p>
+</main>
+
+<script>
+/* eslint-disable */
+(function () {
+"use strict";
+
+/* ============================================================================
+   BÖLÜM 1 — KUVVET SİMÜLASYONU
+
+   d3-force'un yalnızca bu haritanın kullandığı beş kuvveti, kütüphane olmadan.
+   Algoritmalar d3'ün kendi uygulamasını birebir izler (velocity Verlet
+   entegrasyonu, phyllotaxis ile başlangıç yerleşimi, aynı sönümleme
+   davranışı), böylece görsel sonuç orijinaliyle aynı kalır.
+
+   Tek gerçek fark: d3 yük ve çarpışma için quadtree kullanır, buradaki
+   uygulama düz ikili tarama yapıyor — yani O(n²). Bin küsur düğümde ilk
+   yerleşme birkaç saniye sürer; simülasyon soğuyunca (alpha < alphaMin) döngü
+   tamamen durur ve CPU sıfıra iner. Optimize edilecek ilk yer burasıdır.
+   ========================================================================== */
+
+var JIGGLE = function () { return (Math.random() - 0.5) * 1e-6; };
+
+function createSimulation(nodes, links, cfg) {
+  var alpha = 1,
+      alphaTarget = 0,
+      alphaMin = 0.001,
+      // d3 velocityDecay(0.36) demek "her tick hızı 0.64 ile çarp" demektir.
+      velocityDecay = 1 - cfg.velocityDecay,
+      running = false,
+      raf = 0,
+      onTick = null;
+
+  // --- başlangıç yerleşimi: phyllotaxis sarmalı ----------------------------
+  // Rastgele serpiştirme kümelenmeyi gizler; sarmal düzgün dağılır ve her
+  // yüklemede aynı sonucu verir.
+  var INITIAL_RADIUS = 10, INITIAL_ANGLE = Math.PI * (3 - Math.sqrt(5));
+  for (var i = 0; i < nodes.length; i++) {
+    var n = nodes[i];
+    n.index = i;
+    if (n.x == null || n.y == null) {
+      var r = INITIAL_RADIUS * Math.sqrt(0.5 + i), a = i * INITIAL_ANGLE;
+      n.x = r * Math.cos(a);
+      n.y = r * Math.sin(a);
+    }
+    if (n.vx == null) { n.vx = 0; n.vy = 0; }
+  }
+
+  // --- bağ yanlılığı -------------------------------------------------------
+  // Çok bağlantılı bir düğüm, az bağlantılı komşusundan daha az itilir;
+  // yoksa merkezî düğümler her tick'te savrulur.
+  var degree = new Array(nodes.length);
+  for (var d = 0; d < degree.length; d++) degree[d] = 0;
+  for (var li = 0; li < links.length; li++) {
+    degree[links[li].source.index]++;
+    degree[links[li].target.index]++;
+  }
+  var bias = new Array(links.length);
+  for (var bi = 0; bi < links.length; bi++) {
+    var ds = degree[links[bi].source.index], dt = degree[links[bi].target.index];
+    bias[bi] = ds / (ds + dt);
+  }
+
+  var radii = new Array(nodes.length);
+  function refreshRadii() {
+    for (var k = 0; k < nodes.length; k++) radii[k] = cfg.radiusOf(nodes[k]);
+  }
+  refreshRadii();
+
+  /* --- kuvvet: yük (itme) ------------------------------------------------ */
+  function applyCharge() {
+    var s = cfg.charge, max2 = cfg.chargeDistanceMax * cfg.chargeDistanceMax;
+    for (var i = 0; i < nodes.length; i++) {
+      var a = nodes[i];
+      for (var j = i + 1; j < nodes.length; j++) {
+        var b = nodes[j];
+        var dx = b.x - a.x, dy = b.y - a.y;
+        var l = dx * dx + dy * dy;
+        if (l >= max2) continue;              // uzaktakileri hesaba katma
+        if (dx === 0) { dx = JIGGLE(); l += dx * dx; }
+        if (dy === 0) { dy = JIGGLE(); l += dy * dy; }
+        var w = s * alpha / l;                // s negatif → iter
+        a.vx += dx * w; a.vy += dy * w;
+        b.vx -= dx * w; b.vy -= dy * w;
+      }
+    }
+  }
+
+  /* --- kuvvet: bağ (yay) ------------------------------------------------- */
+  function applyLink() {
+    for (var i = 0; i < links.length; i++) {
+      var link = links[i], s = link.source, t = link.target;
+      var x = t.x + t.vx - s.x - s.vx || JIGGLE();
+      var y = t.y + t.vy - s.y - s.vy || JIGGLE();
+      var l = Math.sqrt(x * x + y * y);
+      l = (l - cfg.linkDistance) / l * alpha * cfg.linkStrength;
+      x *= l; y *= l;
+      var b = bias[i];
+      t.vx -= x * b;        t.vy -= y * b;
+      s.vx += x * (1 - b);  s.vy += y * (1 - b);
+    }
+  }
+
+  /* --- kuvvet: çarpışma (üst üste binmeyi çöz) --------------------------- */
+  function applyCollide() {
+    for (var i = 0; i < nodes.length; i++) {
+      var a = nodes[i], ri = radii[i] + cfg.collidePadding;
+      for (var j = i + 1; j < nodes.length; j++) {
+        var b = nodes[j], rj = radii[j] + cfg.collidePadding;
+        var rsum = ri + rj;
+        var x = a.x + a.vx - b.x - b.vx;
+        var y = a.y + a.vy - b.y - b.vy;
+        var l = x * x + y * y;
+        if (l >= rsum * rsum) continue;
+        if (x === 0) { x = JIGGLE(); l += x * x; }
+        if (y === 0) { y = JIGGLE(); l += y * y; }
+        l = Math.sqrt(l);
+        l = (rsum - l) / l * cfg.collideStrength;
+        x *= l; y *= l;
+        // Büyük düğüm az, küçük düğüm çok itilir.
+        var rj2 = rj * rj, frac = rj2 / (ri * ri + rj2);
+        a.vx += x * frac;       a.vy += y * frac;
+        b.vx -= x * (1 - frac); b.vy -= y * (1 - frac);
+      }
+    }
+  }
+
+  /* --- kuvvet: çapa (kümeleme) ------------------------------------------ */
+  // Haritanın bilgi taşımasını sağlayan kuvvet bu. Yalnız gruba göre
+  // kümeleyip çarpışma eklersen her şey tek bir düzgün diske dolar: duvar
+  // kâğıdı. Alt kümeye ayrı bir bant vermek konusal yapıyı görünür kılar.
+  function applyAnchor() {
+    for (var i = 0; i < nodes.length; i++) {
+      var n = nodes[i], p = cfg.anchorOf(n);
+      n.vx += (p[0] - n.x) * cfg.clusterStrength * alpha;
+      n.vy += (p[1] - n.y) * cfg.clusterStrength * alpha;
+    }
+  }
+
+  /* --- kuvvet: merkezleme ------------------------------------------------ */
+  // Hızı değil konumu düzeltir: kütle merkezini tuvalin ortasına kaydırır.
+  function applyCenter() {
+    if (!nodes.length) return;
+    var sx = 0, sy = 0;
+    for (var i = 0; i < nodes.length; i++) { sx += nodes[i].x; sy += nodes[i].y; }
+    sx = sx / nodes.length - cfg.center[0];
+    sy = sy / nodes.length - cfg.center[1];
+    for (var j = 0; j < nodes.length; j++) {
+      nodes[j].x -= sx * cfg.centerStrength;
+      nodes[j].y -= sy * cfg.centerStrength;
+    }
+  }
+
+  function tick() {
+    alpha += (alphaTarget - alpha) * cfg.alphaDecay;
+    applyCharge();
+    applyLink();
+    applyCollide();
+    applyAnchor();
+    applyCenter();
+    // velocity Verlet entegrasyonu; sabitlenmiş (fx/fy) düğümler hariç
+    for (var i = 0; i < nodes.length; i++) {
+      var n = nodes[i];
+      if (n.fx == null) { n.vx *= velocityDecay; n.x += n.vx; } else { n.x = n.fx; n.vx = 0; }
+      if (n.fy == null) { n.vy *= velocityDecay; n.y += n.vy; } else { n.y = n.fy; n.vy = 0; }
+    }
+  }
+
+  function frame() {
+    if (!running) return;
+    tick();
+    if (onTick) onTick();
+    // Soğuyunca tamamen dur — boşta CPU harcama.
+    if (alpha < alphaMin && alphaTarget === 0) { running = false; raf = 0; return; }
+    raf = requestAnimationFrame(frame);
+  }
+
+  function start() {
+    if (running) return;
+    running = true;
+    raf = requestAnimationFrame(frame);
+  }
+
+  return {
+    nodes: nodes,
+    links: links,
+    on: function (fn) { onTick = fn; },
+    start: start,
+    stop: function () { running = false; if (raf) cancelAnimationFrame(raf); raf = 0; },
+    /** Simülasyonu yeniden ısıt (yeniden boyutlandırma, sürükleme sonrası). */
+    reheat: function (a) { alpha = a == null ? 0.3 : a; start(); },
+    /** Sürükleme boyunca sıcak tut: alphaTarget > 0 iken döngü durmaz. */
+    setAlphaTarget: function (t) { alphaTarget = t; if (t > 0) start(); },
+    refreshRadii: refreshRadii,
+    getAlpha: function () { return alpha; }
+  };
+}
+
+/* ============================================================================
+   BÖLÜM 2 — BİLEŞEN
+
+   createKnowledgeMap(container, options) → { setData, setQuery, resetView,
+                                              select, destroy, config }
+
+   Tüm DOM'u kendi kurar; sayfada yalnız boş bir <div> ister. Framework'e
+   bağlı değil, yani React/Vue/Svelte sarmalayıcısı üç satır:
+
+     // React
+     function KnowledgeMap(props) {
+       const ref = useRef(null);
+       useEffect(() => {
+         const map = createKnowledgeMap(ref.current, props);
+         return () => map.destroy();
+       }, [props.nodes, props.links]);
+       return <div ref={ref} />;
+     }
+   ========================================================================== */
+
+/* --- varsayılan yapılandırma --------------------------------------------- */
+
+var DEFAULT_THEME = {
+  pinned: "#f5c451",          // "kalıcı" düğümler her zaman altın
+  fallback: "#8ea3bd",
+  subgroups: {                // önce buraya bakılır
+    outreach: "#ff4d6d",
+    sales:    "#4dd6ff",
+    delivery: "#3ddc84",
+    build:    "#3ddc84",
+    content:  "#a06cff",
+    shared:   "#ffb84d"
+  },
+  groups: {                   // sonra buraya
+    web:        "#4dd6ff",
+    automation: "#ffb84d",
+    global:     "#8ea3bd"
+  },
+  linkKinds: { supersedes: "#f5c451", default: "#8ea3bd" }
+};
+
+var DEFAULT_LAYOUT = {
+  groupOrder: ["web", "global", "automation"],                        // sütunlar, sol→sağ
+  subgroupOrder: ["outreach", "sales", "delivery", "build", "content"], // bantlar, üst→alt
+  column: { start: 0.26, end: 0.74 },
+  band:   { start: 0.18, end: 0.82 },
+  charge: -96,
+  chargeDistanceMax: 340,
+  linkDistance: 62,
+  linkStrength: 0.42,
+  clusterStrength: 0.055,
+  centerStrength: 0.04,
+  collidePadding: 1.5,
+  collideStrength: 0.7,
+  velocityDecay: 0.36,
+  alphaDecay: 0.016,
+  // Ağırlık yarıçapı sürer, karekökle sıkıştırılmış: çok kullanılan bir düğüm
+  // daha büyük okunur ama birkaç düğüm alanı ele geçirmez.
+  radius: { base: 3, scale: 1.5, cap: 60 }
+};
+
+var DEFAULT_VIEWPORT = { enabled: true, min: 0.35, max: 6, speed: 0.0016 };
+
+var DEFAULT_LABELS = {
+  search: "Haritada ara…",
+  matches: function (n) { return n + " eşleşme"; },
+  empty: "Bir düğüme tıkla.",
+  reset: "Görünümü sıfırla",
+  tags: "Etiketler",
+  weight: "Ağırlık",
+  pinned: "Kalıcı",
+  hint: "Tekerlek ile yakınlaş · sürükleyerek gez"
+};
+
+var CLICK_SLOP = 4;   // bu kadar pikselden az hareket = tıklama, sürükleme değil
+
+function assign(target) {
+  for (var i = 1; i < arguments.length; i++) {
+    var src = arguments[i];
+    if (!src) continue;
+    for (var k in src) if (Object.prototype.hasOwnProperty.call(src, k)) target[k] = src[k];
+  }
+  return target;
+}
+
+function el(tag, className, text) {
+  var node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text != null) node.textContent = text;
+  return node;
+}
+
+/** #rrggbb + 0..1 → #rrggbbaa. Hex olmayan renkler dokunulmadan döner. */
+function withAlpha(color, alpha) {
+  if (!/^#[0-9a-f]{6}$/i.test(color)) return color;
+  var a = Math.round(Math.min(1, Math.max(0, alpha)) * 255).toString(16);
+  return color + (a.length < 2 ? "0" + a : a);
+}
+
+function formatNumber(value, locale) {
+  try { return new Intl.NumberFormat(locale || "tr-TR").format(value); }
+  catch (e) { return String(value); }
+}
+
+function createKnowledgeMap(container, options) {
+  var opts     = options || {};
+  var theme    = assign({}, DEFAULT_THEME, opts.theme);
+  var layout   = assign({}, DEFAULT_LAYOUT, opts.layout);
+  var viewport = assign({}, DEFAULT_VIEWPORT, opts.viewport);
+  var labels   = assign({}, DEFAULT_LABELS, opts.labels);
+  var locale   = opts.locale || "tr-TR";
+  var showPanel  = opts.showPanel !== false;
+  var showSearch = opts.showSearch !== false;
+
+  /* --- renk ve yarıçap seçimi ------------------------------------------- */
+  // Sıra: pinned → alt küme → grup → yedek.
+  function colorOf(n) {
+    if (n.pinned) return theme.pinned;
+    if (n.subgroup && theme.subgroups[n.subgroup]) return theme.subgroups[n.subgroup];
+    if (n.group && theme.groups[n.group]) return theme.groups[n.group];
+    return theme.fallback;
+  }
+  function radiusOf(n) {
+    var w = Math.max(0, Math.min(n.weight || 0, layout.radius.cap));
+    return layout.radius.base + Math.sqrt(w) * layout.radius.scale;
+  }
+  function linkColorOf(kind) {
+    return (kind && theme.linkKinds[kind]) || theme.linkKinds.default || theme.fallback;
+  }
+
+  /* --- DOM ---------------------------------------------------------------- */
+  var root = el("div", "km-root" + (opts.className ? " " + opts.className : ""));
+
+  var bar = el("div", "km-bar");
+  var input = null, matchLine = null, resetBtn = null;
+
+  if (showSearch) {
+    input = el("input", "km-search");
+    input.type = "search";
+    input.placeholder = labels.search;
+    input.setAttribute("aria-label", labels.search);
+    bar.appendChild(input);
+
+    matchLine = el("span", "km-eyebrow");
+    bar.appendChild(matchLine);
+  }
+
+  if (viewport.enabled) {
+    resetBtn = el("button", "km-reset", labels.reset);
+    resetBtn.type = "button";
+    resetBtn.hidden = true;
+    bar.appendChild(resetBtn);
+  }
+
+  if (opts.legend && opts.legend.length) {
+    var legend = el("div", "km-legend");
+    opts.legend.forEach(function (item) {
+      var row = el("span", "km-legend-item");
+      var sw = el("span", "km-swatch");
+      sw.style.background = item.color;
+      sw.style.boxShadow = "0 0 8px " + item.color;
+      row.appendChild(sw);
+      row.appendChild(document.createTextNode(item.label));
+      legend.appendChild(row);
+    });
+    bar.appendChild(legend);
+  }
+
+  if (showSearch || (opts.legend && opts.legend.length)) root.appendChild(bar);
+
+  var body = el("div", "km-body" + (showPanel ? " km-body--panel" : ""));
+  var wrap = el("div", "km-canvas-wrap");
+  // TUZAK: kesin yükseklik şart, yoksa tuval sıfıra çöker.
+  wrap.style.height = typeof opts.height === "number"
+    ? opts.height + "px"
+    : (opts.height || "560px");
+
+  var canvas = el("canvas", "km-canvas");
+  wrap.appendChild(canvas);
+  if (viewport.enabled) wrap.appendChild(el("span", "km-hint", labels.hint));
+  body.appendChild(wrap);
+
+  var panel = null;
+  if (showPanel) { panel = el("div", "km-panel km-panel--empty"); body.appendChild(panel); }
+  root.appendChild(body);
+
+  var statsRow = el("div", "km-stats");
+  root.appendChild(statsRow);
+
+  container.appendChild(root);
+
+  /* --- durum -------------------------------------------------------------- */
+  var ctx = canvas.getContext("2d");
+  var simNodes = [], simLinks = [], sim = null;
+  var size = { width: 0, height: 0, dpr: 1 };
+  var transform = { k: 1, x: 0, y: 0 };
+  var hoveredId = null, selectedId = null, active = null;   // active: eşleşen id kümesi ya da null
+  var destroyed = false;
+
+  /* --- görünüm dönüşümü (zoom / pan) ------------------------------------- */
+  function toWorld(sx, sy) { return [(sx - transform.x) / transform.k, (sy - transform.y) / transform.k]; }
+
+  // Yakınlaştırırken imlecin altındaki dünya noktasını sabit tut. Bu olmadan
+  // alan kullanıcının işaret ettiği yerden kayar — tuval haritalarını bozuk
+  // hissettiren tek şey budur.
+  function zoomAt(sx, sy, factor) {
+    var k = Math.min(viewport.max, Math.max(viewport.min, transform.k * factor));
+    if (k === transform.k) return;
+    var w = toWorld(sx, sy);
+    transform = { k: k, x: sx - w[0] * k, y: sy - w[1] * k };
+    syncReset();
+  }
+
+  function syncReset() {
+    if (!resetBtn) return;
+    resetBtn.hidden = transform.k === 1 && transform.x === 0 && transform.y === 0;
+  }
+
+  function resetView() { transform = { k: 1, x: 0, y: 0 }; syncReset(); draw(); }
+
+  /* --- çizim -------------------------------------------------------------- */
+  // Tuval, SVG değil: bin küsur düğümde canlı bir simülasyonla, düğüm başına
+  // DOM tutmak sakin bir sürüklenme ile takılan bir sürüklenme arasındaki fark.
+  // Bedeli: metin etiketi yok, CSS ile düğüm biçimlendirilemez, tarayıcı
+  // araması düğümleri bulmaz.
+  function draw() {
+    if (!ctx || destroyed) return;
+    var t = transform;
+
+    ctx.setTransform(size.dpr, 0, 0, size.dpr, 0, 0);
+    ctx.clearRect(0, 0, size.width, size.height);
+    ctx.setTransform(size.dpr * t.k, 0, 0, size.dpr * t.k, size.dpr * t.x, size.dpr * t.y);
+
+    // Önce bağlar, düğümler üstte kalsın.
+    ctx.lineWidth = 0.7 / t.k;
+    for (var i = 0; i < simLinks.length; i++) {
+      var link = simLinks[i], s = link.source, tg = link.target;
+      if (s.x == null || tg.x == null) continue;
+      var lit = !active || (active[s.id] && active[tg.id]);
+      var strong = link.kind && theme.linkKinds[link.kind] && link.kind !== "default";
+      ctx.strokeStyle = withAlpha(linkColorOf(link.kind), lit ? (strong ? 0.65 : 0.28) : (strong ? 0.05 : 0.03));
+      ctx.beginPath();
+      ctx.moveTo(s.x, s.y);
+      ctx.lineTo(tg.x, tg.y);
+      ctx.stroke();
+    }
+
+    for (var j = 0; j < simNodes.length; j++) {
+      var n = simNodes[j];
+      if (n.x == null || n.y == null) continue;
+      var isLit = !active || !!active[n.id];
+      var isHover = hoveredId === n.id;
+      var isSel = selectedId === n.id;
+      var r = radiusOf(n) * (isHover || isSel ? 1.5 : 1);
+      var color = colorOf(n);
+
+      ctx.globalAlpha = isLit ? 1 : 0.12;
+
+      if (isLit && (n.pinned || isHover || isSel)) {
+        var glow = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, r * 4);
+        glow.addColorStop(0, withAlpha(color, 0.33));
+        glow.addColorStop(1, withAlpha(color, 0));
+        ctx.fillStyle = glow;
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, r * 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
+      ctx.fill();
+
+      if (isHover || isSel) {
+        ctx.strokeStyle = isSel ? "#ffffff" : "#e9eef6";
+        ctx.lineWidth = (isSel ? 1.6 : 1.2) / t.k;
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    ctx.setTransform(size.dpr, 0, 0, size.dpr, 0, 0);
+  }
+
+  // Vurulma testi düz doğrusal tarama. Bu ölçekte bedava, ve her tick'te
+  // yeniden kurulması gereken bir quadtree'den kaçınıyor. `slack` hedefi ekran
+  // pikseli cinsinden genişletir, uzaklaşınca küçük düğümler tıklanabilir kalsın.
+  function pickAt(sx, sy) {
+    var w = toWorld(sx, sy), wx = w[0], wy = w[1], slack = 6 / transform.k;
+    var best = null, bestDist = Infinity;
+    for (var i = 0; i < simNodes.length; i++) {
+      var n = simNodes[i];
+      if (n.x == null) continue;
+      var dd = (n.x - wx) * (n.x - wx) + (n.y - wy) * (n.y - wy);
+      var hit = radiusOf(n) + slack;
+      if (dd < hit * hit && dd < bestDist) { best = n; bestDist = dd; }
+    }
+    return best;
+  }
+
+  /* --- ölçüm -------------------------------------------------------------- */
+  function measure() {
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var rect = wrap.getBoundingClientRect();
+    canvas.style.width = rect.width + "px";
+    canvas.style.height = rect.height + "px";
+    canvas.width = Math.max(1, Math.round(rect.width * dpr));
+    canvas.height = Math.max(1, Math.round(rect.height * dpr));
+    size = { width: rect.width, height: rect.height, dpr: dpr };
+    return rect;
+  }
+
+  function anchorOf(n) {
+    var gi = n.group ? layout.groupOrder.indexOf(n.group) : -1;
+    var gspan = Math.max(layout.groupOrder.length - 1, 1);
+    var gx = gi < 0 ? 0.5 : layout.column.start + (gi / gspan) * (layout.column.end - layout.column.start);
+
+    var si = n.subgroup ? layout.subgroupOrder.indexOf(n.subgroup) : -1;
+    var sspan = Math.max(layout.subgroupOrder.length - 1, 1);
+    var sy = si < 0 ? 0.5 : layout.band.start + (si / sspan) * (layout.band.end - layout.band.start);
+
+    return [size.width * gx, size.height * sy];
+  }
+
+  /* --- panel -------------------------------------------------------------- */
+  function renderPanel(node) {
+    if (!panel) return;
+    panel.textContent = "";
+    panel.style.borderTop = "";
+    panel.style.maxHeight = "";
+
+    if (!node) {
+      panel.className = "km-panel km-panel--empty";
+      panel.appendChild(el("p", "km-muted", labels.empty));
+      return;
+    }
+
+    panel.className = "km-panel";
+    panel.style.borderTop = "2px solid " + colorOf(node);
+    panel.style.maxHeight = wrap.style.height;
+
+    var head = el("div");
+    var eyebrow = el("p", "km-eyebrow",
+      (node.kind || node.subgroup || node.group || "") + (node.pinned ? " · " + labels.pinned : ""));
+    eyebrow.style.color = colorOf(node);
+    head.appendChild(eyebrow);
+    head.appendChild(el("p", "km-label", node.label));
+    panel.appendChild(head);
+
+    var dl = el("dl", "km-fields");
+    function field(label, value) {
+      var dt = el("dt", "km-eyebrow km-field-label", label);
+      var dd = el("dd", "km-field-value", value);
+      dl.appendChild(dt); dl.appendChild(dd);
+    }
+    if (node.tags && node.tags.length) field(labels.tags, node.tags.join(" · "));
+    if (node.weight != null) field(labels.weight, formatNumber(node.weight, locale) + " · r" + radiusOf(node).toFixed(1));
+    if (node.meta) {
+      for (var k in node.meta) {
+        if (!Object.prototype.hasOwnProperty.call(node.meta, k)) continue;
+        var v = node.meta[k];
+        if (v == null || v === "") continue;
+        field(k, String(v));
+      }
+    }
+    if (dl.childNodes.length) panel.appendChild(dl);
+
+    if (node.note) panel.appendChild(el("p", "km-note", node.note));
+  }
+
+  function renderStats(stats) {
+    statsRow.textContent = "";
+    if (!stats || !stats.length) { statsRow.style.display = "none"; return; }
+    statsRow.style.display = "";
+    stats.forEach(function (s) {
+      var row = el("span", "km-stat");
+      var b = el("b", "km-stat-value", formatNumber(s.value, locale));
+      if (s.accent) b.style.color = s.accent;
+      row.appendChild(b);
+      row.appendChild(el("span", "km-eyebrow", s.label));
+      statsRow.appendChild(row);
+    });
+  }
+
+  /* --- arama -------------------------------------------------------------- */
+  function setQuery(q) {
+    var query = (q || "").trim().toLocaleLowerCase(locale);
+    if (!query) {
+      active = null;
+      if (matchLine) matchLine.textContent = "";
+    } else {
+      active = {};
+      var hits = 0;
+      for (var i = 0; i < simNodes.length; i++) {
+        var n = simNodes[i];
+        var hay = [
+          n.label, n.kind, n.group, n.subgroup, n.search,
+          (n.tags || []).join(" ")
+        ].join(" ").toLocaleLowerCase(locale);
+        if (hay.indexOf(query) !== -1) { active[n.id] = 1; hits++; }
+      }
+      if (matchLine) matchLine.textContent = labels.matches(formatNumber(hits, locale));
+    }
+    draw();
+  }
+
+  /* --- etkileşim ---------------------------------------------------------- */
+  var press = null;
+
+  function localPoint(e) {
+    var r = canvas.getBoundingClientRect();
+    return [e.clientX - r.left, e.clientY - r.top];
+  }
+
+  function onPointerDown(e) {
+    if (e.button !== 0) return;
+    var p = localPoint(e), node = pickAt(p[0], p[1]);
+    press = { id: e.pointerId, startX: p[0], startY: p[1], lastX: p[0], lastY: p[1], node: node, moved: false };
+    canvas.setPointerCapture(e.pointerId);
+    if (node && sim) {
+      sim.setAlphaTarget(0.3);
+      var w = toWorld(p[0], p[1]);
+      node.fx = w[0]; node.fy = w[1];
+    }
+  }
+
+  function onPointerMove(e) {
+    var p = localPoint(e);
+
+    if (!press) {
+      var hit = pickAt(p[0], p[1]);
+      var id = hit ? hit.id : null;
+      if (id !== hoveredId) {
+        hoveredId = id;
+        canvas.style.cursor = id ? "pointer" : (viewport.enabled ? "grab" : "default");
+        draw();
+      }
+      return;
+    }
+
+    var dx = p[0] - press.lastX, dy = p[1] - press.lastY;
+    press.lastX = p[0]; press.lastY = p[1];
+    if (Math.abs(p[0] - press.startX) > CLICK_SLOP || Math.abs(p[1] - press.startY) > CLICK_SLOP) press.moved = true;
+
+    if (press.node) {
+      var w = toWorld(p[0], p[1]);
+      press.node.fx = w[0]; press.node.fy = w[1];
+      draw();
+    } else if (viewport.enabled) {
+      canvas.style.cursor = "grabbing";
+      transform = { k: transform.k, x: transform.x + dx, y: transform.y + dy };
+      syncReset();
+      draw();
+    }
+  }
+
+  function endPress(e) {
+    if (!press || press.id !== e.pointerId) return;
+    var done = press;
+    press = null;
+    if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
+
+    if (done.node && sim) {
+      sim.setAlphaTarget(0);
+      // Sabitlemeyi bırak, düğüm alana geri otursun. Sürüklenen düğüm yerinde
+      // kalsın istiyorsan bu iki satırı sil.
+      done.node.fx = null;
+      done.node.fy = null;
+    }
+    canvas.style.cursor = hoveredId ? "pointer" : (viewport.enabled ? "grab" : "default");
+
+    if (!done.moved) selectNode(done.node ? done.node.id : null);
+    draw();
+  }
+
+  function onWheel(e) {
+    if (!viewport.enabled) return;
+    e.preventDefault();
+    var p = localPoint(e);
+    zoomAt(p[0], p[1], Math.exp(-e.deltaY * viewport.speed));
+    draw();
+  }
+
+  function onLeave() { if (hoveredId !== null) { hoveredId = null; draw(); } }
+
+  function selectNode(id) {
+    selectedId = id;
+    var node = null;
+    for (var i = 0; i < simNodes.length; i++) if (simNodes[i].id === id) { node = simNodes[i]; break; }
+    renderPanel(node);
+    if (opts.onSelect) opts.onSelect(node);
+    draw();
+  }
+
+  canvas.style.cursor = viewport.enabled ? "grab" : "default";
+  canvas.addEventListener("pointerdown", onPointerDown);
+  canvas.addEventListener("pointermove", onPointerMove);
+  canvas.addEventListener("pointerup", endPress);
+  canvas.addEventListener("pointercancel", endPress);
+  canvas.addEventListener("pointerleave", onLeave);
+  canvas.addEventListener("wheel", onWheel, { passive: false });
+  if (input) input.addEventListener("input", function () { setQuery(input.value); });
+  if (resetBtn) resetBtn.addEventListener("click", resetView);
+
+  // window.resize değil ResizeObserver: bir yan panelin açılıp kapanması
+  // pencere olayı üretmez, ama tuvali yeniden boyutlandırır.
+  var lastW = 0, lastH = 0;
+  var ro = new ResizeObserver(function () {
+    var r = measure();
+    if (r.width === lastW && r.height === lastH) { draw(); return; }
+    lastW = r.width; lastH = r.height;
+    if (sim) sim.reheat(0.3);
+    draw();
+  });
+  ro.observe(wrap);
+
+  /* --- veri --------------------------------------------------------------- */
+  function setData(nodes, links, stats) {
+    if (sim) sim.stop();
+
+    simNodes = (nodes || []).map(function (n) { return assign({}, n); });
+    var byId = {};
+    simNodes.forEach(function (n) { byId[n.id] = n; });
+    simLinks = (links || [])
+      .filter(function (l) { return byId[l.from] && byId[l.to] && l.from !== l.to; })
+      .map(function (l) { return { source: byId[l.from], target: byId[l.to], kind: l.kind }; });
+
+    measure();
+    lastW = size.width; lastH = size.height;
+
+    sim = createSimulation(simNodes, simLinks, assign({}, layout, {
+      center: [size.width / 2, size.height / 2],
+      anchorOf: anchorOf,
+      radiusOf: radiusOf
+    }));
+    sim.on(draw);
+    sim.start();
+
+    // Seçim yeni veride yaşayamaz. Paneli temizlemek yetmez: dışarıdaki
+    // dinleyiciye de haber ver, yoksa çağıran tarafta eski seçim asılı kalır.
+    var hadSelection = selectedId !== null;
+    selectedId = null;
+    hoveredId = null;
+    renderPanel(null);
+    if (hadSelection && opts.onSelect) opts.onSelect(null);
+    renderStats(stats || opts.stats);
+    if (input) setQuery(input.value); else draw();
+  }
+
+  setData(opts.nodes, opts.links, opts.stats);
+
+  return {
+    setData: setData,
+    setQuery: function (q) { if (input) input.value = q; setQuery(q); },
+    resetView: resetView,
+    select: selectNode,
+    config: { theme: theme, layout: layout, viewport: viewport, labels: labels },
+    destroy: function () {
+      destroyed = true;
+      if (sim) sim.stop();
+      ro.disconnect();
+      canvas.removeEventListener("pointerdown", onPointerDown);
+      canvas.removeEventListener("pointermove", onPointerMove);
+      canvas.removeEventListener("pointerup", endPress);
+      canvas.removeEventListener("pointercancel", endPress);
+      canvas.removeEventListener("pointerleave", onLeave);
+      canvas.removeEventListener("wheel", onWheel);
+      if (root.parentNode) root.parentNode.removeChild(root);
+    }
+  };
+}
+
+// Konsoldan kurcalamak isteyenler için dışa aç.
+window.createKnowledgeMap = createKnowledgeMap;
+
+/* ============================================================================
+   BÖLÜM 3 — DEMO
+
+   Buradan aşağısı yalnız bu sayfayı ayakta tutuyor. Bileşene dahil değil;
+   taşırken almana gerek yok.
+   ========================================================================== */
+
+/* --- örnek veri: tohumlu, yani her yüklemede aynı --------------------- */
+function rng(seed) {
+  return function () {
+    seed |= 0; seed = (seed + 0x6d2b79f5) | 0;
+    var t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+var GROUPS = ["web", "automation"];
+var SUBGROUPS = ["outreach", "sales", "delivery", "build", "content"];
+var KINDS = ["gerçek", "karar", "tercih", "müşteri bağlamı", "ders", "ölçüm"];
+var PHRASES = [
+  "Fiyat tabanı 2.400 USD; altına inilmiyor, kapsam kısılıyor",
+  "İlk yanıt 4 saati geçerse dönüşüm yarıya düşüyor",
+  "ICP: 10-50 kişilik ajanslar, aylık 8k+ reklam harcaması",
+  "Teklif PDF yerine tek sayfalık link daha hızlı dönüyor",
+  "Salı 10:00 gönderimleri perşembeye göre %31 daha iyi açılıyor",
+  "Müşteri onayı olmadan hiçbir gönderim dışarı çıkmaz",
+  "Kapsam kayması faturalanır; ek talep yeni satır demek",
+  "Discovery çağrısı 25 dakikayı geçmesin",
+  "Otomasyon devri öncesi iki hafta gölge çalışma şart",
+  "Webhook hataları sessizce yutulmaz, ledger'a yazılır",
+  "Landing sayfası ilk ekranda tek bir eylem barındırır",
+  "Marka rengi dışında ikinci vurgu rengi kullanılmıyor",
+  "Aylık rapor ayın ilk iş günü sabah 09:00'da gider",
+  "Soğuk e-postada üçüncü takip sonrası dizi kapatılır",
+  "Fatura vadesi 14 gün; gecikirse iş durur"
+];
+
+function sampleGraph(count) {
+  var rand = rng(20260825), nodes = [], i;
+
+  for (i = 0; i < count; i++) {
+    var isGlobal = rand() < 0.12;
+    var group = isGlobal ? "global" : GROUPS[rand() < 0.5 ? 0 : 1];
+    var scoped = !isGlobal && rand() > 0.15;
+    var subgroup = scoped ? SUBGROUPS[Math.floor(rand() * SUBGROUPS.length)] : null;
+
+    nodes.push({
+      id: "n" + i,
+      label: PHRASES[Math.floor(rand() * PHRASES.length)] + " (#" + i + ")",
+      kind: KINDS[Math.floor(rand() * KINDS.length)],
+      group: group,
+      subgroup: subgroup,
+      tags: [isGlobal ? "global" : "branch." + group].concat(
+        subgroup ? ["dept." + group + "." + subgroup] : []),
+      weight: Math.floor(Math.pow(rand(), 2) * 55),
+      pinned: rand() < 0.34,
+      meta: {
+        Kapsam: isGlobal ? "global" : "branch." + group,
+        Güven: (0.5 + rand() * 0.5).toFixed(2),
+        Yazan: "agent-" + Math.floor(rand() * 49)
+      },
+      note: rand() < 0.08 ? "Şunun yerine geçti: 4f2a91c…" : undefined
+    });
+  }
+
+  // Ağırlıklı olarak küme içi bağla, kümeler küme gibi okunsun.
+  var links = [];
+  for (i = 0; i < Math.round(count * 0.55); i++) {
+    var a = nodes[Math.floor(rand() * nodes.length)];
+    var pool = nodes.filter(function (n) {
+      return n.id !== a.id && n.subgroup === a.subgroup && n.group === a.group;
+    });
+    var from = pool.length ? pool : nodes;
+    var b = from[Math.floor(rand() * from.length)];
+    if (!b || a.id === b.id) continue;
+    links.push({ from: a.id, to: b.id, kind: rand() < 0.14 ? "supersedes" : "relates" });
+  }
+
+  return { nodes: nodes, links: links };
+}
+
+function statsFor(data) {
+  var pinned = 0, clusters = {};
+  data.nodes.forEach(function (n) {
+    if (n.pinned) pinned++;
+    if (n.subgroup) clusters[n.subgroup] = 1;
+  });
+  return [
+    { value: data.nodes.length, label: "düğüm" },
+    { value: pinned, label: "kalıcı", accent: "#f5c451" },
+    { value: Object.keys(clusters).length, label: "küme" },
+    { value: data.links.length, label: "bağ" }
+  ];
+}
+
+/* --- kurulum ------------------------------------------------------------ */
+var current = sampleGraph(140);
+
+var map = createKnowledgeMap(document.getElementById("map"), {
+  nodes: current.nodes,
+  links: current.links,
+  stats: statsFor(current),
+  legend: [
+    { color: "#f5c451", label: "Kalıcı" },
+    { color: "#4dd6ff", label: "Ateş Design Agency" },
+    { color: "#ffb84d", label: "Ateş Flow Agency" }
+  ],
+  height: "68vh",
+  onSelect: function (node) {
+    document.getElementById("foot").textContent = node
+      ? "Seçili: " + node.id + " · " + node.label
+      : "Bir düğüme tıkla · tekerlek yakınlaştırır · boşluğu sürüklemek gezdirir · düğümü sürüklemek yerinden oynatır";
+  }
+});
+
+var countInput = document.getElementById("count");
+var countLabel = document.getElementById("countLabel");
+countInput.addEventListener("input", function () {
+  var n = Number(countInput.value);
+  countLabel.textContent = n + " düğüm";
+  current = sampleGraph(n);
+  map.setData(current.nodes, current.links, statsFor(current));
+});
+
+/* --- kendi verini dene -------------------------------------------------- */
+var jsonBox = document.getElementById("json");
+var status = document.getElementById("status");
+
+function say(text, bad) {
+  status.textContent = text;
+  status.setAttribute("data-bad", bad ? "1" : "0");
+}
+
+document.getElementById("dump").addEventListener("click", function () {
+  jsonBox.value = JSON.stringify(
+    { nodes: current.nodes.slice(0, 12), links: current.links.slice(0, 8) }, null, 2);
+  say("İlk 12 düğüm yazıldı — düzenleyip Uygula'ya bas.");
+});
+
+document.getElementById("apply").addEventListener("click", function () {
+  var parsed;
+  try {
+    parsed = JSON.parse(jsonBox.value);
+  } catch (err) {
+    say("JSON okunamadı: " + err.message, true);
+    return;
+  }
+  if (!parsed || !Array.isArray(parsed.nodes)) {
+    say("Beklenen şekil: { nodes: [...], links: [...] }", true);
+    return;
+  }
+  var bad = parsed.nodes.filter(function (n) { return !n || n.id == null || n.label == null; });
+  if (bad.length) {
+    say(bad.length + " düğümde id ya da label eksik.", true);
+    return;
+  }
+  current = { nodes: parsed.nodes, links: Array.isArray(parsed.links) ? parsed.links : [] };
+  map.setData(current.nodes, current.links, statsFor(current));
+  say(current.nodes.length + " düğüm, " + current.links.length + " bağ yüklendi.");
+});
+
+})();
+</script>
+</body>
+</html>
