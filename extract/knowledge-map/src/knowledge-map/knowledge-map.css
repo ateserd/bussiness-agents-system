@@ -1,0 +1,239 @@
+/* ---------------------------------------------------------------------------
+   Knowledge map — self-contained styles.
+
+   The original leaned on Mission Control's Tailwind classes and global design
+   tokens. Everything here is plain CSS under a `km-` prefix, so the package
+   drops into a project with or without Tailwind and cannot collide with it.
+
+   To reskin, redefine the --km-* variables on any ancestor of .km-root.
+--------------------------------------------------------------------------- */
+
+.km-root {
+  --km-ink: #e9eef6;
+  --km-haze: #8ea3bd;
+  --km-dim: #5b6d85;
+  --km-line: rgba(142, 163, 189, 0.15);
+  --km-line-hi: rgba(142, 163, 189, 0.3);
+  --km-panel: rgba(11, 19, 35, 0.66);
+  --km-field: rgba(11, 19, 35, 0.7);
+  --km-ground: rgba(6, 11, 22, 0.45);
+  --km-accent: #f5c451;
+  --km-radius: 4px;
+  --km-sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --km-mono: ui-monospace, "SF Mono", Menlo, monospace;
+
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  font-family: var(--km-sans);
+  color: var(--km-ink);
+}
+
+/* --- top bar --------------------------------------------------------------- */
+
+.km-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+}
+
+.km-search {
+  flex: 1 1 240px;
+  max-width: 420px;
+  padding: 10px 16px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--km-ink);
+  background: var(--km-field);
+  border: 1px solid var(--km-line);
+  border-radius: var(--km-radius);
+}
+
+.km-search::placeholder {
+  color: var(--km-dim);
+}
+
+.km-search:focus-visible {
+  outline: 2px solid var(--km-accent);
+  outline-offset: 2px;
+}
+
+.km-reset {
+  padding: 5px 10px;
+  font-family: var(--km-mono);
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--km-haze);
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid var(--km-line-hi);
+  border-radius: var(--km-radius);
+}
+
+.km-reset:hover {
+  color: var(--km-ink);
+  border-color: var(--km-accent);
+}
+
+.km-eyebrow {
+  margin: 0;
+  font-family: var(--km-mono);
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--km-dim);
+}
+
+.km-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-left: auto;
+}
+
+.km-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--km-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--km-haze);
+}
+
+.km-swatch {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+}
+
+/* --- canvas ---------------------------------------------------------------- */
+
+.km-body {
+  display: grid;
+  gap: 20px;
+}
+
+@media (min-width: 1024px) {
+  .km-body--panel {
+    grid-template-columns: 1fr 340px;
+  }
+}
+
+.km-canvas-wrap {
+  position: relative;
+  overflow: hidden;
+  background: var(--km-ground);
+  border: 1px solid var(--km-line);
+  border-radius: var(--km-radius);
+}
+
+.km-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none; /* pointer events drive pan/zoom; let them through */
+}
+
+.km-hint {
+  position: absolute;
+  right: 10px;
+  bottom: 8px;
+  pointer-events: none;
+  font-family: var(--km-mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--km-dim);
+  opacity: 0.7;
+}
+
+/* --- panel ----------------------------------------------------------------- */
+
+.km-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 24px;
+  overflow-y: auto;
+  background: var(--km-panel);
+  border: 1px solid var(--km-line);
+  border-radius: var(--km-radius);
+}
+
+.km-panel--empty {
+  display: grid;
+  place-items: center;
+  min-height: 200px;
+  text-align: center;
+}
+
+.km-muted {
+  margin: 0;
+  font-size: 13px;
+  color: var(--km-dim);
+}
+
+.km-label {
+  margin: 10px 0 0;
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.km-fields {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px 16px;
+  margin: 0;
+  font-size: 12px;
+}
+
+.km-field-label {
+  white-space: nowrap;
+  font-size: 9px;
+}
+
+.km-field-value {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--km-mono);
+  font-size: 11px;
+  color: var(--km-haze);
+}
+
+.km-note {
+  margin: 0;
+  padding: 8px 12px;
+  font-family: var(--km-mono);
+  font-size: 11px;
+  color: var(--km-accent);
+  border: 1px solid rgba(245, 196, 81, 0.3);
+  border-radius: var(--km-radius);
+}
+
+/* --- stats ----------------------------------------------------------------- */
+
+.km-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 32px;
+  padding-top: 4px;
+}
+
+.km-stat {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.km-stat-value {
+  font-family: var(--km-mono);
+  font-size: 19px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}

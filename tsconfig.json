@@ -19,5 +19,8 @@
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules"]
+  // extract/ holds standalone take-outs with their own tsconfig and their own
+  // dependency set (Vite, not Next). Typechecking them from here would fail on
+  // packages this app does not install.
+  "exclude": ["node_modules", "extract"]
 }
